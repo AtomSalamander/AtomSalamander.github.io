@@ -232,7 +232,7 @@ details#msec summary{cursor:pointer;color:var(--gd);font-size:.8rem;margin-botto
     <div class="rb"><small>Раунд</small><b id="rn">1</b></div>
     <div id="chips"></div>
     <div id="fxl"></div>
-    <div class="ipb"><button class="g" onclick="next()">Следующий ход →</button><button class="sm" onclick="openView()" title="Отдельное окно для трансляции в Discord">📺 Экран игроков</button><div style="display:flex;gap:6px"><button class="sm" onclick="openFx()" title="Заклинание или способность с таймером">✨ Эффект</button><button class="sm" style="flex:1" onclick="openP('edit')" title="Игроки и их инициатива">👥 Игроки</button><button class="sm" onclick="copyI()" title="Копировать порядок ходов">📋</button></div><label class="hn"><input type="checkbox" id="hn" onchange="try{localStorage.setItem('dnd_hn',this.checked?'1':'')}catch(e){}renderV()"> скрыть имена врагов на экране</label></div>
+    <div class="ipb"><button class="g" onclick="next()">Следующий ход →</button><button class="sm" onclick="openView()" title="Отдельное окно для трансляции в Discord">📺 Экран игроков</button><button class="sm" id="pubb" onclick="togO()" title="Показать или скрыть полоску инициативы на карте Owlbear">🦉 Полоска: вкл</button><div style="display:flex;gap:6px"><button class="sm" onclick="openFx()" title="Заклинание или способность с таймером">✨ Эффект</button><button class="sm" style="flex:1" onclick="openP('edit')" title="Игроки и их инициатива">👥 Игроки</button><button class="sm" onclick="copyI()" title="Копировать порядок ходов">📋</button></div><label class="hn"><input type="checkbox" id="hn" onchange="try{localStorage.setItem('dnd_hn',this.checked?'1':'')}catch(e){}renderV()"> скрыть имена врагов на экране</label></div>
   </div>
   <div class="row">
     <button class="g" onclick="tf()">+ Существо</button>
@@ -613,10 +613,13 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
   </div>`}
 
 // ── публикация «публичной» инициативы в Owlbear (если открыто внутри OBR) ──
-let lastPub='';
+let lastPub='',pubOff=false;try{pubOff=!!localStorage.getItem('dnd_puboff')}catch(e){}
+function togO(){pubOff=!pubOff;try{localStorage.setItem('dnd_puboff',pubOff?'1':'')}catch(e){}lastPub='';pubO();toast(pubOff?'Полоска убрана с карты':'Полоска снова на карте')}
 function pubO(){const hide=$('hn').checked,hd=t=>hide&&(t=='enemy'||t=='boss'),G=groups();
   const P={v:1,r:round,chips:G.map(g=>({i:g.init,t:g.t,n:hd(g.t)?HID:g.name,c:hd(g.t)?1:g.ids.length,on:g.on,done:g.done})),fx:[]};
   creatures.forEach((c,i)=>{if(c.dead)return;(c.fx||[]).forEach(f=>P.fx.push({n:f.n,w:hd(c.type)?HID:c.name,r:f.r,on:i==cur}))});
+  if(pubOff){P.chips=[];P.fx=[]}
+  const pb=$('pubb');if(pb){pb.textContent=pubOff?'🦉 Полоска: выкл':'🦉 Полоска: вкл';pb.style.opacity=pubOff?.55:1}
   const k=JSON.stringify(P);if(k===lastPub)return;lastPub=k;window._pub=P;if(window.obrPublish)window.obrPublish(P)}
 function render(){$('rn').textContent=round;renderR();renderI();renderV();pubO();$('ub').disabled=!hist.length;$('ub').style.opacity=hist.length?1:.4;
   $('list').innerHTML=creatures.some(c=>c.type!='player')?rows():'<div class="empty">Добавьте существ или загрузите пресет</div>';gb()}
