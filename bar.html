@@ -30,6 +30,42 @@ html,body{background:transparent;overflow:hidden;font-family:Georgia,'Times New 
 .f{font:600 12px sans-serif;padding:4px 10px;border-radius:999px;background:rgba(20,18,40,.88);border:1px solid rgba(180,140,255,.45)}
 .f.low{border-color:#e0605a;color:#ffb3ae}
 .f.on{border-color:#f3d58a}
+
+/* ---- боссы ---- */
+.c.boss{min-width:96px;border-color:rgba(226,184,101,.45);border-top:3px solid #e2b865;
+ background:linear-gradient(165deg,rgba(92,18,34,.92),rgba(28,12,32,.94));animation:bossGlow 3.2s ease-in-out infinite}
+.c.boss::before{content:"👑";display:block;font-size:13px;line-height:1;margin-bottom:-1px}
+.c.boss b{color:#f3d58a;text-shadow:0 0 10px rgba(243,213,138,.55)}
+.c.boss span{color:#f6e3b4}
+@keyframes bossGlow{0%,100%{filter:drop-shadow(0 0 3px rgba(226,184,101,.35))}50%{filter:drop-shadow(0 0 10px rgba(226,184,101,.75))}}
+
+
+/* ---- темы боссов (декор-элементы скрыты, пока тема не включена) ---- */
+.c>u,.c>i{display:none}
+.c.th{position:relative;min-width:128px;padding:10px 22px 9px}
+.c.th>u,.c.th>i{display:block;position:absolute;pointer-events:none}
+.c.th.on{transform:scale(1.1);margin:0 10px}
+
+#vp:has(.c.th.on)::after{display:none}
+/* Слепая жрица: обсидиан, бронза, фиолетовое свечение, шипы, аметисты, полумесяц */
+.c.th-priestess{--v:#a86bff;--bz:#8a6a52;border:2px solid var(--bz);border-radius:18px;
+ background:radial-gradient(90% 120% at 15% 0%,rgba(120,56,205,.6),transparent 62%),radial-gradient(80% 100% at 90% 100%,rgba(74,22,140,.65),transparent 66%),linear-gradient(180deg,#130a24,#07040f);
+ background-size:170% 170%,170% 170%,100% 100%;
+ box-shadow:inset 0 0 0 1px rgba(168,107,255,.75),inset 0 0 16px rgba(168,107,255,.5);
+ animation:prSmoke 7s ease-in-out infinite,prGlow 3.4s ease-in-out infinite}
+@keyframes prSmoke{0%,100%{background-position:0% 0%,100% 100%,0 0}50%{background-position:45% 35%,55% 65%,0 0}}
+@keyframes prGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(168,107,255,.55))}50%{filter:drop-shadow(0 0 13px rgba(168,107,255,.95))}}
+.c.th-priestess.on{border-color:#cdbbe0;box-shadow:inset 0 0 0 1px #b98cff,inset 0 0 20px rgba(168,107,255,.7),0 0 22px rgba(168,107,255,.6)}
+.c.th-priestess b{color:#f1e6ff;font-size:24px;text-shadow:0 0 12px var(--v)}
+.c.th-priestess span{font:italic 600 13px/1.2 Georgia,serif;color:#d8c4f5;letter-spacing:.03em}
+.c.th-priestess.on span{color:#fff}
+.th-priestess>u{left:12px;right:12px;height:7px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7'%3E%3Cpath d='M0 7L6 0L12 7Z' fill='%23cdbbe0'/%3E%3C/svg%3E") repeat-x}
+.th-priestess>u.t{top:-8px}
+.th-priestess>u.b{bottom:-8px;transform:scaleY(-1)}
+.th-priestess>i.m{left:50%;top:-9px;width:16px;height:16px;margin-left:-8px;border-radius:50%;background:#0a0514;border:2px solid var(--bz);box-shadow:0 0 9px var(--v)}
+.th-priestess>i.m::after{content:"";position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;box-shadow:-2.5px 1px 0 0 #e6d8ff}
+.th-priestess>i.l,.th-priestess>i.r{top:50%;width:9px;height:9px;margin-top:-4.5px;transform:rotate(45deg);background:linear-gradient(135deg,#dcbcff,#7a35d0);border:1px solid var(--bz);box-shadow:0 0 8px var(--v)}
+.th-priestess>i.l{left:-6px}.th-priestess>i.r{right:-6px}
 </style></head><body>
 <div id="w"><div id="bar"><div id="rd"><small>Раунд</small><b id="r">1</b></div><div id="vp"><div id="tr" class="init"></div></div></div><div id="fx"></div></div>
 <script type="module">
@@ -39,6 +75,8 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const TI={enemy:"⚔️",ally:"🛡️",boss:"👑",player:"🧙"};
 let lastR=null,sig="";
+// Темы боссов приходят из трекера (поле h). Известные темы:
+const THEMES=["priestess"];
 function center(){
   const tr=$("tr"),on=tr.querySelector(".c.on")||tr.querySelector(".c");if(!on)return;
   tr.style.transform=`translateX(${$("vp").clientWidth/2-(on.offsetLeft+on.offsetWidth/2)}px)`;
@@ -46,7 +84,10 @@ function center(){
 function draw(P){
   if(!P||!P.chips)return;
   const s=JSON.stringify(P);if(s===sig)return;sig=s;
-  $("tr").innerHTML=P.chips.map(c=>`<div class="c ${c.t}${c.on?" on":""}${c.done?" done":""}"><b>${esc(c.i)}</b><span>${TI[c.t]||""} ${esc(c.n)}${c.c>1?" ×"+c.c:""}</span></div>`).join("");
+  $("tr").innerHTML=P.chips.map(c=>{
+    const st=(c.on?" on":"")+(c.done?" done":""),th=c.t==="boss"&&THEMES.includes(c.h)?{theme:c.h}:null;
+    if(th)return `<div class="c th th-${th.theme}${st}"><u class="t"></u><u class="b"></u><i class="m"></i><i class="l"></i><i class="r"></i><b>${esc(c.i)}</b><span>${esc(c.n)}</span></div>`;
+    return `<div class="c ${c.t}${st}"><b>${esc(c.i)}</b><span>${TI[c.t]||""} ${esc(c.n)}${c.c>1?" ×"+c.c:""}</span></div>`}).join("");
   $("r").textContent=P.r;
   if(lastR!==null&&lastR!==P.r){const rd=$("rd");rd.classList.remove("bump");void rd.offsetWidth;rd.classList.add("bump")}
   $("fx").innerHTML=(P.fx||[]).map(f=>`<div class="f${f.r<=1?" low":""}${f.on?" on":""}">✨ ${esc(f.n)} · ${esc(f.w)} ⏳ ${f.r}</div>`).join("");

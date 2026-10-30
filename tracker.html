@@ -352,6 +352,10 @@ let rn=[];const d6=()=>Math.floor(Math.random()*6)+1;
 function rchg(c){if(!c||c.dead||!c.ab)return;c.ab.forEach(a=>{if(a.k=='r'&&a.u){const d=d6();a.l=d;rn.push(d>=a.m?'🔥 '+a.n+' ('+c.name+') перезарядилась — выпало '+d:'🎲 '+a.n+' ('+c.name+'): выпало '+d+', нужно '+a.m+'+')}if(a.k=='r'&&a.u&&a.l>=a.m)a.u=0})}
 function next(){if(!creatures.some(c=>!c.dead))return;gone=[];rn=[];act(()=>{tickFx(creatures[cur],'e');let i=cur;do{i++;if(i>=creatures.length){i=0;round++}}while(creatures[i].dead);cur=i;tickFx(creatures[cur],'s');rchg(creatures[cur])});{const m=[];if(gone.length)m.push('⌛ Закончилось: '+gone.join(', '));m.push(...rn);if(m.length)toast(m.join(' · '),6000);gone=[];rn=[]}const c=creatures[cur];if(c){const e=$('c'+c.id);e&&e.scrollIntoView({block:'nearest',behavior:'smooth'})}}
 const TI={enemy:'⚔️',ally:'🛡️',boss:'👑',player:'🧙'},TL={enemy:'Враг',ally:'Союзник',boss:'Босс',player:'Игрок'},base=n=>n.replace(/ \d+$/,'');
+// темы оформления ячейки босса на полоске игроков (id должен совпадать с темой в bar.html)
+const THEMES=[{id:'priestess',n:'Слепая жрица'}];
+const thName=id=>(THEMES.find(x=>x.id==id)||{n:id}).n;
+function thm(id){act(()=>{const c=get(id),ids=['',...THEMES.map(x=>x.id)],i=ids.indexOf(c.theme||'');c.theme=ids[(i+1)%ids.length]})}
 function cyc(id){act(()=>{const c=get(id);c.type={enemy:'ally',ally:'boss',boss:'enemy'}[c.type]})}
 // ключ броска: босс всегда сам по себе
 function ikey(c,m){const own=['i'+c.id,c.name],e=c.type=='enemy';
@@ -594,7 +598,7 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
     <input type="checkbox" ${sel.has(c.id)?'checked':''} onchange="tog(${c.id},this.checked)">
     <div class="ini" title="Инициатива" onclick="edit(${c.id},'init')">${c.init}</div>
     <div class="nm"><div class="name" onclick="edit(${c.id},'name')">${on?'⚔️ ':''}${esc(c.name)}</div>
-      <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span><span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span><span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span><b style="color:${st[1]}">${st[0]}</b></div></div>
+      <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span>${c.type=='boss'?`<span class="tb" title="Тема оформления ячейки на полоске игроков (клик — сменить)" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff;border-color:#a86bff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span><span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span><b style="color:${st[1]}">${st[0]}</b></div></div>
     <div class="hp">${c.hp}<span onclick="edit(${c.id},'maxHp')">/${c.maxHp}</span>${t?` <i>+${t}</i>`:''}</div>
     <div class="acts"><button class="sm" title="Способность: перезарядка или использования" onclick="openAb(${c.id})">⚡</button><button class="sm" title="Эффект с таймером" onclick="openFx(${c.id})">✨</button>${c.dead?`<button class="gr sm" onclick="revive(${c.id})">оживить</button>`:''}<button class="sm" title="${c.rid?'В базе: HP сохраняется автоматически':'Сохранить в базу'}" style="${c.rid?'color:var(--gd)':''}" onclick="toRoster(${c.id})">${c.rid?'★':'☆'}</button><button class="sm" title="Копия" onclick="clone(${c.id})">⧉</button><button class="r sm" onclick="del(${c.id})">✕</button></div>
   </div>
@@ -616,7 +620,7 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
 let lastPub='',pubOff=false;try{pubOff=!!localStorage.getItem('dnd_puboff')}catch(e){}
 function togO(){pubOff=!pubOff;try{localStorage.setItem('dnd_puboff',pubOff?'1':'')}catch(e){}lastPub='';pubO();toast(pubOff?'Полоска убрана с карты':'Полоска снова на карте')}
 function pubO(){const hide=$('hn').checked,hd=t=>hide&&(t=='enemy'||t=='boss'),G=groups();
-  const P={v:1,r:round,chips:G.map(g=>({i:g.init,t:g.t,n:hd(g.t)?HID:g.name,c:hd(g.t)?1:g.ids.length,on:g.on,done:g.done})),fx:[]};
+  const P={v:1,r:round,chips:G.map(g=>{const c0=get(g.ids[0]),h=g.t=='boss'&&!hd(g.t)&&c0&&c0.theme||'',o={i:g.init,t:g.t,n:hd(g.t)?HID:g.name,c:hd(g.t)?1:g.ids.length,on:g.on,done:g.done};if(h)o.h=h;return o}),fx:[]};
   creatures.forEach((c,i)=>{if(c.dead)return;(c.fx||[]).forEach(f=>P.fx.push({n:f.n,w:hd(c.type)?HID:c.name,r:f.r,on:i==cur}))});
   if(pubOff){P.chips=[];P.fx=[]}
   const pb=$('pubb');if(pb){pb.textContent=pubOff?'🦉 Полоска: выкл':'🦉 Полоска: вкл';pb.style.opacity=pubOff?.55:1}
