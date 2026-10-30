@@ -2,27 +2,38 @@
 <style>
 body{margin:0;padding:14px;font:14px/1.4 system-ui,sans-serif;background:#14162e;color:#ece9ff}
 h1{font:700 16px Georgia,serif;margin:0 0 10px;color:#f3d58a}
-button{width:100%;padding:10px;border:0;border-radius:10px;background:#b48cff;color:#1a1030;font:700 14px system-ui;cursor:pointer;margin-bottom:10px}
-label{display:flex;gap:8px;align-items:center;cursor:pointer}
-p{margin:8px 0 0;font-size:12px;color:#9a9cc0}
+button{width:100%;padding:9px;border:0;border-radius:10px;background:#b48cff;color:#1a1030;font:700 13px system-ui;cursor:pointer;margin-bottom:8px}
+button.alt{background:#2a2d52;color:#ece9ff;font-weight:600}
+.row{display:flex;gap:8px}.row button{flex:1}
+label{display:flex;gap:8px;align-items:center;cursor:pointer;margin-top:4px}
 #gm{display:none}
 </style></head><body>
 <h1>🎲 Инициатива</h1>
-<div id="gm"><button id="open">Открыть трекер</button></div>
+<div id="gm">
+  <button id="side">Открыть трекер сбоку</button>
+  <div class="row"><button class="alt" id="full">На весь экран</button><button class="alt" id="close">Закрыть</button></div>
+</div>
 <label><input type="checkbox" id="show" checked> Показывать полоску на карте</label>
-<p id="hint">Полоска появляется, когда мастер запускает бой в трекере.</p>
 <script type="module">
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-const $=id=>document.getElementById(id);
+const $=id=>document.getElementById(id),TID="com.dnd-tracker/tracker";
 try{$("show").checked=localStorage.getItem("dndbar_off")!=="1"}catch(e){}
 $("show").onchange=()=>{try{localStorage.setItem("dndbar_off",$("show").checked?"":"1")}catch(e){}};
+async function closeAll(){try{await OBR.popover.close(TID)}catch(e){}try{await OBR.modal.close(TID)}catch(e){}}
 OBR.onReady(async()=>{
   if(await OBR.player.getRole()==="GM"){
     $("gm").style.display="block";
-    $("open").onclick=async()=>{
-      await OBR.modal.open({id:"com.dnd-tracker/tracker",url:"/tracker.html",width:1400,height:880});
+    $("side").onclick=async()=>{
+      await closeAll();
+      const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();
+      await OBR.popover.open({id:TID,url:"/tracker.html",width:Math.min(560,w-120),height:Math.max(400,h-100),
+        anchorReference:"POSITION",anchorPosition:{left:w-12,top:64},
+        transformOrigin:{horizontal:"RIGHT",vertical:"TOP"},disableClickAway:true});
       try{await OBR.action.close()}catch(e){}
     };
+    $("full").onclick=async()=>{await closeAll();await OBR.modal.open({id:TID,url:"/tracker.html",width:1400,height:880});try{await OBR.action.close()}catch(e){}};
+    $("close").onclick=async()=>{await closeAll();try{await OBR.action.close()}catch(e){}};
   }
+  try{await OBR.action.setHeight(document.body.scrollHeight+8)}catch(e){}
 });
 </script></body></html>
