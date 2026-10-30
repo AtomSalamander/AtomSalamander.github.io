@@ -630,10 +630,37 @@ try{const s=JSON.parse(localStorage.getItem('dnd_battle'));if(s&&s.creatures)loa
 renderP();render();
 </script>
 <script type="module">
-import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-const KEY="com.dnd-tracker/initiative";let ok=false;
-window.obrPublish=P=>{if(ok)OBR.room.setMetadata({[KEY]:P}).catch(()=>{})};
-OBR.onReady(async()=>{if(await OBR.player.getRole()!=="GM")return;ok=true;toast("🦉 Связь с Owlbear установлена");if(window._pub)window.obrPublish(window._pub)});
+const KEY="com.dnd-tracker/initiative",NT="https://ntfy.sh/dndinit-";
+let framed=true;try{framed=window.self!==window.top}catch(e){}
+if(framed){
+  // открыт внутри Owlbear (панель/окно): пишем прямо в комнату
+  try{
+    const {default:OBR}=await import("https://esm.sh/@owlbear-rodeo/sdk@3");
+    let ok=false;
+    window.obrPublish=P=>{if(ok)OBR.room.setMetadata({[KEY]:P}).catch(()=>{})};
+    OBR.onReady(async()=>{if(await OBR.player.getRole()!=="GM")return;ok=true;toast("🦉 Связь с Owlbear установлена");if(window._pub)window.obrPublish(window._pub)});
+  }catch(e){}
+}else{
+  // обычная вкладка: шлём через ntfy.sh, а расширение у мастера передаёт в комнату
+  const q=new URLSearchParams(location.search).get("room");
+  try{if(q)localStorage.setItem("dnd_room",q.replace(/[^a-z0-9]/gi,"").slice(0,40))}catch(e){}
+  let code="";try{code=localStorage.getItem("dnd_room")||""}catch(e){}
+  if(code){
+    const b=document.createElement("div");
+    b.style.cssText="position:fixed;left:10px;bottom:10px;z-index:99;padding:4px 10px;border-radius:999px;font:600 12px system-ui;background:#14162e;border:1px solid #ffffff30;color:#9a9cc0";
+    b.title="Связь с Owlbear";b.textContent="🦉 …";document.body.appendChild(b);
+    const mark=ok=>{b.textContent=ok?"🦉 ✓ отправлено":"🦉 ✗ нет связи";b.style.color=ok?"#7be3b9":"#ff9a94"};
+    const enc=new TextEncoder();let latest=null,timer=null,sentKey="";
+    const pack=P=>{let c=P.chips.slice(),f=P.fx.slice(),body;
+      for(;;){body=JSON.stringify({v:1,r:P.r,chips:c,fx:f});if(enc.encode(body).length<=3800)return body;
+        if(f.length){f=[];continue}const d=c.findIndex(x=>x.done);if(d<0)return null;c.splice(d,1)}};
+    async function send(){timer=null;if(!latest)return;const P=latest,body=pack(P);if(!body)return;
+      try{const r=await fetch(NT+code,{method:"POST",body});if(!r.ok)throw 0;sentKey=body;mark(true)}
+      catch(e){mark(false);if(latest===P)timer=setTimeout(send,12000)}}
+    window.obrPublish=P=>{latest=P;clearTimeout(timer);timer=setTimeout(send,300)};
+    if(window._pub)window.obrPublish(window._pub);
+  }
+}
 </script>
 </body>
 </html>

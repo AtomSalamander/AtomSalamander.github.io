@@ -22,5 +22,16 @@ OBR.onReady(async()=>{
   addEventListener("storage",sync);
   setInterval(async()=>{if(!isOpen)return;const w=await OBR.viewport.getWidth();if(Math.abs(w-lastW)>40)show()},2000);
   sync();
+  // приём данных из отдельной вкладки трекера (через ntfy.sh) — только у мастера
+  if(await OBR.player.getRole()==="GM"){
+    let es=null,cur="";
+    const link=()=>{
+      let c="";try{c=localStorage.getItem("dnd_room")||""}catch(e){}
+      if(c===cur&&es)return;if(es){es.close();es=null}cur=c;if(!c)return;
+      es=new EventSource("https://ntfy.sh/dndinit-"+c+"/sse?since=latest");
+      es.onmessage=e=>{try{const P=JSON.parse(JSON.parse(e.data).message);if(P&&P.chips)OBR.room.setMetadata({[KEY]:P})}catch(err){}};
+    };
+    addEventListener("storage",link);link();
+  }
 });
 </script></body></html>

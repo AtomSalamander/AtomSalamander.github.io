@@ -13,6 +13,11 @@ label{display:flex;gap:8px;align-items:center;cursor:pointer;margin-top:4px}
   <button id="side">Открыть трекер сбоку</button>
   <div class="row"><button class="alt" id="full">На весь экран</button><button class="alt" id="close">Закрыть</button></div>
 </div>
+<div id="tab" style="display:none;margin-bottom:8px">
+  <div style="font-size:12px;color:#9a9cc0;margin-bottom:4px">Трекер в отдельной вкладке:</div>
+  <input id="url" readonly style="width:100%;box-sizing:border-box;padding:6px;border-radius:8px;border:1px solid #ffffff30;background:#0d0e20;color:#ece9ff;font:11px system-ui;margin-bottom:6px">
+  <button class="alt" id="copy">Скопировать ссылку на трекер</button>
+</div>
 <label><input type="checkbox" id="show" checked> Показывать полоску на карте</label>
 <script type="module">
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
@@ -32,6 +37,10 @@ OBR.onReady(async()=>{
       try{await OBR.action.close()}catch(e){}
     };
     $("full").onclick=async()=>{await closeAll();await OBR.modal.open({id:TID,url:"/tracker.html",width:1400,height:880});try{await OBR.action.close()}catch(e){}};
+    let code="";try{code=localStorage.getItem("dnd_room")||"";if(!code){code=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>(b%36).toString(36)).join("");localStorage.setItem("dnd_room",code)}}catch(e){}
+    $("tab").style.display="block";$("url").value=location.origin+"/tracker.html?room="+code;
+    $("url").onclick=()=>$("url").select();
+    $("copy").onclick=async()=>{try{await navigator.clipboard.writeText($("url").value);$("copy").textContent="Скопировано ✓"}catch(e){$("url").select();$("copy").textContent="Выделено — нажмите Ctrl+C"}};
     $("close").onclick=async()=>{await closeAll();try{await OBR.action.close()}catch(e){}};
   }
   try{await OBR.action.setHeight(document.body.scrollHeight+8)}catch(e){}
