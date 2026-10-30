@@ -1,0 +1,16 @@
+{
+  "name": "Инициатива (DnD трекер)",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "description": "Полоска-рулетка инициативы над картой. Управляется из DnD-трекера мастера.",
+  "author": "DM",
+  "icon": "/icon.svg",
+  "background_url": "/background.html",
+  "action": {
+    "title": "Инициатива",
+    "icon": "/icon.svg",
+    "popover": "/launcher.html",
+    "width": 300,
+    "height": 210
+  }
+}

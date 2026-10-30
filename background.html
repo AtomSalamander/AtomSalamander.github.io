@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script type="module">
+import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
+const KEY="com.dnd-tracker/initiative",POP="com.dnd-tracker/bar";
+let data=null,isOpen=false,lastW=0;
+const enabled=()=>{try{return localStorage.getItem("dndbar_off")!=="1"}catch(e){return true}};
+async function show(){
+  const w=await OBR.viewport.getWidth();lastW=w;
+  await OBR.popover.open({id:POP,url:"/bar.html",width:Math.max(320,Math.min(1000,w-200)),height:110,
+    anchorReference:"POSITION",anchorPosition:{left:w/2,top:12},
+    transformOrigin:{horizontal:"CENTER",vertical:"TOP"},hidePaper:true,disableClickAway:true});
+  isOpen=true;
+}
+async function sync(){
+  const want=enabled()&&data&&data.chips&&data.chips.length>0;
+  if(want){if(!isOpen)await show()}
+  else if(isOpen){await OBR.popover.close(POP);isOpen=false}
+}
+OBR.onReady(async()=>{
+  data=(await OBR.room.getMetadata())[KEY];
+  OBR.room.onMetadataChange(m=>{data=m[KEY];sync()});
+  addEventListener("storage",sync);
+  setInterval(async()=>{if(!isOpen)return;const w=await OBR.viewport.getWidth();if(Math.abs(w-lastW)>40)show()},2000);
+  sync();
+});
+</script></body></html>

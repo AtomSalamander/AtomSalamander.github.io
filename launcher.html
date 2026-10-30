@@ -1,0 +1,28 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{margin:0;padding:14px;font:14px/1.4 system-ui,sans-serif;background:#14162e;color:#ece9ff}
+h1{font:700 16px Georgia,serif;margin:0 0 10px;color:#f3d58a}
+button{width:100%;padding:10px;border:0;border-radius:10px;background:#b48cff;color:#1a1030;font:700 14px system-ui;cursor:pointer;margin-bottom:10px}
+label{display:flex;gap:8px;align-items:center;cursor:pointer}
+p{margin:8px 0 0;font-size:12px;color:#9a9cc0}
+#gm{display:none}
+</style></head><body>
+<h1>🎲 Инициатива</h1>
+<div id="gm"><button id="open">Открыть трекер</button></div>
+<label><input type="checkbox" id="show" checked> Показывать полоску на карте</label>
+<p id="hint">Полоска появляется, когда мастер запускает бой в трекере.</p>
+<script type="module">
+import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
+const $=id=>document.getElementById(id);
+try{$("show").checked=localStorage.getItem("dndbar_off")!=="1"}catch(e){}
+$("show").onchange=()=>{try{localStorage.setItem("dndbar_off",$("show").checked?"":"1")}catch(e){}};
+OBR.onReady(async()=>{
+  if(await OBR.player.getRole()==="GM"){
+    $("gm").style.display="block";
+    $("open").onclick=async()=>{
+      await OBR.modal.open({id:"com.dnd-tracker/tracker",url:"/tracker.html",width:1400,height:880});
+      try{await OBR.action.close()}catch(e){}
+    };
+  }
+});
+</script></body></html>
