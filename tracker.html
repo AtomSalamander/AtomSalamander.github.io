@@ -353,7 +353,7 @@ function rchg(c){if(!c||c.dead||!c.ab)return;c.ab.forEach(a=>{if(a.k=='r'&&a.u){
 function next(){if(!creatures.some(c=>!c.dead))return;gone=[];rn=[];act(()=>{tickFx(creatures[cur],'e');let i=cur;do{i++;if(i>=creatures.length){i=0;round++}}while(creatures[i].dead);cur=i;tickFx(creatures[cur],'s');rchg(creatures[cur])});{const m=[];if(gone.length)m.push('⌛ Закончилось: '+gone.join(', '));m.push(...rn);if(m.length)toast(m.join(' · '),6000);gone=[];rn=[]}const c=creatures[cur];if(c){const e=$('c'+c.id);e&&e.scrollIntoView({block:'nearest',behavior:'smooth'})}}
 const TI={enemy:'⚔️',ally:'🛡️',boss:'👑',player:'🧙'},TL={enemy:'Враг',ally:'Союзник',boss:'Босс',player:'Игрок'},base=n=>n.replace(/ \d+$/,'');
 // темы оформления ячейки босса на полоске игроков (id должен совпадать с темой в bar.html)
-const THEMES=[{id:'priestess',n:'Слепая жрица'}];
+const THEMES=[{id:'priestess',n:'Слепая жрица'},{id:'guurdezh',n:"Гуур'Дезх"}];
 const thName=id=>(THEMES.find(x=>x.id==id)||{n:id}).n;
 function thm(id){act(()=>{const c=get(id),ids=['',...THEMES.map(x=>x.id)],i=ids.indexOf(c.theme||'');c.theme=ids[(i+1)%ids.length]})}
 function cyc(id){act(()=>{const c=get(id);c.type={enemy:'ally',ally:'boss',boss:'enemy'}[c.type]})}

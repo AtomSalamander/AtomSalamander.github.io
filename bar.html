@@ -66,6 +66,35 @@ html,body{background:transparent;overflow:hidden;font-family:Georgia,'Times New 
 .th-priestess>i.m::after{content:"";position:absolute;left:2px;top:2px;width:8px;height:8px;border-radius:50%;box-shadow:-2.5px 1px 0 0 #e6d8ff}
 .th-priestess>i.l,.th-priestess>i.r{top:50%;width:9px;height:9px;margin-top:-4.5px;transform:rotate(45deg);background:linear-gradient(135deg,#dcbcff,#7a35d0);border:1px solid var(--bz);box-shadow:0 0 8px var(--v)}
 .th-priestess>i.l{left:-6px}.th-priestess>i.r{right:-6px}
+
+/* Гуур'Дезх: корпус карманных часов (латунь), гипнотическая спираль бирюза/фиолет,
+   глаз покровителя-бехолдера сверху, шестерёнки по бокам, цепочка снизу */
+@property --gz{syntax:"<angle>";inherits:false;initial-value:0deg}
+.c.th-guurdezh{--br:#b8913e;--tl:#2fd0b8;--vi:#8a5cff;--gr:#9be15a;border:2px solid var(--br);border-radius:16px;
+ background:radial-gradient(70% 140% at 108% 50%,#05060d 20%,transparent 75%),
+  repeating-conic-gradient(from var(--gz) at 22% 50%,rgba(34,160,150,.85) 0 18deg,rgba(18,40,60,.9) 18deg 36deg,rgba(110,70,210,.8) 36deg 54deg,rgba(18,40,60,.9) 54deg 72deg),#07101a;
+ box-shadow:inset 0 0 0 1px rgba(232,200,120,.55),inset 0 0 18px rgba(47,208,184,.45);
+ animation:gzSpin 9s linear infinite,gzGlow 3.6s ease-in-out infinite}
+@keyframes gzSpin{to{--gz:360deg}}
+@keyframes gzGlow{0%,100%{filter:drop-shadow(0 0 4px rgba(155,225,90,.4))}50%{filter:drop-shadow(0 0 12px rgba(155,225,90,.85))}}
+.c.th-guurdezh.on{border-color:#f0d58a;animation-duration:4s,1.8s;
+ box-shadow:inset 0 0 0 1px #f3d58a,inset 0 0 22px rgba(47,208,184,.75),0 0 24px rgba(138,92,255,.6)}
+.c.th-guurdezh b{color:#f6dd96;font-size:24px;text-shadow:0 0 10px var(--tl),0 1px 0 #3a2a0a}
+.c.th-guurdezh span{font:italic 600 13px/1.2 Georgia,serif;color:#cfeee6;letter-spacing:.03em;text-shadow:0 1px 3px #000}
+.c.th-guurdezh.on span{color:#fff}
+.c.th-guurdezh>u.t{display:none}
+.c.th-guurdezh>u.b{left:10px;right:10px;bottom:-8px;height:7px;
+ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='7'%3E%3Cellipse cx='4' cy='3.5' rx='4' ry='2.2' fill='none' stroke='%23c9a24e' stroke-width='1.2'/%3E%3C/svg%3E") repeat-x}
+.c.th-guurdezh>i.m{left:50%;top:-8px;width:22px;height:13px;margin-left:-11px;border-radius:50%;border:2px solid var(--br);
+ background:radial-gradient(circle at 50% 50%,#eaffb0 0 22%,var(--gr) 45%,#1d3a12 100%);box-shadow:0 0 10px var(--gr)}
+.c.th-guurdezh>i.m::after{content:"";position:absolute;left:50%;top:1px;width:3px;height:7px;margin-left:-1.5px;border-radius:50%;background:#0a0f08}
+.c.th-guurdezh>i.m::before{content:"";position:absolute;left:-18px;right:-18px;top:-4px;height:12px;z-index:-1;
+ background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='62' height='12' viewBox='0 0 62 12'%3E%3Cg fill='none' stroke='%232fd0b8' stroke-width='1.5' stroke-linecap='round'%3E%3Cpath d='M18 8C12 8 9 4 6 5C3 6 4 9 7 8'/%3E%3Cpath d='M44 8C50 8 53 4 56 5C59 6 58 9 55 8'/%3E%3C/g%3E%3Ccircle cx='7' cy='8' r='1.6' fill='%239be15a'/%3E%3Ccircle cx='55' cy='8' r='1.6' fill='%239be15a'/%3E%3C/svg%3E") no-repeat center/100% 100%}
+.c.th-guurdezh>i.l,.c.th-guurdezh>i.r{top:50%;width:16px;height:16px;margin-top:-8px;border-radius:50%;
+ background:radial-gradient(circle,#07101a 0 22%,transparent 24%),repeating-conic-gradient(var(--br) 0 14deg,transparent 14deg 30deg);
+ filter:drop-shadow(0 0 3px rgba(47,208,184,.8));animation:gzGear 6s linear infinite}
+.c.th-guurdezh>i.l{left:-9px}.c.th-guurdezh>i.r{right:-9px;animation-direction:reverse}
+@keyframes gzGear{to{transform:rotate(360deg)}}
 </style></head><body>
 <div id="w"><div id="bar"><div id="rd"><small>Раунд</small><b id="r">1</b></div><div id="vp"><div id="tr" class="init"></div></div></div><div id="fx"></div></div>
 <script type="module">
@@ -76,7 +105,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const TI={enemy:"⚔️",ally:"🛡️",boss:"👑",player:"🧙"};
 let lastR=null,sig="";
 // Темы боссов приходят из трекера (поле h). Известные темы:
-const THEMES=["priestess"];
+const THEMES=["priestess","guurdezh"];
 function center(){
   const tr=$("tr"),on=tr.querySelector(".c.on")||tr.querySelector(".c");if(!on)return;
   tr.style.transform=`translateX(${$("vp").clientWidth/2-(on.offsetLeft+on.offsetWidth/2)}px)`;
