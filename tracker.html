@@ -353,11 +353,11 @@ function toast(m,ms){const t=$('toast');t.textContent=m;t.classList.add('show');
 const get=id=>creatures.find(c=>c.id===id);
 const state=()=>({creatures,currentTurn:cur,round,idCounter:idc});
 function save(){syncR();try{localStorage.setItem('dnd_battle',JSON.stringify(state()))}catch(e){}}
-function load(s){creatures=(s.creatures||[]).map(c=>Object.assign({tempHp:0,conditions:[],dead:false,mod:0,note:'',type:'enemy',fx:[],ab:[]},c));cur=s.currentTurn??-1;round=s.round||1;idc=Math.max(idc,s.idCounter||0,...creatures.map(c=>c.id+1))}
+function load(s){creatures=(s.creatures||[]).map(c=>Object.assign({tempHp:0,conditions:[],dead:false,mod:0,note:'',type:'enemy',fx:[],ab:[]},c));creatures.forEach(c=>{if(c.type=='lair')c.init=20});cur=s.currentTurn??-1;round=s.round||1;idc=Math.max(idc,s.idCounter||0,...creatures.map(c=>c.id+1))}
 function act(fn){hist.push(JSON.stringify(state()));if(hist.length>60)hist.shift();fn();save();render()}
 function undo(){if(!hist.length)return toast('Нечего отменять');load(JSON.parse(hist.pop()));save();render()}
 const inact=c=>c.res||c.type=='object',skey=c=>inact(c)?-1e6+c.init:c.init;
-function sortInit(){const a=creatures[cur];creatures.sort((x,y)=>skey(y)-skey(x));cur=a?creatures.indexOf(a):-1}
+function sortInit(){const a=creatures[cur];creatures.forEach(c=>{if(c.type=='lair')c.init=20});creatures.sort((x,y)=>skey(y)-skey(x));cur=a?creatures.indexOf(a):-1}
 
 let gone=[];
 function tickFx(c,when){if(!c||c.dead||!c.fx||!c.fx.length)return;c.fx.forEach(f=>{if(f.t==when)f.r--});c.fx.filter(f=>f.r<=0).forEach(f=>gone.push(f.n+' ('+c.name+')'));c.fx=c.fx.filter(f=>f.r>0)}
@@ -388,11 +388,11 @@ function renderB(){const el=$('bl');if(!el)return;el.innerHTML=bestiary.length?b
 const xa=new Set();function tga(id){xa.has(id)?xa.delete(id):xa.add(id);render()}
 function toRes(id){act(()=>{const c=get(id);if(creatures[cur]===c)cur--;c.res=true;sortInit();toast('💤 «'+c.name+'» в запасе')})}
 function callR(id){const c=get(id),e=document.getElementById('ri-'+id),v=e?e.value.trim():'';let r=0;
-  act(()=>{c.res=false;c.init=c.type=='object'?OBJ:(v===''?(r=d20())+(c.mod||0):+v);sortInit()});
-  toast('▶ «'+c.name+'» в бою'+(c.type=='object'?'':' · инициатива '+c.init+(v===''?' (бросок '+r+')':'')))}
+  act(()=>{c.res=false;c.init=c.type=='object'?OBJ:c.type=='lair'?20:(v===''?(r=d20())+(c.mod||0):+v);sortInit()});
+  toast('▶ «'+c.name+'» в бою'+(c.type=='object'?'':' · инициатива '+c.init+(v===''&&r?' (бросок '+r+')':'')))}
 function renderRsv(){const L=creatures.filter(c=>c.res),el=$('rsv');if(!el)return;
-  el.innerHTML=L.length?`<div class="rsv-h">💤 В запасе <small>${L.length}</small><span>сохраняется вместе с боем · можно вызвать в любой момент</span></div>`+L.map(c=>`<div class="rv t-${c.type}"><span class="rt" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]}</span><b class="rn" title="Переименовать" onclick="edit(${c.id},'name')">${esc(c.name)}</b><span class="rm" onclick="edit(${c.id},'ac')">🛡 ${c.ac}</span><span class="rm" title="Макс. HP" onclick="edit(${c.id},'maxHp')">❤ ${c.maxHp}</span>${c.type=='boss'||c.type=='lair'?`<span class="rm" title="Тема оформления" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span class="sp"></span>${c.type=='object'?'':`<input id="ri-${c.id}" type="number" placeholder="🎲 ${sg(c.mod||0)}" title="Инициатива (пусто — бросок d20${sg(c.mod||0)})" onkeydown="if(event.key==='Enter')callR(${c.id})">`}<button class="g sm" onclick="callR(${c.id})">▶ В бой</button><button class="r sm" title="Удалить" onclick="del(${c.id})">✕</button></div>`).join(''):''}
-function cyc(id){act(()=>{const c=get(id);const o=c.type;c.type={enemy:'ally',ally:'boss',boss:'lair',lair:'object',object:'enemy'}[o];if(c.type=='object')c.init=OBJ;else if(o=='object')c.init=d20()+(c.mod||0);sortInit();if(c.theme&&!THEMES.some(x=>x.id==c.theme&&x.f==c.type))c.theme=''})}
+  el.innerHTML=L.length?`<div class="rsv-h">💤 В запасе <small>${L.length}</small><span>сохраняется вместе с боем · можно вызвать в любой момент</span></div>`+L.map(c=>`<div class="rv t-${c.type}"><span class="rt" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]}</span><b class="rn" title="Переименовать" onclick="edit(${c.id},'name')">${esc(c.name)}</b>${c.type=='lair'?'<span class="rm">⏱ иниц. 20</span>':`<span class="rm" onclick="edit(${c.id},'ac')">🛡 ${c.ac}</span><span class="rm" title="Макс. HP" onclick="edit(${c.id},'maxHp')">❤ ${c.maxHp}</span>`}${c.type=='boss'||c.type=='lair'?`<span class="rm" title="Тема оформления" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span class="sp"></span>${c.type=='object'||c.type=='lair'?'':`<input id="ri-${c.id}" type="number" placeholder="🎲 ${sg(c.mod||0)}" title="Инициатива (пусто — бросок d20${sg(c.mod||0)})" onkeydown="if(event.key==='Enter')callR(${c.id})">`}<button class="g sm" onclick="callR(${c.id})">▶ В бой</button><button class="r sm" title="Удалить" onclick="del(${c.id})">✕</button></div>`).join(''):''}
+function cyc(id){act(()=>{const c=get(id);const o=c.type;c.type={enemy:'ally',ally:'boss',boss:'lair',lair:'object',object:'enemy'}[o];if(c.type=='object')c.init=OBJ;else if(c.type=='lair')c.init=20;else if(o=='object'||o=='lair')c.init=d20()+(c.mod||0);sortInit();if(c.theme&&!THEMES.some(x=>x.id==c.theme&&x.f==c.type))c.theme=''})}
 // ключ броска: босс всегда сам по себе
 function ikey(c,m){const own=['i'+c.id,c.name],e=c.type=='enemy';
   if(c.type=='boss'||c.type=='lair'||m=='ind')return own;
@@ -400,7 +400,7 @@ function ikey(c,m){const own=['i'+c.id,c.name],e=c.type=='enemy';
   if(m=='grpE'&&!e)return own;
   return['g'+base(c.name)+c.type,base(c.name)]}
 function rollAll(){if(!creatures.some(c=>c.type!='player'&&!inact(c)))return toast('Сначала добавьте существ');const m=$('im').value,R={};
-  act(()=>{creatures=creatures.filter(c=>c.type!='player');creatures.forEach(c=>{c.fx=[];(c.ab||[]).forEach(a=>{a.u=0;delete a.l});if(c.dead||inact(c))return;const[k,l]=ikey(c,m);const r=R[k]||(R[k]={l,t:c.type,d:d20(),n:0,ms:[]});r.n++;r.ms.push(c.mod||0);c.init=r.d+(c.mod||0)});sortInit();cur=-1;round=1});
+  act(()=>{creatures=creatures.filter(c=>c.type!='player');creatures.forEach(c=>{c.fx=[];(c.ab||[]).forEach(a=>{a.u=0;delete a.l});if(c.type=='lair')c.init=20;if(c.dead||inact(c))return;const[k,l]=ikey(c,m);const r=R[k]||(R[k]={l,t:c.type,d:d20(),n:0,ms:[]});r.n++;r.ms.push(c.mod||0);c.init=r.d+(c.mod||0)});sortInit();cur=-1;round=1});
   showInit(Object.values(R).map(r=>Object.assign(r,{tot:r.d+r.ms[0]})).sort((a,b)=>b.tot-a.tot))}
 const lab=r=>r.l+(r.n>1?' ×'+r.n:'');
 function showInit(rows){
@@ -569,7 +569,7 @@ function chipClick(el){const id=+el.dataset.i,c=get(id);if(!c)return;if(c.type==
 addEventListener('keydown',e=>{if(e.key=='Escape')closeM()});
 function rows(){const S=[];let p=null;
   creatures.forEach((c,i)=>{if(c.type=='player'||c.res)return;const b=base(c.name)+c.type,g=creatures.filter(x=>!x.res&&base(x.name)+x.type==b),grp=g.length>1,boss=c.type=='boss'||c.type=='lair';
-    if(grp||boss){if(b!=p)S.push({k:'grp',t:c.type,cards:[],h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${esc(base(c.name))}</b>${grp?`<small>${g.filter(x=>!x.dead).length}/${g.length} живы</small>`:''}${c.type=='object'?'':`<small>иниц. ${c.init}</small>`}</div>`});S[S.length-1].cards.push(card(c,i))}
+    if(grp||boss){if(b!=p)S.push({k:'grp',t:c.type,cards:[],h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${esc(base(c.name))}</b>${grp&&c.type!='lair'?`<small>${g.filter(x=>!x.dead).length}/${g.length} живы</small>`:''}${c.type=='object'?'':`<small>иниц. ${c.init}</small>`}</div>`});S[S.length-1].cards.push(card(c,i))}
     else{const l=S[S.length-1];if(l&&l.k=='one'&&l.t==c.type)l.cards.push(card(c,i));else S.push({k:'one',t:c.type,h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${c.type=='object'?'Объекты':'Одиночные'}</b></div>`,cards:[card(c,i)]})}
     p=b});
   const W=$('list').clientWidth||900,N=Math.max(1,Math.min(S.length,4,Math.floor((W+16)/486))),C=Array.from({length:N},()=>({w:0,h:[]}));
@@ -583,10 +583,10 @@ function heal(c,v){c.hp=Math.min(c.maxHp,c.hp+v);if(c.hp>0)c.dead=false}
 function apply(m,ids,inp){if(!ids.length)return toast('Никто не выбран');const v=val(inp);if(!v)return;act(()=>ids.forEach(id=>{const c=get(id);if(!c)return;m=='d'?hit(c,v):m=='h'?hit(c,v>>1):m=='r'?heal(c,v):c.tempHp=Math.max(c.tempHp||0,v)}))}
 
 function addC(){const g=i=>$(i).value.trim(),base=g('f-name')||'Существо',n=Math.max(1,Math.min(30,+g('f-count')||1)),ac=+g('f-ac')||10,mod=+g('f-mod')||0,hx=g('f-hp')||'10',ini=g('f-init');
-  const id0=idc;act(()=>{const r=d20(),type=$('f-type').value;for(let i=0;i<n;i++){const hp=Math.max(1,roll(hx)||10);creatures.push({id:idc++,name:n>1?base+' '+(i+1):base,maxHp:hp,hp,tempHp:0,ac,mod,init:type=='object'?OBJ:ini===''?r+mod:+ini,conditions:[],dead:false,note:'',type,res:$('f-res').checked})}sortInit()});
+  const id0=idc;act(()=>{const r=d20(),type=$('f-type').value;for(let i=0;i<n;i++){const hp=Math.max(1,roll(hx)||10);creatures.push({id:idc++,name:n>1?base+' '+(i+1):base,maxHp:hp,hp,tempHp:0,ac,mod,init:type=='object'?OBJ:type=='lair'?20:ini===''?r+mod:+ini,conditions:[],dead:false,note:'',type,res:$('f-res').checked})}sortInit()});
   if($('f-bst').checked){const c1=creatures.find(c=>c.id===id0);if(c1)toBst(c1.id)}
   $('f-name').value='';$('f-init').value='';$('f-name').focus()}
-function edit(id,f){const c=get(id),L={name:'Имя',ac:'AC',init:'Инициатива',maxHp:'Макс. HP',mod:'Модификатор инициативы'},v=prompt(L[f],c[f]);if(v===null)return;
+function edit(id,f){if(f=='init'&&get(id).type=='lair')return;const c=get(id),L={name:'Имя',ac:'AC',init:'Инициатива',maxHp:'Макс. HP',mod:'Модификатор инициативы'},v=prompt(L[f],c[f]);if(v===null)return;
   act(()=>{if(f=='name')c.name=v.trim()||c.name;else{c[f]=parseInt(v)||(f=='maxHp'?1:0);if(f=='maxHp')c.hp=c.res?c.maxHp:Math.min(c.hp,c.maxHp);if(f=='init')sortInit()}})}
 function clone(id){const c=get(id);act(()=>{creatures.push(Object.assign(JSON.parse(JSON.stringify(c)),{id:idc++,name:c.name+' (копия)',rid:null}));sortInit()})}
 function dropC(id){const i=creatures.findIndex(c=>c.id===id);if(i<0)return;creatures.splice(i,1);sel.delete(id);if(i<cur)cur--;if(cur>=creatures.length)cur=creatures.length-1}
@@ -632,16 +632,16 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
   st=c.dead?['Мёртв','#8b8da8']:p<=.25?['Критично','#e05a4a']:p<=.5?['Ранен','#e8a020']:['Здоров','#4caf6a'];
   return `<div class="card t-${c.type}${c.dead?' dead':''}${on?' on':''}" id="c${c.id}" style="--c:${st[1]}">
   <div class="top">
-    <input type="checkbox" ${sel.has(c.id)?'checked':''} onchange="tog(${c.id},this.checked)">
-    ${c.type=='object'?'<div class="ini" title="Объект: инициатива не бросается">📦</div>':`<div class="ini" title="Инициатива" onclick="edit(${c.id},'init')">${c.init}</div>`}
+    ${c.type=='lair'?'':`<input type="checkbox" ${sel.has(c.id)?'checked':''} onchange="tog(${c.id},this.checked)">`}
+    ${c.type=='lair'?'<div class="ini" title="Действие логова: инициатива всегда 20">20</div>':c.type=='object'?'<div class="ini" title="Объект: инициатива не бросается">📦</div>':`<div class="ini" title="Инициатива" onclick="edit(${c.id},'init')">${c.init}</div>`}
     <div class="nm"><div class="name" onclick="edit(${c.id},'name')">${on?'⚔️ ':''}${esc(c.name)}</div>
-      <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span>${c.type=='boss'||c.type=='lair'?`<span class="tb" title="Тема оформления ячейки на полоске игроков (клик — сменить)" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff;border-color:#a86bff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span>${c.type=='object'?'':`<span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span>`}<b style="color:${st[1]}">${st[0]}</b></div></div>
-    <div class="hp">${c.hp}<span onclick="edit(${c.id},'maxHp')">/${c.maxHp}</span>${t?` <i>+${t}</i>`:''}</div>
+      <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span>${c.type=='boss'||c.type=='lair'?`<span class="tb" title="Тема оформления ячейки на полоске игроков (клик — сменить)" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff;border-color:#a86bff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}${c.type=='lair'?'':`<span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span>`}${c.type=='object'||c.type=='lair'?'':`<span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span>`}${c.type=='lair'?'':`<b style="color:${st[1]}">${st[0]}</b>`}</div></div>
+    ${c.type=='lair'?'':`<div class="hp">${c.hp}<span onclick="edit(${c.id},'maxHp')">/${c.maxHp}</span>${t?` <i>+${t}</i>`:''}</div>`}
     <div class="acts"><button class="sm" title="Способность: перезарядка или использования" onclick="openAb(${c.id})">⚡</button><button class="sm" title="Эффект с таймером" onclick="openFx(${c.id})">✨</button>${c.dead?`<button class="gr sm" onclick="revive(${c.id})">оживить</button>`:''}<button class="sm${xa.has(c.id)?' xon':''}" title="${xa.has(c.id)?'Свернуть кнопки':'Ещё: в базу, в бестиарий, в запас, копия, удалить'}" onclick="tga(${c.id})">${xa.has(c.id)?'✕':'⋯'}</button>${xa.has(c.id)?`<button class="sm" title="${c.rid?'В базе: HP сохраняется автоматически':'Сохранить в базу'}" style="${c.rid?'color:var(--gd)':''}" onclick="toRoster(${c.id})">${c.rid?'★':'☆'}</button><button class="sm" title="Сохранить в бестиарий — шаблон для будущих боёв" onclick="toBst(${c.id})">📚</button><button class="sm" title="Отправить в запас (в бою не участвует, пока не вызовешь)" onclick="toRes(${c.id})">💤</button><button class="sm" title="Копия" onclick="clone(${c.id})">⧉</button><button class="r sm" title="Удалить" onclick="del(${c.id})">🗑</button>`:''}</div>
   </div>
-  <div class="bar"><div style="width:${tot?c.hp/tot*100:0}%;background:${st[1]}"></div><div style="width:${tot?t/tot*100:0}%;background:var(--bl)"></div></div>
+  ${c.type=='lair'?'':`<div class="bar"><div style="width:${tot?c.hp/tot*100:0}%;background:${st[1]}"></div><div style="width:${tot?t/tot*100:0}%;background:var(--bl)"></div></div>`}
   ${(c.ab||[]).length?`<div class="abl">${c.ab.map((a,k)=>a.k=='r'?`<span class="ab r ${a.u?'sp':'rd'}"><b title="${a.u?'Потрачена — клик, чтобы вернуть':'Готова — клик, если использовал'}" onclick="abTog(${c.id},${k})">🔥 ${esc(a.n)}</b><em>${a.m==6?'6':a.m+'–6'}</em>${a.u?`<button title="Бросить d6 на перезарядку вручную" onclick="abRoll(${c.id},${k})">🎲${a.l?' '+a.l:''}</button>`:''}<button title="Убрать способность" onclick="abDel(${c.id},${k})">✕</button></span>`:`<span class="ab u${a.u>=a.c?' out':''}"><b title="Клик — потратить одно использование" onclick="abUse(${c.id},${k},1)">⚡ ${esc(a.n)}</b><span class="us">${a.c-a.u}/${a.c}</span><button title="Потратить" onclick="abUse(${c.id},${k},1)">−</button><button title="Вернуть" onclick="abUse(${c.id},${k},-1)">+</button><button title="Убрать способность" onclick="abDel(${c.id},${k})">✕</button></span>`).join('')}</div>`:''}
-  <div class="ctl">
+  ${c.type=='lair'?`<div class="ctl"><input class="note" placeholder="заметка: что делает логово…" value="${esc(c.note||'')}" onchange="note(${c.id},this.value)"></div>`:`<div class="ctl">
     <input id="dmg-${c.id}" placeholder="12 / 2d6+3" onkeydown="if(event.key==='Enter')apply('d',[${c.id}],'dmg-${c.id}')">
     <button class="r sm" onclick="apply('d',[${c.id}],'dmg-${c.id}')">Урон</button>
     <button class="sm" title="Половина урона (успешное спасбросок)" onclick="apply('h',[${c.id}],'dmg-${c.id}')">½</button>
@@ -649,7 +649,7 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
     <button class="b sm" onclick="apply('t',[${c.id}],'dmg-${c.id}')">Врем. HP</button>
     <select onchange="cond(${c.id},this.value)"><option value="">+ состояние</option>${CO.map(x=>`<option>${x}</option>`).join('')}</select>
     <input class="note" placeholder="заметка…" value="${esc(c.note||'')}" onchange="note(${c.id},this.value)">
-  </div>
+  </div>`}
   <div class="tags">${(c.fx||[]).map((f,k)=>`<span class="pill f" title="Таймер: ${f.t=='e'?'конец':'начало'} хода ${esc(c.name)}" onclick="fxDel(${c.id},${k})">✨ ${esc(f.n)} · ${f.r} р. ✕</span>`).join('')}${t?`<span class="pill t" onclick="clearT(${c.id})">🛡 ${t} врем. HP ✕</span>`:''}${c.conditions.map(x=>`<span class="pill" data-c="${esc(x)}" onclick="rmCond(${c.id},this.dataset.c)">${esc(x)} ✕</span>`).join('')}</div>
   </div>`}
 
