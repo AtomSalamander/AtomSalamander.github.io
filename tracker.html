@@ -57,7 +57,7 @@ input:focus,select:focus{outline:none;border-color:var(--gd)}
 #pl{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1}
 kbd{background:var(--pn2);border:1px solid var(--ln);border-radius:4px;padding:0 5px;font-size:.72rem}
 /* ── v2.1 оформление ── */
-.t-enemy{--t:#e0605a}.t-ally{--t:#3fc8a8}.t-boss{--t:#e2b865}
+.t-enemy{--t:#e0605a}.t-ally{--t:#3fc8a8}.t-boss{--t:#e2b865}.t-lair{--t:#8f7bd6}
 body{font-family:Inter,'Segoe UI',system-ui,sans-serif;background:radial-gradient(900px 500px at 12% -5%,#2b1d5a77,transparent),radial-gradient(800px 500px at 95% 0,#0f4a6a66,transparent),#0a0b17 fixed}
 aside{background:#0b0c1ccc;backdrop-filter:blur(12px)}
 h1{font-size:1.9rem;background:linear-gradient(90deg,#f3d58a,#c98fff);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -68,6 +68,8 @@ input,select{background:#0e0f22}
 .card{border:1px solid #ffffff16;border-top:3px solid var(--t);background:linear-gradient(160deg,#1c1f3fcc,#121429cc);backdrop-filter:blur(6px);border-radius:14px;box-shadow:0 6px 24px #0007}
 .card.t-boss{grid-column:1/-1;background:linear-gradient(120deg,#3d2c12dd,#2a1450dd);box-shadow:0 0 30px #e2b86533}
 .card.t-boss .name{font-size:1.25rem;color:#f3d58a}
+.card.t-lair{grid-column:1/-1;background:linear-gradient(120deg,#0b0818dd,#1b0f33dd);box-shadow:0 0 26px #6a4fc033}
+.card.t-lair .name{font-size:1.2rem;color:#d4c8ff}
 .card.on{border-color:#f3d58a;background:linear-gradient(160deg,#2f2a18,#1a1a2a);animation:pu 2.2s infinite}
 @keyframes pu{0%,100%{box-shadow:0 0 0 1px #f3d58a,0 0 22px #f3d58a40}50%{box-shadow:0 0 0 1px #f3d58a,0 0 38px #f3d58a70}}
 .bar{height:11px;border-radius:6px}.hp{font-size:1.9rem}
@@ -255,7 +257,7 @@ details#msec summary{cursor:pointer;color:var(--gd);font-size:.8rem;margin-botto
       <div><label>Мод. иниц.</label><input id="f-mod" type="number" value="0"></div>
       <div><label>Иниц. (пусто = бросок)</label><input id="f-init" type="number"></div>
       <div><label>Кол-во</label><input id="f-count" type="number" min="1" value="1"></div>
-      <div><label>Тип</label><select id="f-type"><option value="enemy">⚔️ Враг</option><option value="ally">🛡️ Союзник</option><option value="boss">👑 Босс</option></select></div>
+      <div><label>Тип</label><select id="f-type"><option value="enemy">⚔️ Враг</option><option value="ally">🛡️ Союзник</option><option value="boss">👑 Босс</option><option value="lair">🕳️ Действие логова</option></select></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button onclick="tf()">Закрыть</button><button class="gr" onclick="addC()">Добавить</button></div>
   </div>
@@ -351,15 +353,15 @@ function tickFx(c,when){if(!c||c.dead||!c.fx||!c.fx.length)return;c.fx.forEach(f
 let rn=[];const d6=()=>Math.floor(Math.random()*6)+1;
 function rchg(c){if(!c||c.dead||!c.ab)return;c.ab.forEach(a=>{if(a.k=='r'&&a.u){const d=d6();a.l=d;rn.push(d>=a.m?'🔥 '+a.n+' ('+c.name+') перезарядилась — выпало '+d:'🎲 '+a.n+' ('+c.name+'): выпало '+d+', нужно '+a.m+'+')}if(a.k=='r'&&a.u&&a.l>=a.m)a.u=0})}
 function next(){if(!creatures.some(c=>!c.dead))return;gone=[];rn=[];act(()=>{tickFx(creatures[cur],'e');let i=cur;do{i++;if(i>=creatures.length){i=0;round++}}while(creatures[i].dead);cur=i;tickFx(creatures[cur],'s');rchg(creatures[cur])});{const m=[];if(gone.length)m.push('⌛ Закончилось: '+gone.join(', '));m.push(...rn);if(m.length)toast(m.join(' · '),6000);gone=[];rn=[]}const c=creatures[cur];if(c){const e=$('c'+c.id);e&&e.scrollIntoView({block:'nearest',behavior:'smooth'})}}
-const TI={enemy:'⚔️',ally:'🛡️',boss:'👑',player:'🧙'},TL={enemy:'Враг',ally:'Союзник',boss:'Босс',player:'Игрок'},base=n=>n.replace(/ \d+$/,'');
+const TI={enemy:'⚔️',ally:'🛡️',boss:'👑',lair:'🕳️',player:'🧙'},TL={enemy:'Враг',ally:'Союзник',boss:'Босс',lair:'Логово',player:'Игрок'},base=n=>n.replace(/ \d+$/,'');
 // темы оформления ячейки босса на полоске игроков (id должен совпадать с темой в bar.html)
-const THEMES=[{id:'priestess',n:'Слепая жрица'},{id:'guurdezh',n:"Гуур'Дезх"}];
+const THEMES=[{id:'priestess',n:'Слепая жрица',f:'boss'},{id:'guurdezh',n:"Гуур'Дезх",f:'boss'},{id:'shar',n:'Шар',f:'lair'}];
 const thName=id=>(THEMES.find(x=>x.id==id)||{n:id}).n;
-function thm(id){act(()=>{const c=get(id),ids=['',...THEMES.map(x=>x.id)],i=ids.indexOf(c.theme||'');c.theme=ids[(i+1)%ids.length]})}
-function cyc(id){act(()=>{const c=get(id);c.type={enemy:'ally',ally:'boss',boss:'enemy'}[c.type]})}
+function thm(id){act(()=>{const c=get(id),ids=['',...THEMES.filter(x=>x.f==c.type).map(x=>x.id)],i=ids.indexOf(c.theme||'');c.theme=ids[(i+1)%ids.length]})}
+function cyc(id){act(()=>{const c=get(id);c.type={enemy:'ally',ally:'boss',boss:'lair',lair:'enemy'}[c.type];if(c.theme&&!THEMES.some(x=>x.id==c.theme&&x.f==c.type))c.theme=''})}
 // ключ броска: босс всегда сам по себе
 function ikey(c,m){const own=['i'+c.id,c.name],e=c.type=='enemy';
-  if(c.type=='boss'||m=='ind')return own;
+  if(c.type=='boss'||c.type=='lair'||m=='ind')return own;
   if(m=='side')return e?['E','Все враги']:['A','Все союзники'];
   if(m=='grpE'&&!e)return own;
   return['g'+base(c.name)+c.type,base(c.name)]}
@@ -401,7 +403,7 @@ $('prow').addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.classList
 
 // ── панель инициативы ──
 function groups(){const out=[];creatures.forEach((c,i)=>{if(c.dead&&i!=cur)return;const pl=c.type=='player',k=pl?'p'+c.id:base(c.name)+'|'+c.type+'|'+c.init,l=out[out.length-1];
-  if(l&&l.k==k&&!pl&&c.type!='boss'){l.ids.push(c.id);l.idx.push(i)}else out.push({k,t:c.type,name:pl?c.name:base(c.name),init:c.init,ids:[c.id],idx:[i]})});
+  if(l&&l.k==k&&!pl&&c.type!='boss'&&c.type!='lair'){l.ids.push(c.id);l.idx.push(i)}else out.push({k,t:c.type,name:pl?c.name:base(c.name),init:c.init,ids:[c.id],idx:[i]})});
   out.forEach(g=>{g.on=g.idx.includes(cur);g.done=cur>=0&&!g.on&&g.idx[g.idx.length-1]<cur});return out}
 function renderI(){renderFx();const box=$('chips'),sl=box.scrollLeft,G=groups(),rn=$('rn');
   box.innerHTML=G.length?G.map(g=>`<div class="chip t-${g.t}${g.on?' on':''}${g.done?' done':''}" draggable="true" data-i="${g.ids[0]}" title="${g.t=='player'?'Клик — изменить инициативу':'Клик — показать карточку'}" onclick="chipClick(this)">${fxn(g)?`<em class="fxc" title="Эффектов на ходу">✨${fxn(g)}</em>`:''}<b>${g.init}</b><span>${TI[g.t]} ${esc(g.name)}${g.ids.length>1?' ×'+g.ids.length:''}</span>${g.on&&g.ids.length>1?`<small>${esc(creatures[cur].name)}</small>`:''}</div>`).join(''):'<div class="chint">Порядок ходов появится после броска инициативы</div>';
@@ -457,7 +459,7 @@ body{background:radial-gradient(ellipse at 50% -10%,#2a1d4e 0%,#0f1020 60%);colo
 .chip.on{border-color:#f3d58a;background:linear-gradient(160deg,#3a3119,#1f1d2c);box-shadow:0 0 0 1px #f3d58a,0 0 5vmin #f3d58a77;transform:scale(1.12);margin:0 1vmin}
 .chip.on span{color:#f3d58a}
 .chip.done{opacity:.4}
-.t-enemy{--t:#e0605a}.t-ally{--t:#3fc8a8}.t-boss{--t:#e2b865}.t-player{--t:#b48cff}
+.t-enemy{--t:#e0605a}.t-ally{--t:#3fc8a8}.t-boss{--t:#e2b865}.t-lair{--t:#8f7bd6}.t-player{--t:#b48cff}
 #fx{display:none;flex-wrap:wrap;gap:1.2vmin;justify-content:center;border-top:1px solid #34375c;padding-top:2vmin}
 .fx{display:flex;align-items:baseline;gap:1.2vmin;padding:.8vmin 2vmin;border-radius:5vmin;background:#1a1530;border:1px solid color-mix(in srgb,var(--t) 55%,transparent);font-size:2.4vmin}
 .fx.on{border-color:#f3d58a}.fx.low .t{color:#ffb454}
@@ -473,7 +475,7 @@ function openView(){if(vw&&!vw.closed){vw.focus();return}
   vw.document.open();vw.document.write(VIEW_HTML);vw.document.close();lastV='';renderV();toast('📺 Окно открыто — в Discord выбери «Окно» и укажи его',4500)}
 let lastV='';
 function renderV(){if(!vw||vw.closed)return;const d=vw.document,q=i=>d.getElementById(i);if(!q('ch'))return;
-  const hide=$('hn').checked,hid=c=>hide&&(c.type=='enemy'||c.type=='boss'),G=groups(),nm=g=>g.t=='player'||g.t=='ally'||!hide?g.name:HID;
+  const hide=$('hn').checked,hid=c=>hide&&(c.type=='enemy'||c.type=='boss'),G=groups(),nm=g=>g.t=='player'||g.t=='ally'||g.t=='lair'||!hide?g.name:HID;
   const sig=JSON.stringify([round,cur,hide,G.map(g=>[g.init,g.t,g.name,g.ids.length,g.on,g.done]),creatures.map(c=>[c.name,c.dead,(c.fx||[]).map(f=>[f.n,f.r])])]);if(sig===lastV)return;lastV=sig;
   q('v-r').textContent=round;
   q('ch').innerHTML=G.length?G.map(g=>`<div class="chip t-${g.t}${g.on?' on':''}${g.done?' done':''}"><b>${g.init}</b><span>${TI[g.t]} ${esc(nm(g))}${g.ids.length>1&&!(hide&&hid({type:g.t}))?' ×'+g.ids.length:''}</span></div>`).join(''):'<div class="empty">Бой ещё не начался</div>';
@@ -489,7 +491,7 @@ addEventListener('beforeunload',()=>{if(vw&&!vw.closed)vw.close()});
 let ad={rows:{},groups:[]};
 const adNum=()=>{const t=$('ad-v').value.trim();return /^\d+$/.test(t)?parseInt(t):NaN};
 function adCalc(c,r){const v=adNum();if(isNaN(v)||r.s=='n')return 0;let d=r.s=='h'?v>>1:v;if(r.m==1)d>>=1;if(r.m==2)d*=2;return d}
-function openAD(){const L=creatures.filter(c=>c.type!='player'&&!c.dead);if(!L.length)return toast('Некого бить');
+function openAD(){const L=creatures.filter(c=>c.type!='player'&&c.type!='lair'&&!c.dead);if(!L.length)return toast('Некого бить');
   const use=L.some(c=>sel.has(c.id));ad={rows:{},groups:[]};const gm=new Map();
   L.forEach(c=>{ad.rows[c.id]={s:!use||sel.has(c.id)?'f':'n',m:0};const k=base(c.name)+'|'+c.type;if(!gm.has(k))gm.set(k,[]);gm.get(k).push(c.id)});
   ad.groups=[...gm.values()];$('ad-v').value='';$('ad-h').textContent='';renderAD();$('adm').classList.add('show');setTimeout(()=>$('ad-v').focus(),50)}
@@ -532,7 +534,7 @@ function chipClick(el){const id=+el.dataset.i,c=get(id);if(!c)return;if(c.type==
   const e=$('c'+id);if(e){e.scrollIntoView({block:'center',behavior:'smooth'});e.classList.remove('fl');void e.offsetWidth;e.classList.add('fl')}}
 addEventListener('keydown',e=>{if(e.key=='Escape')closeM()});
 function rows(){const S=[];let p=null;
-  creatures.forEach((c,i)=>{if(c.type=='player')return;const b=base(c.name)+c.type,g=creatures.filter(x=>base(x.name)+x.type==b),grp=g.length>1,boss=c.type=='boss';
+  creatures.forEach((c,i)=>{if(c.type=='player')return;const b=base(c.name)+c.type,g=creatures.filter(x=>base(x.name)+x.type==b),grp=g.length>1,boss=c.type=='boss'||c.type=='lair';
     if(grp||boss){if(b!=p)S.push({k:'grp',t:c.type,cards:[],h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${esc(base(c.name))}</b>${grp?`<small>${g.filter(x=>!x.dead).length}/${g.length} живы</small>`:''}<small>иниц. ${c.init}</small></div>`});S[S.length-1].cards.push(card(c,i))}
     else{const l=S[S.length-1];if(l&&l.k=='one'&&l.t==c.type)l.cards.push(card(c,i));else S.push({k:'one',t:c.type,h:`<div class="gh t-${c.type}"><b>${TI[c.type]} Одиночные</b></div>`,cards:[card(c,i)]})}
     p=b});
@@ -598,7 +600,7 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
     <input type="checkbox" ${sel.has(c.id)?'checked':''} onchange="tog(${c.id},this.checked)">
     <div class="ini" title="Инициатива" onclick="edit(${c.id},'init')">${c.init}</div>
     <div class="nm"><div class="name" onclick="edit(${c.id},'name')">${on?'⚔️ ':''}${esc(c.name)}</div>
-      <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span>${c.type=='boss'?`<span class="tb" title="Тема оформления ячейки на полоске игроков (клик — сменить)" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff;border-color:#a86bff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span><span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span><b style="color:${st[1]}">${st[0]}</b></div></div>
+      <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span>${c.type=='boss'||c.type=='lair'?`<span class="tb" title="Тема оформления ячейки на полоске игроков (клик — сменить)" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff;border-color:#a86bff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span><span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span><b style="color:${st[1]}">${st[0]}</b></div></div>
     <div class="hp">${c.hp}<span onclick="edit(${c.id},'maxHp')">/${c.maxHp}</span>${t?` <i>+${t}</i>`:''}</div>
     <div class="acts"><button class="sm" title="Способность: перезарядка или использования" onclick="openAb(${c.id})">⚡</button><button class="sm" title="Эффект с таймером" onclick="openFx(${c.id})">✨</button>${c.dead?`<button class="gr sm" onclick="revive(${c.id})">оживить</button>`:''}<button class="sm" title="${c.rid?'В базе: HP сохраняется автоматически':'Сохранить в базу'}" style="${c.rid?'color:var(--gd)':''}" onclick="toRoster(${c.id})">${c.rid?'★':'☆'}</button><button class="sm" title="Копия" onclick="clone(${c.id})">⧉</button><button class="r sm" onclick="del(${c.id})">✕</button></div>
   </div>
@@ -620,7 +622,7 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
 let lastPub='',pubOff=false;try{pubOff=!!localStorage.getItem('dnd_puboff')}catch(e){}
 function togO(){pubOff=!pubOff;try{localStorage.setItem('dnd_puboff',pubOff?'1':'')}catch(e){}lastPub='';pubO();toast(pubOff?'Полоска убрана с карты':'Полоска снова на карте')}
 function pubO(){const hide=$('hn').checked,hd=t=>hide&&(t=='enemy'||t=='boss'),G=groups();
-  const P={v:1,r:round,chips:G.map(g=>{const c0=get(g.ids[0]),h=g.t=='boss'&&!hd(g.t)&&c0&&c0.theme||'',o={i:g.init,t:g.t,n:hd(g.t)?HID:g.name,c:hd(g.t)?1:g.ids.length,on:g.on,done:g.done};if(h)o.h=h;return o}),fx:[]};
+  const P={v:1,r:round,chips:G.map(g=>{const c0=get(g.ids[0]),h=(g.t=='boss'||g.t=='lair')&&!hd(g.t)&&c0&&c0.theme||'',o={i:g.init,t:g.t,n:hd(g.t)?HID:g.name,c:hd(g.t)?1:g.ids.length,on:g.on,done:g.done};if(h)o.h=h;return o}),fx:[]};
   creatures.forEach((c,i)=>{if(c.dead)return;(c.fx||[]).forEach(f=>P.fx.push({n:f.n,w:hd(c.type)?HID:c.name,r:f.r,on:i==cur}))});
   if(pubOff){P.chips=[];P.fx=[]}
   const pb=$('pubb');if(pb){pb.textContent=pubOff?'🦉 Полоска: выкл':'🦉 Полоска: вкл';pb.style.opacity=pubOff?.55:1}
