@@ -37,7 +37,7 @@ input:focus,select:focus{outline:none;border-color:var(--gd)}
 .nm{flex:1;min-width:0}.name{font-weight:600;font-size:1.05rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .meta{font-size:.78rem;color:var(--mt);display:flex;gap:12px;flex-wrap:wrap}.meta span{cursor:pointer}.meta span:hover{color:var(--gd)}
 .hp{font:600 1.7rem Georgia,serif;font-variant-numeric:tabular-nums;white-space:nowrap}.hp span{font-size:1rem;color:var(--mt);cursor:pointer}.hp i{font-size:.9rem;color:var(--bl);font-style:normal}
-.acts{display:flex;gap:5px}
+.acts{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;max-width:8.6rem}
 .bar{height:9px;background:#0c0d1c;border-radius:5px;overflow:hidden;margin:9px 0;display:flex}
 .bar div{height:100%;transition:width .35s}
 .ctl{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
@@ -70,6 +70,11 @@ input,select{background:#0e0f22}
 .card.t-boss .name{font-size:1.25rem;color:#f3d58a}
 .card.t-lair{grid-column:1/-1;background:linear-gradient(120deg,#0b0818dd,#1b0f33dd);box-shadow:0 0 26px #6a4fc033}
 .card.t-lair .name{font-size:1.2rem;color:#d4c8ff}
+#rsv{margin-top:1.4rem}
+.rsv-h{font-weight:700;color:#cfd3ff;margin-bottom:.5rem}.rsv-h small{margin-left:.4rem;color:#9a9cc0}.rsv-h span{margin-left:.8rem;font-size:.72rem;font-weight:400;color:#8b8da8}
+.rv{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;background:#14162ccc;border:1px dashed #ffffff26;border-left:4px solid var(--t);border-radius:10px;padding:.45rem .8rem;margin-bottom:.4rem}
+.rv .rn{cursor:pointer;color:#ece9ff}.rv .rt{cursor:pointer}.rv .rm{font-size:.78rem;color:#b8bad8;cursor:pointer;padding:.1rem .45rem;border:1px solid #ffffff1c;border-radius:6px}
+.rv .sp{flex:1}.rv input{width:5.2rem}
 .card.on{border-color:#f3d58a;background:linear-gradient(160deg,#2f2a18,#1a1a2a);animation:pu 2.2s infinite}
 @keyframes pu{0%,100%{box-shadow:0 0 0 1px #f3d58a,0 0 22px #f3d58a40}50%{box-shadow:0 0 0 1px #f3d58a,0 0 38px #f3d58a70}}
 .bar{height:11px;border-radius:6px}.hp{font-size:1.9rem}
@@ -218,6 +223,8 @@ details#msec summary{cursor:pointer;color:var(--gd);font-size:.8rem;margin-botto
   <input id="pn" placeholder="Название пресета…" onkeydown="if(event.key==='Enter')saveP()">
   <button class="g" onclick="saveP()">💾 Сохранить текущий бой</button>
   <div id="pl"></div>
+  <h3>Бестиарий</h3>
+  <div id="bl"></div>
   <h3>Союзники · база</h3>
   <div id="rl"></div>
   <div style="display:flex;gap:6px"><button class="sm" style="flex:1" onclick="allR()">＋ Всех в бой</button><button class="gr sm" style="flex:1" onclick="rest()">💤 Отдых</button></div>
@@ -258,11 +265,14 @@ details#msec summary{cursor:pointer;color:var(--gd);font-size:.8rem;margin-botto
       <div><label>Иниц. (пусто = бросок)</label><input id="f-init" type="number"></div>
       <div><label>Кол-во</label><input id="f-count" type="number" min="1" value="1"></div>
       <div><label>Тип</label><select id="f-type"><option value="enemy">⚔️ Враг</option><option value="ally">🛡️ Союзник</option><option value="boss">👑 Босс</option><option value="lair">🕳️ Действие логова</option><option value="object">📦 Объект (без инициативы)</option></select></div>
+      <div><label>&nbsp;</label><label class="ck"><input type="checkbox" id="f-res"> 💤 В запас</label></div>
+      <div><label>&nbsp;</label><label class="ck"><input type="checkbox" id="f-bst"> 📚 В бестиарий</label></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button onclick="tf()">Закрыть</button><button class="gr" onclick="addC()">Добавить</button></div>
   </div>
 
   <div class="list" id="list"></div>
+  <div id="rsv"></div>
 </main>
 
 <div id="gbar">
@@ -346,19 +356,41 @@ function save(){syncR();try{localStorage.setItem('dnd_battle',JSON.stringify(sta
 function load(s){creatures=(s.creatures||[]).map(c=>Object.assign({tempHp:0,conditions:[],dead:false,mod:0,note:'',type:'enemy',fx:[],ab:[]},c));cur=s.currentTurn??-1;round=s.round||1;idc=Math.max(idc,s.idCounter||0,...creatures.map(c=>c.id+1))}
 function act(fn){hist.push(JSON.stringify(state()));if(hist.length>60)hist.shift();fn();save();render()}
 function undo(){if(!hist.length)return toast('Нечего отменять');load(JSON.parse(hist.pop()));save();render()}
-function sortInit(){const a=creatures[cur];creatures.sort((x,y)=>y.init-x.init);cur=a?creatures.indexOf(a):-1}
+const inact=c=>c.res||c.type=='object',skey=c=>inact(c)?-1e6+c.init:c.init;
+function sortInit(){const a=creatures[cur];creatures.sort((x,y)=>skey(y)-skey(x));cur=a?creatures.indexOf(a):-1}
 
 let gone=[];
 function tickFx(c,when){if(!c||c.dead||!c.fx||!c.fx.length)return;c.fx.forEach(f=>{if(f.t==when)f.r--});c.fx.filter(f=>f.r<=0).forEach(f=>gone.push(f.n+' ('+c.name+')'));c.fx=c.fx.filter(f=>f.r>0)}
 let rn=[];const d6=()=>Math.floor(Math.random()*6)+1;
 function rchg(c){if(!c||c.dead||!c.ab)return;c.ab.forEach(a=>{if(a.k=='r'&&a.u){const d=d6();a.l=d;rn.push(d>=a.m?'🔥 '+a.n+' ('+c.name+') перезарядилась — выпало '+d:'🎲 '+a.n+' ('+c.name+'): выпало '+d+', нужно '+a.m+'+')}if(a.k=='r'&&a.u&&a.l>=a.m)a.u=0})}
-function next(){if(!creatures.some(c=>!c.dead&&c.type!='object'))return;gone=[];rn=[];act(()=>{tickFx(creatures[cur],'e');let i=cur;do{i++;if(i>=creatures.length){i=0;round++}}while(creatures[i].dead||creatures[i].type=='object');cur=i;tickFx(creatures[cur],'s');rchg(creatures[cur])});{const m=[];if(gone.length)m.push('⌛ Закончилось: '+gone.join(', '));m.push(...rn);if(m.length)toast(m.join(' · '),6000);gone=[];rn=[]}const c=creatures[cur];if(c){const e=$('c'+c.id);e&&e.scrollIntoView({block:'nearest',behavior:'smooth'})}}
+function next(){if(!creatures.some(c=>!c.dead&&!inact(c)))return;gone=[];rn=[];act(()=>{tickFx(creatures[cur],'e');let i=cur;do{i++;if(i>=creatures.length){i=0;round++}}while(creatures[i].dead||inact(creatures[i]));cur=i;tickFx(creatures[cur],'s');rchg(creatures[cur])});{const m=[];if(gone.length)m.push('⌛ Закончилось: '+gone.join(', '));m.push(...rn);if(m.length)toast(m.join(' · '),6000);gone=[];rn=[]}const c=creatures[cur];if(c){const e=$('c'+c.id);e&&e.scrollIntoView({block:'nearest',behavior:'smooth'})}}
 const TI={enemy:'⚔️',ally:'🛡️',boss:'👑',lair:'🕳️',object:'📦',player:'🧙'},TL={enemy:'Враг',ally:'Союзник',boss:'Босс',lair:'Логово',object:'Объект',player:'Игрок'},base=n=>n.replace(/ \d+$/,'');
 // темы оформления ячейки босса на полоске игроков (id должен совпадать с темой в bar.html)
 const THEMES=[{id:'priestess',n:'Слепая жрица',f:'boss'},{id:'guurdezh',n:"Гуур'Дезх",f:'boss'},{id:'shar',n:'Шар',f:'lair'}];
 const thName=id=>(THEMES.find(x=>x.id==id)||{n:id}).n;
 function thm(id){act(()=>{const c=get(id),ids=['',...THEMES.filter(x=>x.f==c.type).map(x=>x.id)],i=ids.indexOf(c.theme||'');c.theme=ids[(i+1)%ids.length]})}
 const OBJ=-999;
+// ── существа в запасе: лежат в бою «в сторонке», сохраняются вместе с боем, вызываются одной кнопкой ──
+// ── бестиарий: шаблоны существ (свежие HP каждый раз), в отличие от «базы», где HP переходят из боя в бой ──
+let bestiary=[];try{bestiary=JSON.parse(localStorage.getItem('dnd_bestiary')||'[]')}catch(e){}
+const putB=()=>{try{localStorage.setItem('dnd_bestiary',JSON.stringify(bestiary))}catch(e){}};
+function toBst(id){const c=get(id);if(!c||c.type=='player')return;const n=base(c.name),
+  t={bid:'b'+Date.now().toString(36)+id,name:n,type:c.type,maxHp:c.maxHp,ac:c.ac,mod:c.mod||0,note:c.note||'',theme:c.theme||'',ab:(c.ab||[]).map(a=>({...a,u:0,l:0}))},
+  i=bestiary.findIndex(b=>b.name==n);if(i>=0){t.bid=bestiary[i].bid;bestiary[i]=t}else bestiary.push(t);putB();renderB();toast(i>=0?'📚 «'+n+'» обновлён в бестиарии':'📚 «'+n+'» сохранён в бестиарий')}
+function addB(bid,n,res){const t=bestiary.find(b=>b.bid===bid);if(!t)return;n=Math.max(1,Math.min(30,n||1));
+  const same=creatures.filter(c=>base(c.name)==t.name),k=same.length,mx=Math.max(0,...same.map(c=>+(c.name.match(/ (\d+)$/)||[0,0])[1])),st=Math.max(k,mx);
+  act(()=>{const r=d20();for(let i=0;i<n;i++)creatures.push({id:idc++,name:k==0&&n==1?t.name:t.name+' '+(st+i+1),maxHp:t.maxHp,hp:t.maxHp,tempHp:0,ac:t.ac,mod:t.mod,
+    init:t.type=='object'?OBJ:t.type=='lair'?20:r+t.mod,conditions:[],dead:false,note:t.note,type:t.type,theme:t.theme||'',ab:JSON.parse(JSON.stringify(t.ab||[])),res:!!res});sortInit()});
+  toast((res?'💤 В запас: ':'⚔️ В бой: ')+t.name+(n>1?' ×'+n:''))}
+function addBn(bid){const v=prompt('Сколько добавить?','2');if(v===null)return;const n=parseInt(v);if(n>0)addB(bid,n)}
+function delB(bid){if(!confirm('Удалить из бестиария?'))return;bestiary=bestiary.filter(b=>b.bid!==bid);putB();renderB()}
+function renderB(){const el=$('bl');if(!el)return;el.innerHTML=bestiary.length?bestiary.map(b=>`<div class="pi"><span data-b="${b.bid}" onclick="addB(this.dataset.b,1)" title="Добавить в бой · ❤ ${b.maxHp} · 🛡 ${b.ac} · иниц. ${b.mod>=0?'+':''}${b.mod}">${TI[b.type]||'⚔️'} ${esc(b.name)}</span><button data-b="${b.bid}" onclick="addBn(this.dataset.b)" title="Добавить несколько">×N</button><button data-b="${b.bid}" onclick="addB(this.dataset.b,1,true)" title="Добавить в запас">💤</button><button data-b="${b.bid}" onclick="delB(this.dataset.b)" title="Удалить">✕</button></div>`).join(''):'<div class="empty" style="padding:.6rem 0;font-size:.78rem">Нажми 📚 на карточке существа — оно сохранится как шаблон</div>'}
+function toRes(id){act(()=>{const c=get(id);if(creatures[cur]===c)cur--;c.res=true;sortInit();toast('💤 «'+c.name+'» в запасе')})}
+function callR(id){const c=get(id),e=document.getElementById('ri-'+id),v=e?e.value.trim():'';let r=0;
+  act(()=>{c.res=false;c.init=c.type=='object'?OBJ:(v===''?(r=d20())+(c.mod||0):+v);sortInit()});
+  toast('▶ «'+c.name+'» в бою'+(c.type=='object'?'':' · инициатива '+c.init+(v===''?' (бросок '+r+')':'')))}
+function renderRsv(){const L=creatures.filter(c=>c.res),el=$('rsv');if(!el)return;
+  el.innerHTML=L.length?`<div class="rsv-h">💤 В запасе <small>${L.length}</small><span>сохраняется вместе с боем · можно вызвать в любой момент</span></div>`+L.map(c=>`<div class="rv t-${c.type}"><span class="rt" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]}</span><b class="rn" title="Переименовать" onclick="edit(${c.id},'name')">${esc(c.name)}</b><span class="rm" onclick="edit(${c.id},'ac')">🛡 ${c.ac}</span><span class="rm" title="Макс. HP" onclick="edit(${c.id},'maxHp')">❤ ${c.maxHp}</span>${c.type=='boss'||c.type=='lair'?`<span class="rm" title="Тема оформления" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span class="sp"></span>${c.type=='object'?'':`<input id="ri-${c.id}" type="number" placeholder="🎲 ${sg(c.mod||0)}" title="Инициатива (пусто — бросок d20${sg(c.mod||0)})" onkeydown="if(event.key==='Enter')callR(${c.id})">`}<button class="g sm" onclick="callR(${c.id})">▶ В бой</button><button class="r sm" title="Удалить" onclick="del(${c.id})">✕</button></div>`).join(''):''}
 function cyc(id){act(()=>{const c=get(id);const o=c.type;c.type={enemy:'ally',ally:'boss',boss:'lair',lair:'object',object:'enemy'}[o];if(c.type=='object')c.init=OBJ;else if(o=='object')c.init=d20()+(c.mod||0);sortInit();if(c.theme&&!THEMES.some(x=>x.id==c.theme&&x.f==c.type))c.theme=''})}
 // ключ броска: босс всегда сам по себе
 function ikey(c,m){const own=['i'+c.id,c.name],e=c.type=='enemy';
@@ -366,8 +398,8 @@ function ikey(c,m){const own=['i'+c.id,c.name],e=c.type=='enemy';
   if(m=='side')return e?['E','Все враги']:['A','Все союзники'];
   if(m=='grpE'&&!e)return own;
   return['g'+base(c.name)+c.type,base(c.name)]}
-function rollAll(){if(!creatures.some(c=>c.type!='player'&&c.type!='object'))return toast('Сначала добавьте существ');const m=$('im').value,R={};
-  act(()=>{creatures=creatures.filter(c=>c.type!='player');creatures.forEach(c=>{c.fx=[];(c.ab||[]).forEach(a=>{a.u=0;delete a.l});if(c.dead||c.type=='object')return;const[k,l]=ikey(c,m);const r=R[k]||(R[k]={l,t:c.type,d:d20(),n:0,ms:[]});r.n++;r.ms.push(c.mod||0);c.init=r.d+(c.mod||0)});sortInit();cur=-1;round=1});
+function rollAll(){if(!creatures.some(c=>c.type!='player'&&!inact(c)))return toast('Сначала добавьте существ');const m=$('im').value,R={};
+  act(()=>{creatures=creatures.filter(c=>c.type!='player');creatures.forEach(c=>{c.fx=[];(c.ab||[]).forEach(a=>{a.u=0;delete a.l});if(c.dead||inact(c))return;const[k,l]=ikey(c,m);const r=R[k]||(R[k]={l,t:c.type,d:d20(),n:0,ms:[]});r.n++;r.ms.push(c.mod||0);c.init=r.d+(c.mod||0)});sortInit();cur=-1;round=1});
   showInit(Object.values(R).map(r=>Object.assign(r,{tot:r.d+r.ms[0]})).sort((a,b)=>b.tot-a.tot))}
 const lab=r=>r.l+(r.n>1?' ×'+r.n:'');
 function showInit(rows){
@@ -403,7 +435,7 @@ $('prow').addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.classList
   const a=[...document.querySelectorAll('#prow .pin:not(:disabled)')],i=a.indexOf(e.target);i<a.length-1?a[i+1].focus():applyP()});
 
 // ── панель инициативы ──
-function groups(){const out=[];creatures.forEach((c,i)=>{if(c.type=='object'||c.dead&&i!=cur)return;const pl=c.type=='player',k=pl?'p'+c.id:base(c.name)+'|'+c.type+'|'+c.init,l=out[out.length-1];
+function groups(){const out=[];creatures.forEach((c,i)=>{if(inact(c)||c.dead&&i!=cur)return;const pl=c.type=='player',k=pl?'p'+c.id:base(c.name)+'|'+c.type+'|'+c.init,l=out[out.length-1];
   if(l&&l.k==k&&!pl&&c.type!='boss'&&c.type!='lair'){l.ids.push(c.id);l.idx.push(i)}else out.push({k,t:c.type,name:pl?c.name:base(c.name),init:c.init,ids:[c.id],idx:[i]})});
   out.forEach(g=>{g.on=g.idx.includes(cur);g.done=cur>=0&&!g.on&&g.idx[g.idx.length-1]<cur});return out}
 function renderI(){renderFx();const box=$('chips'),sl=box.scrollLeft,G=groups(),rn=$('rn');
@@ -492,7 +524,7 @@ addEventListener('beforeunload',()=>{if(vw&&!vw.closed)vw.close()});
 let ad={rows:{},groups:[]};
 const adNum=()=>{const t=$('ad-v').value.trim();return /^\d+$/.test(t)?parseInt(t):NaN};
 function adCalc(c,r){const v=adNum();if(isNaN(v)||r.s=='n')return 0;let d=r.s=='h'?v>>1:v;if(r.m==1)d>>=1;if(r.m==2)d*=2;return d}
-function openAD(){const L=creatures.filter(c=>c.type!='player'&&c.type!='lair'&&!c.dead);if(!L.length)return toast('Некого бить');
+function openAD(){const L=creatures.filter(c=>c.type!='player'&&c.type!='lair'&&!c.res&&!c.dead);if(!L.length)return toast('Некого бить');
   const use=L.some(c=>sel.has(c.id));ad={rows:{},groups:[]};const gm=new Map();
   L.forEach(c=>{ad.rows[c.id]={s:!use||sel.has(c.id)?'f':'n',m:0};const k=base(c.name)+'|'+c.type;if(!gm.has(k))gm.set(k,[]);gm.get(k).push(c.id)});
   ad.groups=[...gm.values()];$('ad-v').value='';$('ad-h').textContent='';renderAD();$('adm').classList.add('show');setTimeout(()=>$('ad-v').focus(),50)}
@@ -535,7 +567,7 @@ function chipClick(el){const id=+el.dataset.i,c=get(id);if(!c)return;if(c.type==
   const e=$('c'+id);if(e){e.scrollIntoView({block:'center',behavior:'smooth'});e.classList.remove('fl');void e.offsetWidth;e.classList.add('fl')}}
 addEventListener('keydown',e=>{if(e.key=='Escape')closeM()});
 function rows(){const S=[];let p=null;
-  creatures.forEach((c,i)=>{if(c.type=='player')return;const b=base(c.name)+c.type,g=creatures.filter(x=>base(x.name)+x.type==b),grp=g.length>1,boss=c.type=='boss'||c.type=='lair';
+  creatures.forEach((c,i)=>{if(c.type=='player'||c.res)return;const b=base(c.name)+c.type,g=creatures.filter(x=>!x.res&&base(x.name)+x.type==b),grp=g.length>1,boss=c.type=='boss'||c.type=='lair';
     if(grp||boss){if(b!=p)S.push({k:'grp',t:c.type,cards:[],h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${esc(base(c.name))}</b>${grp?`<small>${g.filter(x=>!x.dead).length}/${g.length} живы</small>`:''}${c.type=='object'?'':`<small>иниц. ${c.init}</small>`}</div>`});S[S.length-1].cards.push(card(c,i))}
     else{const l=S[S.length-1];if(l&&l.k=='one'&&l.t==c.type)l.cards.push(card(c,i));else S.push({k:'one',t:c.type,h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${c.type=='object'?'Объекты':'Одиночные'}</b></div>`,cards:[card(c,i)]})}
     p=b});
@@ -550,10 +582,11 @@ function heal(c,v){c.hp=Math.min(c.maxHp,c.hp+v);if(c.hp>0)c.dead=false}
 function apply(m,ids,inp){if(!ids.length)return toast('Никто не выбран');const v=val(inp);if(!v)return;act(()=>ids.forEach(id=>{const c=get(id);if(!c)return;m=='d'?hit(c,v):m=='h'?hit(c,v>>1):m=='r'?heal(c,v):c.tempHp=Math.max(c.tempHp||0,v)}))}
 
 function addC(){const g=i=>$(i).value.trim(),base=g('f-name')||'Существо',n=Math.max(1,Math.min(30,+g('f-count')||1)),ac=+g('f-ac')||10,mod=+g('f-mod')||0,hx=g('f-hp')||'10',ini=g('f-init');
-  act(()=>{const r=d20(),type=$('f-type').value;for(let i=0;i<n;i++){const hp=Math.max(1,roll(hx)||10);creatures.push({id:idc++,name:n>1?base+' '+(i+1):base,maxHp:hp,hp,tempHp:0,ac,mod,init:type=='object'?OBJ:ini===''?r+mod:+ini,conditions:[],dead:false,note:'',type})}sortInit()});
+  const id0=idc;act(()=>{const r=d20(),type=$('f-type').value;for(let i=0;i<n;i++){const hp=Math.max(1,roll(hx)||10);creatures.push({id:idc++,name:n>1?base+' '+(i+1):base,maxHp:hp,hp,tempHp:0,ac,mod,init:type=='object'?OBJ:ini===''?r+mod:+ini,conditions:[],dead:false,note:'',type,res:$('f-res').checked})}sortInit()});
+  if($('f-bst').checked){const c1=creatures.find(c=>c.id===id0);if(c1)toBst(c1.id)}
   $('f-name').value='';$('f-init').value='';$('f-name').focus()}
 function edit(id,f){const c=get(id),L={name:'Имя',ac:'AC',init:'Инициатива',maxHp:'Макс. HP',mod:'Модификатор инициативы'},v=prompt(L[f],c[f]);if(v===null)return;
-  act(()=>{if(f=='name')c.name=v.trim()||c.name;else{c[f]=parseInt(v)||(f=='maxHp'?1:0);if(f=='maxHp')c.hp=Math.min(c.hp,c.maxHp);if(f=='init')sortInit()}})}
+  act(()=>{if(f=='name')c.name=v.trim()||c.name;else{c[f]=parseInt(v)||(f=='maxHp'?1:0);if(f=='maxHp')c.hp=c.res?c.maxHp:Math.min(c.hp,c.maxHp);if(f=='init')sortInit()}})}
 function clone(id){const c=get(id);act(()=>{creatures.push(Object.assign(JSON.parse(JSON.stringify(c)),{id:idc++,name:c.name+' (копия)',rid:null}));sortInit()})}
 function dropC(id){const i=creatures.findIndex(c=>c.id===id);if(i<0)return;creatures.splice(i,1);sel.delete(id);if(i<cur)cur--;if(cur>=creatures.length)cur=creatures.length-1}
 function del(id){act(()=>dropC(id))}
@@ -591,8 +624,8 @@ function loadP(k){if(creatures.length&&!confirm('Загрузить «'+k+'»? �
 function delP(k){if(!confirm('Удалить пресет «'+k+'»?'))return;const p=presets();delete p[k];putP(p);renderP()}
 function renderP(){const p=presets(),ks=Object.keys(p);$('pl').innerHTML=ks.length?ks.map(k=>{const d=p[k],n=(Array.isArray(d)?d:d.creatures||[]).length;
   return `<div class="pi"><span data-k="${esc(k)}" onclick="loadP(this.dataset.k)">📜 ${esc(k)}</span><small>${n}</small><button data-k="${esc(k)}" onclick="delP(this.dataset.k)">✕</button></div>`}).join(''):'<div class="empty" style="padding:1rem 0;font-size:.8rem">Пресетов пока нет</div>'}
-function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({presets:presets(),battle:state(),roster,players})],{type:'application/json'}));a.download='dnd-tracker-backup.json';a.click()}
-function imp(f){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.presets)putP(Object.assign(presets(),d.presets));if(Array.isArray(d.roster)){roster=d.roster;putR()}if(Array.isArray(d.players)){players=d.players;putPl()}if(d.battle&&confirm('Заменить текущий бой из бэкапа?'))act(()=>load(d.battle));renderP();renderR();toast('Импорт выполнен')}catch(e){toast('Не удалось прочитать файл')}};r.readAsText(f.files[0]);f.value=''}
+function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({presets:presets(),battle:state(),roster,players,bestiary})],{type:'application/json'}));a.download='dnd-tracker-backup.json';a.click()}
+function imp(f){const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(d.presets)putP(Object.assign(presets(),d.presets));if(Array.isArray(d.roster)){roster=d.roster;putR()}if(Array.isArray(d.players)){players=d.players;putPl()}if(Array.isArray(d.bestiary)){d.bestiary.forEach(t=>{const i=bestiary.findIndex(b=>b.bid===t.bid||b.name==t.name);i>=0?bestiary[i]=t:bestiary.push(t)});putB();renderB()}if(d.battle&&confirm('Заменить текущий бой из бэкапа?'))act(()=>load(d.battle));renderP();renderR();toast('Импорт выполнен')}catch(e){toast('Не удалось прочитать файл')}};r.readAsText(f.files[0]);f.value=''}
 
 function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
   st=c.dead?['Мёртв','#8b8da8']:p<=.25?['Критично','#e05a4a']:p<=.5?['Ранен','#e8a020']:['Здоров','#4caf6a'];
@@ -603,7 +636,7 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
     <div class="nm"><div class="name" onclick="edit(${c.id},'name')">${on?'⚔️ ':''}${esc(c.name)}</div>
       <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span>${c.type=='boss'||c.type=='lair'?`<span class="tb" title="Тема оформления ячейки на полоске игроков (клик — сменить)" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff;border-color:#a86bff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span>${c.type=='object'?'':`<span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span>`}<b style="color:${st[1]}">${st[0]}</b></div></div>
     <div class="hp">${c.hp}<span onclick="edit(${c.id},'maxHp')">/${c.maxHp}</span>${t?` <i>+${t}</i>`:''}</div>
-    <div class="acts"><button class="sm" title="Способность: перезарядка или использования" onclick="openAb(${c.id})">⚡</button><button class="sm" title="Эффект с таймером" onclick="openFx(${c.id})">✨</button>${c.dead?`<button class="gr sm" onclick="revive(${c.id})">оживить</button>`:''}<button class="sm" title="${c.rid?'В базе: HP сохраняется автоматически':'Сохранить в базу'}" style="${c.rid?'color:var(--gd)':''}" onclick="toRoster(${c.id})">${c.rid?'★':'☆'}</button><button class="sm" title="Копия" onclick="clone(${c.id})">⧉</button><button class="r sm" onclick="del(${c.id})">✕</button></div>
+    <div class="acts"><button class="sm" title="Способность: перезарядка или использования" onclick="openAb(${c.id})">⚡</button><button class="sm" title="Эффект с таймером" onclick="openFx(${c.id})">✨</button>${c.dead?`<button class="gr sm" onclick="revive(${c.id})">оживить</button>`:''}<button class="sm" title="${c.rid?'В базе: HP сохраняется автоматически':'Сохранить в базу'}" style="${c.rid?'color:var(--gd)':''}" onclick="toRoster(${c.id})">${c.rid?'★':'☆'}</button><button class="sm" title="Сохранить в бестиарий — шаблон для будущих боёв" onclick="toBst(${c.id})">📚</button><button class="sm" title="Отправить в запас (в бою не участвует, пока не вызовешь)" onclick="toRes(${c.id})">💤</button><button class="sm" title="Копия" onclick="clone(${c.id})">⧉</button><button class="r sm" onclick="del(${c.id})">✕</button></div>
   </div>
   <div class="bar"><div style="width:${tot?c.hp/tot*100:0}%;background:${st[1]}"></div><div style="width:${tot?t/tot*100:0}%;background:var(--bl)"></div></div>
   ${(c.ab||[]).length?`<div class="abl">${c.ab.map((a,k)=>a.k=='r'?`<span class="ab r ${a.u?'sp':'rd'}"><b title="${a.u?'Потрачена — клик, чтобы вернуть':'Готова — клик, если использовал'}" onclick="abTog(${c.id},${k})">🔥 ${esc(a.n)}</b><em>${a.m==6?'6':a.m+'–6'}</em>${a.u?`<button title="Бросить d6 на перезарядку вручную" onclick="abRoll(${c.id},${k})">🎲${a.l?' '+a.l:''}</button>`:''}<button title="Убрать способность" onclick="abDel(${c.id},${k})">✕</button></span>`:`<span class="ab u${a.u>=a.c?' out':''}"><b title="Клик — потратить одно использование" onclick="abUse(${c.id},${k},1)">⚡ ${esc(a.n)}</b><span class="us">${a.c-a.u}/${a.c}</span><button title="Потратить" onclick="abUse(${c.id},${k},1)">−</button><button title="Вернуть" onclick="abUse(${c.id},${k},-1)">+</button><button title="Убрать способность" onclick="abDel(${c.id},${k})">✕</button></span>`).join('')}</div>`:''}
@@ -624,12 +657,12 @@ let lastPub='',pubOff=false;try{pubOff=!!localStorage.getItem('dnd_puboff')}catc
 function togO(){pubOff=!pubOff;try{localStorage.setItem('dnd_puboff',pubOff?'1':'')}catch(e){}lastPub='';pubO();toast(pubOff?'Полоска убрана с карты':'Полоска снова на карте')}
 function pubO(){const hide=$('hn').checked,hd=t=>hide&&(t=='enemy'||t=='boss'),G=groups();
   const P={v:1,r:round,chips:G.map(g=>{const c0=get(g.ids[0]),h=(g.t=='boss'||g.t=='lair')&&!hd(g.t)&&c0&&c0.theme||'',o={i:g.init,t:g.t,n:hd(g.t)?HID:g.name,c:hd(g.t)?1:g.ids.length,on:g.on,done:g.done};if(h)o.h=h;return o}),fx:[]};
-  creatures.forEach((c,i)=>{if(c.dead)return;(c.fx||[]).forEach(f=>P.fx.push({n:f.n,w:hd(c.type)?HID:c.name,r:f.r,on:i==cur}))});
+  creatures.forEach((c,i)=>{if(c.dead||c.res)return;(c.fx||[]).forEach(f=>P.fx.push({n:f.n,w:hd(c.type)?HID:c.name,r:f.r,on:i==cur}))});
   if(pubOff){P.chips=[];P.fx=[]}
   const pb=$('pubb');if(pb){pb.textContent=pubOff?'🦉 Полоска: выкл':'🦉 Полоска: вкл';pb.style.opacity=pubOff?.55:1}
   const k=JSON.stringify(P);if(k===lastPub)return;lastPub=k;window._pub=P;if(window.obrPublish)window.obrPublish(P)}
 function render(){$('rn').textContent=round;renderR();renderI();renderV();pubO();$('ub').disabled=!hist.length;$('ub').style.opacity=hist.length?1:.4;
-  $('list').innerHTML=creatures.some(c=>c.type!='player')?rows():'<div class="empty">Добавьте существ или загрузите пресет</div>';gb()}
+  renderRsv();$('list').innerHTML=creatures.some(c=>c.type!='player'&&!c.res)?rows():'<div class="empty">Добавьте существ или загрузите пресет</div>';gb()}
 
 addEventListener('keydown',e=>{const t=e.target.tagName,inp=/INPUT|SELECT|TEXTAREA/.test(t);
   if(e.ctrlKey&&e.key.toLowerCase()=='z'&&!inp){e.preventDefault();undo()}
@@ -637,7 +670,7 @@ addEventListener('keydown',e=>{const t=e.target.tagName,inp=/INPUT|SELECT|TEXTAR
 
 let rzT;addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(creatures.some(c=>c.type!='player'))render()},200)});
 try{const s=JSON.parse(localStorage.getItem('dnd_battle'));if(s&&s.creatures)load(s)}catch(e){}
-renderP();render();
+renderP();renderB();render();
 </script>
 <script type="module">
 const KEY="com.dnd-tracker/initiative",NT="https://ntfy.sh/dndinit-";
