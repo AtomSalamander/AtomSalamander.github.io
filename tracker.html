@@ -57,7 +57,7 @@ input:focus,select:focus{outline:none;border-color:var(--gd)}
 #pl{display:flex;flex-direction:column;gap:6px;overflow-y:auto;flex:1}
 kbd{background:var(--pn2);border:1px solid var(--ln);border-radius:4px;padding:0 5px;font-size:.72rem}
 /* ── v2.1 оформление ── */
-.t-enemy{--t:#e0605a}.t-ally{--t:#3fc8a8}.t-boss{--t:#e2b865}.t-lair{--t:#8f7bd6}
+.t-enemy{--t:#e0605a}.t-ally{--t:#3fc8a8}.t-boss{--t:#e2b865}.t-lair{--t:#8f7bd6}.t-object{--t:#9aa3b2}
 body{font-family:Inter,'Segoe UI',system-ui,sans-serif;background:radial-gradient(900px 500px at 12% -5%,#2b1d5a77,transparent),radial-gradient(800px 500px at 95% 0,#0f4a6a66,transparent),#0a0b17 fixed}
 aside{background:#0b0c1ccc;backdrop-filter:blur(12px)}
 h1{font-size:1.9rem;background:linear-gradient(90deg,#f3d58a,#c98fff);-webkit-background-clip:text;background-clip:text;color:transparent}
@@ -257,7 +257,7 @@ details#msec summary{cursor:pointer;color:var(--gd);font-size:.8rem;margin-botto
       <div><label>Мод. иниц.</label><input id="f-mod" type="number" value="0"></div>
       <div><label>Иниц. (пусто = бросок)</label><input id="f-init" type="number"></div>
       <div><label>Кол-во</label><input id="f-count" type="number" min="1" value="1"></div>
-      <div><label>Тип</label><select id="f-type"><option value="enemy">⚔️ Враг</option><option value="ally">🛡️ Союзник</option><option value="boss">👑 Босс</option><option value="lair">🕳️ Действие логова</option></select></div>
+      <div><label>Тип</label><select id="f-type"><option value="enemy">⚔️ Враг</option><option value="ally">🛡️ Союзник</option><option value="boss">👑 Босс</option><option value="lair">🕳️ Действие логова</option><option value="object">📦 Объект (без инициативы)</option></select></div>
     </div>
     <div style="display:flex;gap:8px;justify-content:flex-end"><button onclick="tf()">Закрыть</button><button class="gr" onclick="addC()">Добавить</button></div>
   </div>
@@ -352,21 +352,22 @@ let gone=[];
 function tickFx(c,when){if(!c||c.dead||!c.fx||!c.fx.length)return;c.fx.forEach(f=>{if(f.t==when)f.r--});c.fx.filter(f=>f.r<=0).forEach(f=>gone.push(f.n+' ('+c.name+')'));c.fx=c.fx.filter(f=>f.r>0)}
 let rn=[];const d6=()=>Math.floor(Math.random()*6)+1;
 function rchg(c){if(!c||c.dead||!c.ab)return;c.ab.forEach(a=>{if(a.k=='r'&&a.u){const d=d6();a.l=d;rn.push(d>=a.m?'🔥 '+a.n+' ('+c.name+') перезарядилась — выпало '+d:'🎲 '+a.n+' ('+c.name+'): выпало '+d+', нужно '+a.m+'+')}if(a.k=='r'&&a.u&&a.l>=a.m)a.u=0})}
-function next(){if(!creatures.some(c=>!c.dead))return;gone=[];rn=[];act(()=>{tickFx(creatures[cur],'e');let i=cur;do{i++;if(i>=creatures.length){i=0;round++}}while(creatures[i].dead);cur=i;tickFx(creatures[cur],'s');rchg(creatures[cur])});{const m=[];if(gone.length)m.push('⌛ Закончилось: '+gone.join(', '));m.push(...rn);if(m.length)toast(m.join(' · '),6000);gone=[];rn=[]}const c=creatures[cur];if(c){const e=$('c'+c.id);e&&e.scrollIntoView({block:'nearest',behavior:'smooth'})}}
-const TI={enemy:'⚔️',ally:'🛡️',boss:'👑',lair:'🕳️',player:'🧙'},TL={enemy:'Враг',ally:'Союзник',boss:'Босс',lair:'Логово',player:'Игрок'},base=n=>n.replace(/ \d+$/,'');
+function next(){if(!creatures.some(c=>!c.dead&&c.type!='object'))return;gone=[];rn=[];act(()=>{tickFx(creatures[cur],'e');let i=cur;do{i++;if(i>=creatures.length){i=0;round++}}while(creatures[i].dead||creatures[i].type=='object');cur=i;tickFx(creatures[cur],'s');rchg(creatures[cur])});{const m=[];if(gone.length)m.push('⌛ Закончилось: '+gone.join(', '));m.push(...rn);if(m.length)toast(m.join(' · '),6000);gone=[];rn=[]}const c=creatures[cur];if(c){const e=$('c'+c.id);e&&e.scrollIntoView({block:'nearest',behavior:'smooth'})}}
+const TI={enemy:'⚔️',ally:'🛡️',boss:'👑',lair:'🕳️',object:'📦',player:'🧙'},TL={enemy:'Враг',ally:'Союзник',boss:'Босс',lair:'Логово',object:'Объект',player:'Игрок'},base=n=>n.replace(/ \d+$/,'');
 // темы оформления ячейки босса на полоске игроков (id должен совпадать с темой в bar.html)
 const THEMES=[{id:'priestess',n:'Слепая жрица',f:'boss'},{id:'guurdezh',n:"Гуур'Дезх",f:'boss'},{id:'shar',n:'Шар',f:'lair'}];
 const thName=id=>(THEMES.find(x=>x.id==id)||{n:id}).n;
 function thm(id){act(()=>{const c=get(id),ids=['',...THEMES.filter(x=>x.f==c.type).map(x=>x.id)],i=ids.indexOf(c.theme||'');c.theme=ids[(i+1)%ids.length]})}
-function cyc(id){act(()=>{const c=get(id);c.type={enemy:'ally',ally:'boss',boss:'lair',lair:'enemy'}[c.type];if(c.theme&&!THEMES.some(x=>x.id==c.theme&&x.f==c.type))c.theme=''})}
+const OBJ=-999;
+function cyc(id){act(()=>{const c=get(id);const o=c.type;c.type={enemy:'ally',ally:'boss',boss:'lair',lair:'object',object:'enemy'}[o];if(c.type=='object')c.init=OBJ;else if(o=='object')c.init=d20()+(c.mod||0);sortInit();if(c.theme&&!THEMES.some(x=>x.id==c.theme&&x.f==c.type))c.theme=''})}
 // ключ броска: босс всегда сам по себе
 function ikey(c,m){const own=['i'+c.id,c.name],e=c.type=='enemy';
   if(c.type=='boss'||c.type=='lair'||m=='ind')return own;
   if(m=='side')return e?['E','Все враги']:['A','Все союзники'];
   if(m=='grpE'&&!e)return own;
   return['g'+base(c.name)+c.type,base(c.name)]}
-function rollAll(){if(!creatures.some(c=>c.type!='player'))return toast('Сначала добавьте существ');const m=$('im').value,R={};
-  act(()=>{creatures=creatures.filter(c=>c.type!='player');creatures.forEach(c=>{c.fx=[];(c.ab||[]).forEach(a=>{a.u=0;delete a.l});if(c.dead)return;const[k,l]=ikey(c,m);const r=R[k]||(R[k]={l,t:c.type,d:d20(),n:0,ms:[]});r.n++;r.ms.push(c.mod||0);c.init=r.d+(c.mod||0)});sortInit();cur=-1;round=1});
+function rollAll(){if(!creatures.some(c=>c.type!='player'&&c.type!='object'))return toast('Сначала добавьте существ');const m=$('im').value,R={};
+  act(()=>{creatures=creatures.filter(c=>c.type!='player');creatures.forEach(c=>{c.fx=[];(c.ab||[]).forEach(a=>{a.u=0;delete a.l});if(c.dead||c.type=='object')return;const[k,l]=ikey(c,m);const r=R[k]||(R[k]={l,t:c.type,d:d20(),n:0,ms:[]});r.n++;r.ms.push(c.mod||0);c.init=r.d+(c.mod||0)});sortInit();cur=-1;round=1});
   showInit(Object.values(R).map(r=>Object.assign(r,{tot:r.d+r.ms[0]})).sort((a,b)=>b.tot-a.tot))}
 const lab=r=>r.l+(r.n>1?' ×'+r.n:'');
 function showInit(rows){
@@ -402,7 +403,7 @@ $('prow').addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.classList
   const a=[...document.querySelectorAll('#prow .pin:not(:disabled)')],i=a.indexOf(e.target);i<a.length-1?a[i+1].focus():applyP()});
 
 // ── панель инициативы ──
-function groups(){const out=[];creatures.forEach((c,i)=>{if(c.dead&&i!=cur)return;const pl=c.type=='player',k=pl?'p'+c.id:base(c.name)+'|'+c.type+'|'+c.init,l=out[out.length-1];
+function groups(){const out=[];creatures.forEach((c,i)=>{if(c.type=='object'||c.dead&&i!=cur)return;const pl=c.type=='player',k=pl?'p'+c.id:base(c.name)+'|'+c.type+'|'+c.init,l=out[out.length-1];
   if(l&&l.k==k&&!pl&&c.type!='boss'&&c.type!='lair'){l.ids.push(c.id);l.idx.push(i)}else out.push({k,t:c.type,name:pl?c.name:base(c.name),init:c.init,ids:[c.id],idx:[i]})});
   out.forEach(g=>{g.on=g.idx.includes(cur);g.done=cur>=0&&!g.on&&g.idx[g.idx.length-1]<cur});return out}
 function renderI(){renderFx();const box=$('chips'),sl=box.scrollLeft,G=groups(),rn=$('rn');
@@ -416,7 +417,7 @@ function renderFx(){const F=[];creatures.forEach((c,i)=>(c.fx||[]).forEach((f,k)
 function fxAdj(cid,k,d){act(()=>{const c=get(cid),f=c.fx[k];f.r+=d;if(f.r<=0)c.fx.splice(k,1)})}
 function fxDel(cid,k){act(()=>get(cid).fx.splice(k,1))}
 function openFx(id){if(!creatures.length)return toast('Сначала добавьте существ');const d=id!=null?id:(creatures[cur]?creatures[cur].id:creatures[0].id);
-  $('fx-c').innerHTML=creatures.map(c=>`<option value="${c.id}"${c.id===d?' selected':''}>${TI[c.type]} ${esc(c.name)} · иниц. ${c.init}${c.dead?' ☠':''}</option>`).join('');
+  $('fx-c').innerHTML=creatures.map(c=>`<option value="${c.id}"${c.id===d?' selected':''}>${TI[c.type]} ${esc(c.name)}${c.type=='object'?'':' · иниц. '+c.init}${c.dead?' ☠':''}</option>`).join('');
   $('fx-n').value='';$('fx-note').value='';$('fx-r').value=10;$('fxm').classList.add('show');setTimeout(()=>$('fx-n').focus(),50)}
 function closeFx(){$('fxm').classList.remove('show')}
 function addFx(){const n=$('fx-n').value.trim(),r=parseInt($('fx-r').value);if(!n)return $('fx-n').focus();if(!(r>0))return toast('Длительность — число раундов от 1');
@@ -459,7 +460,7 @@ body{background:radial-gradient(ellipse at 50% -10%,#2a1d4e 0%,#0f1020 60%);colo
 .chip.on{border-color:#f3d58a;background:linear-gradient(160deg,#3a3119,#1f1d2c);box-shadow:0 0 0 1px #f3d58a,0 0 5vmin #f3d58a77;transform:scale(1.12);margin:0 1vmin}
 .chip.on span{color:#f3d58a}
 .chip.done{opacity:.4}
-.t-enemy{--t:#e0605a}.t-ally{--t:#3fc8a8}.t-boss{--t:#e2b865}.t-lair{--t:#8f7bd6}.t-player{--t:#b48cff}
+.t-enemy{--t:#e0605a}.t-ally{--t:#3fc8a8}.t-boss{--t:#e2b865}.t-lair{--t:#8f7bd6}.t-object{--t:#9aa3b2}.t-player{--t:#b48cff}
 #fx{display:none;flex-wrap:wrap;gap:1.2vmin;justify-content:center;border-top:1px solid #34375c;padding-top:2vmin}
 .fx{display:flex;align-items:baseline;gap:1.2vmin;padding:.8vmin 2vmin;border-radius:5vmin;background:#1a1530;border:1px solid color-mix(in srgb,var(--t) 55%,transparent);font-size:2.4vmin}
 .fx.on{border-color:#f3d58a}.fx.low .t{color:#ffb454}
@@ -535,8 +536,8 @@ function chipClick(el){const id=+el.dataset.i,c=get(id);if(!c)return;if(c.type==
 addEventListener('keydown',e=>{if(e.key=='Escape')closeM()});
 function rows(){const S=[];let p=null;
   creatures.forEach((c,i)=>{if(c.type=='player')return;const b=base(c.name)+c.type,g=creatures.filter(x=>base(x.name)+x.type==b),grp=g.length>1,boss=c.type=='boss'||c.type=='lair';
-    if(grp||boss){if(b!=p)S.push({k:'grp',t:c.type,cards:[],h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${esc(base(c.name))}</b>${grp?`<small>${g.filter(x=>!x.dead).length}/${g.length} живы</small>`:''}<small>иниц. ${c.init}</small></div>`});S[S.length-1].cards.push(card(c,i))}
-    else{const l=S[S.length-1];if(l&&l.k=='one'&&l.t==c.type)l.cards.push(card(c,i));else S.push({k:'one',t:c.type,h:`<div class="gh t-${c.type}"><b>${TI[c.type]} Одиночные</b></div>`,cards:[card(c,i)]})}
+    if(grp||boss){if(b!=p)S.push({k:'grp',t:c.type,cards:[],h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${esc(base(c.name))}</b>${grp?`<small>${g.filter(x=>!x.dead).length}/${g.length} живы</small>`:''}${c.type=='object'?'':`<small>иниц. ${c.init}</small>`}</div>`});S[S.length-1].cards.push(card(c,i))}
+    else{const l=S[S.length-1];if(l&&l.k=='one'&&l.t==c.type)l.cards.push(card(c,i));else S.push({k:'one',t:c.type,h:`<div class="gh t-${c.type}"><b>${TI[c.type]} ${c.type=='object'?'Объекты':'Одиночные'}</b></div>`,cards:[card(c,i)]})}
     p=b});
   const W=$('list').clientWidth||900,N=Math.max(1,Math.min(S.length,4,Math.floor((W+16)/486))),C=Array.from({length:N},()=>({w:0,h:[]}));
   $('list').style.setProperty('--n',N);
@@ -549,7 +550,7 @@ function heal(c,v){c.hp=Math.min(c.maxHp,c.hp+v);if(c.hp>0)c.dead=false}
 function apply(m,ids,inp){if(!ids.length)return toast('Никто не выбран');const v=val(inp);if(!v)return;act(()=>ids.forEach(id=>{const c=get(id);if(!c)return;m=='d'?hit(c,v):m=='h'?hit(c,v>>1):m=='r'?heal(c,v):c.tempHp=Math.max(c.tempHp||0,v)}))}
 
 function addC(){const g=i=>$(i).value.trim(),base=g('f-name')||'Существо',n=Math.max(1,Math.min(30,+g('f-count')||1)),ac=+g('f-ac')||10,mod=+g('f-mod')||0,hx=g('f-hp')||'10',ini=g('f-init');
-  act(()=>{const r=d20(),type=$('f-type').value;for(let i=0;i<n;i++){const hp=Math.max(1,roll(hx)||10);creatures.push({id:idc++,name:n>1?base+' '+(i+1):base,maxHp:hp,hp,tempHp:0,ac,mod,init:ini===''?r+mod:+ini,conditions:[],dead:false,note:'',type})}sortInit()});
+  act(()=>{const r=d20(),type=$('f-type').value;for(let i=0;i<n;i++){const hp=Math.max(1,roll(hx)||10);creatures.push({id:idc++,name:n>1?base+' '+(i+1):base,maxHp:hp,hp,tempHp:0,ac,mod,init:type=='object'?OBJ:ini===''?r+mod:+ini,conditions:[],dead:false,note:'',type})}sortInit()});
   $('f-name').value='';$('f-init').value='';$('f-name').focus()}
 function edit(id,f){const c=get(id),L={name:'Имя',ac:'AC',init:'Инициатива',maxHp:'Макс. HP',mod:'Модификатор инициативы'},v=prompt(L[f],c[f]);if(v===null)return;
   act(()=>{if(f=='name')c.name=v.trim()||c.name;else{c[f]=parseInt(v)||(f=='maxHp'?1:0);if(f=='maxHp')c.hp=Math.min(c.hp,c.maxHp);if(f=='init')sortInit()}})}
@@ -574,7 +575,7 @@ const RF=['name','maxHp','hp','tempHp','ac','mod','conditions','note','type','de
 const putR=()=>{try{localStorage.setItem('dnd_roster',JSON.stringify(roster))}catch(e){}};
 function syncR(){let ch=0;creatures.forEach(c=>{const r=c.rid&&roster.find(x=>x.rid===c.rid);if(r){RF.forEach(k=>r[k]=Array.isArray(c[k])?JSON.parse(JSON.stringify(c[k])):c[k]);ch=1}});if(ch)putR()}
 function toRoster(id){const c=get(id);if(c.rid)return toast('«'+c.name+'» уже в базе, HP сохраняется сам');act(()=>{c.rid='r'+Date.now().toString(36)+id;roster.push({rid:c.rid})});toast('★ Сохранён в базу')}
-function addR(rid){const r=roster.find(x=>x.rid===rid);if(!r||creatures.some(c=>c.rid===rid))return;const c=JSON.parse(JSON.stringify(r));(c.ab||[]).forEach(a=>{a.u=0;delete a.l});c.id=idc++;c.init=d20()+(c.mod||0);creatures.push(c)}
+function addR(rid){const r=roster.find(x=>x.rid===rid);if(!r||creatures.some(c=>c.rid===rid))return;const c=JSON.parse(JSON.stringify(r));(c.ab||[]).forEach(a=>{a.u=0;delete a.l});c.id=idc++;c.init=c.type=="object"?OBJ:d20()+(c.mod||0);creatures.push(c)}
 function fromR(rid){if(creatures.some(c=>c.rid===rid))return toast('Уже в бою');act(()=>{addR(rid);sortInit()})}
 function allR(){if(!roster.some(r=>!creatures.some(c=>c.rid===r.rid)))return toast('Все уже в бою');act(()=>{roster.forEach(r=>addR(r.rid));sortInit()})}
 function delR(rid){if(!confirm('Удалить из базы?'))return;act(()=>{roster=roster.filter(r=>r.rid!==rid);creatures.forEach(c=>{if(c.rid===rid)c.rid=null});putR()})}
@@ -598,9 +599,9 @@ function card(c,i){const on=i==cur,t=c.tempHp||0,tot=c.maxHp+t,p=c.hp/c.maxHp,
   return `<div class="card t-${c.type}${c.dead?' dead':''}${on?' on':''}" id="c${c.id}" style="--c:${st[1]}">
   <div class="top">
     <input type="checkbox" ${sel.has(c.id)?'checked':''} onchange="tog(${c.id},this.checked)">
-    <div class="ini" title="Инициатива" onclick="edit(${c.id},'init')">${c.init}</div>
+    ${c.type=='object'?'<div class="ini" title="Объект: инициатива не бросается">📦</div>':`<div class="ini" title="Инициатива" onclick="edit(${c.id},'init')">${c.init}</div>`}
     <div class="nm"><div class="name" onclick="edit(${c.id},'name')">${on?'⚔️ ':''}${esc(c.name)}</div>
-      <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span>${c.type=='boss'||c.type=='lair'?`<span class="tb" title="Тема оформления ячейки на полоске игроков (клик — сменить)" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff;border-color:#a86bff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span><span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span><b style="color:${st[1]}">${st[0]}</b></div></div>
+      <div class="meta"><span class="tb" title="Сменить тип" onclick="cyc(${c.id})">${TI[c.type]} ${TL[c.type]}</span>${c.type=='boss'||c.type=='lair'?`<span class="tb" title="Тема оформления ячейки на полоске игроков (клик — сменить)" onclick="thm(${c.id})"${c.theme?' style="color:#c9a6ff;border-color:#a86bff"':''}>🎨 ${c.theme?esc(thName(c.theme)):'Тема'}</span>`:''}<span onclick="edit(${c.id},'ac')">🛡 AC ${c.ac}</span>${c.type=='object'?'':`<span title="Модификатор инициативы" onclick="edit(${c.id},'mod')">🎲 ${sg(c.mod||0)}</span>`}<b style="color:${st[1]}">${st[0]}</b></div></div>
     <div class="hp">${c.hp}<span onclick="edit(${c.id},'maxHp')">/${c.maxHp}</span>${t?` <i>+${t}</i>`:''}</div>
     <div class="acts"><button class="sm" title="Способность: перезарядка или использования" onclick="openAb(${c.id})">⚡</button><button class="sm" title="Эффект с таймером" onclick="openFx(${c.id})">✨</button>${c.dead?`<button class="gr sm" onclick="revive(${c.id})">оживить</button>`:''}<button class="sm" title="${c.rid?'В базе: HP сохраняется автоматически':'Сохранить в базу'}" style="${c.rid?'color:var(--gd)':''}" onclick="toRoster(${c.id})">${c.rid?'★':'☆'}</button><button class="sm" title="Копия" onclick="clone(${c.id})">⧉</button><button class="r sm" onclick="del(${c.id})">✕</button></div>
   </div>
