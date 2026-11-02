@@ -259,7 +259,7 @@ details#msec summary{cursor:pointer;color:var(--gd);font-size:.8rem;margin-botto
   <div id="form">
     <div class="grid">
       <div><label>Имя</label><input id="f-name" placeholder="Гоблин" onkeydown="if(event.key==='Enter')addC()"></div>
-      <div><label>HP (число или 2d8+2)</label><input id="f-hp" value="10"></div>
+      <div><label>HP (число или 2d8+2 / 2к8+2)</label><input id="f-hp" value="10"></div>
       <div><label>AC</label><input id="f-ac" type="number" value="12"></div>
       <div><label>Мод. иниц.</label><input id="f-mod" type="number" value="0"></div>
       <div><label>Иниц. (пусто = бросок)</label><input id="f-init" type="number"></div>
@@ -348,7 +348,8 @@ const putPl=()=>{try{localStorage.setItem('dnd_players',JSON.stringify(players))
 let draft={},lastKey='',lastRound=1;
 let creatures=[],cur=-1,round=1,idc=0,hist=[];const sel=new Set();
 
-function roll(s){let t=0;(String(s).replace(/\s/g,'').match(/[+-]?[^+-]+/g)||[]).forEach(p=>{const k=p[0]=='-'?-1:1,q=p.replace(/^[+-]/,''),m=q.match(/^(\d*)d(\d+)$/i);if(m){for(let n=+m[1]||1;n>0;n--)t+=k*(1+Math.floor(Math.random()*+m[2]))}else t+=k*(parseInt(q)||0)});return t}
+const DICE=/\d*[dDкКkK]\d/;
+function roll(s){let t=0;(String(s).replace(/\s/g,'').match(/[+-]?[^+-]+/g)||[]).forEach(p=>{const k=p[0]=='-'?-1:1,q=p.replace(/^[+-]/,''),m=q.match(/^(\d*)[dDкКkK](\d+)$/);if(m){for(let n=+m[1]||1;n>0;n--)t+=k*(1+Math.floor(Math.random()*+m[2]))}else t+=k*(parseInt(q)||0)});return t}
 function toast(m,ms){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),ms||2200)}
 const get=id=>creatures.find(c=>c.id===id);
 const state=()=>({creatures,currentTurn:cur,round,idCounter:idc});
@@ -381,16 +382,16 @@ const OBJ=-999;
 let bestiary=[];try{bestiary=JSON.parse(localStorage.getItem('dnd_bestiary')||'[]')}catch(e){}
 const putB=()=>{try{localStorage.setItem('dnd_bestiary',JSON.stringify(bestiary))}catch(e){}};
 function toBst(id){const c=get(id);if(!c||c.type=='player')return;const n=base(c.name),
-  t={bid:'b'+Date.now().toString(36)+id,name:n,type:c.type,maxHp:c.maxHp,ac:c.ac,mod:c.mod||0,note:c.note||'',theme:c.theme||'',ab:(c.ab||[]).map(a=>({...a,u:0,l:0}))},
+  t={bid:'b'+Date.now().toString(36)+id,name:n,type:c.type,maxHp:c.maxHp,hpx:c.hpx||'',ac:c.ac,mod:c.mod||0,note:c.note||'',theme:c.theme||'',ab:(c.ab||[]).map(a=>({...a,u:0,l:0}))},
   i=bestiary.findIndex(b=>b.name==n);if(i>=0){t.bid=bestiary[i].bid;bestiary[i]=t}else bestiary.push(t);putB();renderB();toast(i>=0?'📚 «'+n+'» обновлён в бестиарии':'📚 «'+n+'» сохранён в бестиарий')}
 function addB(bid,n,res){const t=bestiary.find(b=>b.bid===bid);if(!t)return;n=Math.max(1,Math.min(30,n||1));
   const same=creatures.filter(c=>base(c.name)==t.name),k=same.length,mx=Math.max(0,...same.map(c=>+(c.name.match(/ (\d+)$/)||[0,0])[1])),st=Math.max(k,mx);
-  act(()=>{const r=d20();for(let i=0;i<n;i++)creatures.push({id:idc++,name:k==0&&n==1?t.name:t.name+' '+(st+i+1),maxHp:t.maxHp,hp:t.maxHp,tempHp:0,ac:t.ac,mod:t.mod,
-    init:t.type=='object'?OBJ:t.type=='lair'?20:r+t.mod,conditions:[],dead:false,note:t.note,type:t.type,theme:t.theme||'',ab:JSON.parse(JSON.stringify(t.ab||[])),res:!!res});sortInit()});
+  act(()=>{const r=d20();for(let i=0;i<n;i++){const hp=t.hpx?Math.max(1,roll(t.hpx)||t.maxHp):t.maxHp;creatures.push({id:idc++,name:k==0&&n==1?t.name:t.name+' '+(st+i+1),maxHp:hp,hp,hpx:t.hpx||undefined,tempHp:0,ac:t.ac,mod:t.mod,
+    init:t.type=='object'?OBJ:t.type=='lair'?20:r+t.mod,conditions:[],dead:false,note:t.note,type:t.type,theme:t.theme||'',ab:JSON.parse(JSON.stringify(t.ab||[])),res:!!res})};sortInit()});
   toast((res?'💤 В запас: ':'⚔️ В бой: ')+t.name+(n>1?' ×'+n:''))}
 function addBn(bid){const v=prompt('Сколько добавить?','2');if(v===null)return;const n=parseInt(v);if(n>0)addB(bid,n)}
 function delB(bid){if(!confirm('Удалить из бестиария?'))return;bestiary=bestiary.filter(b=>b.bid!==bid);putB();renderB()}
-function renderB(){const el=$('bl');if(!el)return;el.innerHTML=bestiary.length?bestiary.map(b=>`<div class="pi"><span data-b="${b.bid}" onclick="addB(this.dataset.b,1)" title="Добавить в бой · ❤ ${b.maxHp} · 🛡 ${b.ac} · иниц. ${b.mod>=0?'+':''}${b.mod}">${TI[b.type]||'⚔️'} ${esc(b.name)}</span><button data-b="${b.bid}" onclick="addBn(this.dataset.b)" title="Добавить несколько">×N</button><button data-b="${b.bid}" onclick="addB(this.dataset.b,1,true)" title="Добавить в запас">💤</button><button data-b="${b.bid}" onclick="delB(this.dataset.b)" title="Удалить">✕</button></div>`).join(''):'<div class="empty" style="padding:.6rem 0;font-size:.78rem">Нажми 📚 на карточке существа — оно сохранится как шаблон</div>'}
+function renderB(){const el=$('bl');if(!el)return;el.innerHTML=bestiary.length?bestiary.map(b=>`<div class="pi"><span data-b="${b.bid}" onclick="addB(this.dataset.b,1)" title="Добавить в бой · ❤ ${b.hpx||b.maxHp} · 🛡 ${b.ac} · иниц. ${b.mod>=0?'+':''}${b.mod}">${TI[b.type]||'⚔️'} ${esc(b.name)}</span><button data-b="${b.bid}" onclick="addBn(this.dataset.b)" title="Добавить несколько">×N</button><button data-b="${b.bid}" onclick="addB(this.dataset.b,1,true)" title="Добавить в запас">💤</button><button data-b="${b.bid}" onclick="delB(this.dataset.b)" title="Удалить">✕</button></div>`).join(''):'<div class="empty" style="padding:.6rem 0;font-size:.78rem">Нажми 📚 на карточке существа — оно сохранится как шаблон</div>'}
 const xa=new Set();function tga(id){xa.has(id)?xa.delete(id):xa.add(id);render()}
 function toRes(id){act(()=>{const c=get(id);if(creatures[cur]===c)cur--;c.res=true;sortInit();toast('💤 «'+c.name+'» в запасе')})}
 function callR(id){const c=get(id),e=document.getElementById('ri-'+id),v=e?e.value.trim():'';let r=0;
@@ -537,7 +538,7 @@ function openAD(){const L=creatures.filter(c=>c.type!='player'&&c.type!='lair'&&
   ad.groups=[...gm.values()];$('ad-v').value='';$('ad-h').textContent='';renderAD();$('adm').classList.add('show');setTimeout(()=>$('ad-v').focus(),50)}
 function closeAD(){$('adm').classList.remove('show')}
 function adInp(){$('ad-h').textContent='';renderAD()}
-function adRoll(){const t=$('ad-v').value.trim();if(!t)return $('ad-v').focus();const r=Math.abs(roll(t));if(/d/i.test(t)){$('ad-h').textContent='🎲 '+t+' = '+r;$('ad-v').value=r}renderAD()}
+function adRoll(){const t=$('ad-v').value.trim();if(!t)return $('ad-v').focus();const r=Math.abs(roll(t));if(DICE.test(t)){$('ad-h').textContent='🎲 '+t+' = '+r;$('ad-v').value=r}renderAD()}
 function adEnter(){isNaN(adNum())?adRoll():applyAD()}
 function adS(id,s){ad.rows[id].s=s;renderAD()}
 function adM(id){const r=ad.rows[id];r.m=(r.m+1)%3;renderAD()}
@@ -583,17 +584,17 @@ function rows(){const S=[];let p=null;
   S.forEach(x=>{const c=C.reduce((a,b)=>b.w<a.w?b:a);c.w+=x.cards.length+(x.h?.4:0);c.h.push(`<div class="gcol ${x.k} t-${x.t}">${x.h}${x.cards.join('')}</div>`)});
   return C.map(c=>`<div class="mcol">${c.h.join('')}</div>`).join('')}
 
-function val(inp){const el=$(inp),v=el.value.trim();if(!v)return 0;const r=Math.abs(roll(v));if(/d/i.test(v))toast('🎲 '+v+' = '+r);el.value='';return r}
+function val(inp){const el=$(inp),v=el.value.trim();if(!v)return 0;const r=Math.abs(roll(v));if(DICE.test(v))toast('🎲 '+v+' = '+r);el.value='';return r}
 function hit(c,v){const a=Math.min(c.tempHp||0,v);c.tempHp=(c.tempHp||0)-a;c.hp=Math.max(0,c.hp-(v-a));if(!c.hp)c.dead=true}
 function heal(c,v){c.hp=Math.min(c.maxHp,c.hp+v);if(c.hp>0)c.dead=false}
 function apply(m,ids,inp){if(!ids.length)return toast('Никто не выбран');const v=val(inp);if(!v)return;act(()=>ids.forEach(id=>{const c=get(id);if(!c)return;m=='d'?hit(c,v):m=='h'?hit(c,v>>1):m=='r'?heal(c,v):c.tempHp=Math.max(c.tempHp||0,v)}))}
 
 function addC(){const g=i=>$(i).value.trim(),base=g('f-name')||'Существо',n=Math.max(1,Math.min(30,+g('f-count')||1)),ac=+g('f-ac')||10,mod=+g('f-mod')||0,hx=g('f-hp')||'10',ini=g('f-init');
-  const id0=idc;act(()=>{const r=d20(),type=$('f-type').value;for(let i=0;i<n;i++){const hp=Math.max(1,roll(hx)||10);creatures.push({id:idc++,name:n>1?base+' '+(i+1):base,maxHp:hp,hp,tempHp:0,ac,mod,init:type=='object'?OBJ:type=='lair'?20:ini===''?r+mod:+ini,conditions:[],dead:false,note:'',type,res:$('f-res').checked})}sortInit()});
+  const id0=idc;act(()=>{const r=d20(),type=$('f-type').value;for(let i=0;i<n;i++){const hp=Math.max(1,roll(hx)||10);creatures.push({id:idc++,name:n>1?base+' '+(i+1):base,maxHp:hp,hp,tempHp:0,ac,mod,init:type=='object'?OBJ:type=='lair'?20:ini===''?r+mod:+ini,conditions:[],dead:false,note:'',type,res:$('f-res').checked,hpx:DICE.test(hx)?hx:undefined})}sortInit()});
   if($('f-bst').checked){const c1=creatures.find(c=>c.id===id0);if(c1)toBst(c1.id)}
   $('f-name').value='';$('f-init').value='';$('f-name').focus()}
 function edit(id,f){if(f=='init'&&get(id).type=='lair')return;const c=get(id),L={name:'Имя',ac:'AC',init:'Инициатива',maxHp:'Макс. HP',mod:'Модификатор инициативы'},v=prompt(L[f],c[f]);if(v===null)return;
-  act(()=>{if(f=='name')c.name=v.trim()||c.name;else{c[f]=parseInt(v)||(f=='maxHp'?1:0);if(f=='maxHp')c.hp=c.res?c.maxHp:Math.min(c.hp,c.maxHp);if(f=='init')sortInit()}})}
+  act(()=>{if(f=='name')c.name=v.trim()||c.name;else{c[f]=parseInt(v)||(f=='maxHp'?1:0);if(f=='maxHp'){delete c.hpx;c.hp=c.res?c.maxHp:Math.min(c.hp,c.maxHp)}if(f=='init')sortInit()}})}
 function clone(id){const c=get(id);act(()=>{creatures.push(Object.assign(JSON.parse(JSON.stringify(c)),{id:idc++,name:c.name+' (копия)',rid:null}));sortInit()})}
 function dropC(id){const i=creatures.findIndex(c=>c.id===id);if(i<0)return;creatures.splice(i,1);sel.delete(id);if(i<cur)cur--;if(cur>=creatures.length)cur=creatures.length-1}
 function del(id){act(()=>dropC(id))}
