@@ -222,6 +222,34 @@ html,body{background:transparent;overflow:hidden;font-family:Georgia,'Times New 
  .c.th-architect>u.t,.c.th-architect>i.r,.c.th-architect>i.m::after{display:none}
  .c.th-architect>i.l::before{opacity:.85}.c.th-architect.done>i.l::before{opacity:.5}
 }
+/* ---- мини-оформления игроков (поле s из трекера) ---- */
+.c.pk{position:relative;background:var(--bg);border-color:var(--bd);border-top-color:var(--t)}
+.c.pk.on{background:var(--bg);border-color:var(--t);box-shadow:0 0 0 1px var(--t),0 0 22px var(--g)}
+.c.pk b{color:var(--n)}.c.pk span{color:var(--s)}.c.pk.on span{color:var(--n)}
+.c.pk::after{content:"";position:absolute;pointer-events:none}
+/* Торвин: тёмное железо, бронза, заклёпки, шеврон со щита */
+.c.pk-torvin{--t:#b8873f;--bd:rgba(184,135,63,.4);--n:#e0b56a;--s:#e9dcc3;--g:rgba(224,181,106,.45);
+ --bg:radial-gradient(circle at 6px 8px,#c99a4e 0 1.4px,transparent 2px),radial-gradient(circle at calc(100% - 6px) 8px,#c99a4e 0 1.4px,transparent 2px),radial-gradient(circle at 6px calc(100% - 6px),#c99a4e 0 1.4px,transparent 2px),radial-gradient(circle at calc(100% - 6px) calc(100% - 6px),#c99a4e 0 1.4px,transparent 2px),linear-gradient(160deg,#3a3836,#1b1918)}
+.c.pk-torvin::after{left:50%;top:3px;width:6px;height:6px;margin-left:-3px;border-left:1.5px solid #c99a4e;border-top:1.5px solid #c99a4e;transform:rotate(45deg)}
+/* Ачуак: болотная зелень, кость, зубчики */
+.c.pk-achuak{--t:#d9d2bb;--bd:rgba(156,196,106,.35);--n:#efe9d4;--s:#cfe0b8;--g:rgba(140,190,90,.45);
+ --bg:radial-gradient(90% 70% at 50% 110%,rgba(150,200,90,.22),transparent 70%),linear-gradient(165deg,#3b5733,#1c2919)}
+.c.pk-achuak::after{left:12px;right:12px;top:0;height:4px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='4'%3E%3Cpath d='M0 0H7L3.5 4Z' fill='%23d9d2bb'/%3E%3C/svg%3E") repeat-x;opacity:.85}
+/* Ролен: тьма, бирюзовое сияние, фиолетовый оттенок, камень-брошь */
+.c.pk-rolen{--t:#4ee8cf;--bd:rgba(78,232,207,.3);--n:#9ffbea;--s:#cfd6dd;--g:rgba(78,232,207,.5);
+ --bg:radial-gradient(80% 90% at 50% 120%,rgba(60,230,200,.22),transparent 70%),radial-gradient(60% 60% at 0 0,rgba(130,90,200,.18),transparent 70%),linear-gradient(170deg,#1b1e24,#0a0b0f)}
+.c.pk-rolen b{text-shadow:0 0 8px rgba(78,232,207,.8)}
+.c.pk-rolen::after{left:50%;top:3px;width:5px;height:5px;margin-left:-2.5px;background:#7ffbe6;transform:rotate(45deg);box-shadow:0 0 6px 1px #4ee8cf}
+/* Степан: зелень и золото, золотая кайма, древо */
+.c.pk-stepan{--t:#d4af4f;--bd:rgba(212,175,79,.45);--n:#f0d488;--s:#efe6cc;--g:rgba(212,175,79,.45);
+ --bg:linear-gradient(165deg,#30603a,#1a3220);box-shadow:inset 0 0 0 2px rgba(10,30,15,.6),inset 0 0 0 3px rgba(212,175,79,.45)}
+.c.pk-stepan.on{box-shadow:inset 0 0 0 2px rgba(10,30,15,.6),inset 0 0 0 3px rgba(212,175,79,.6),0 0 0 1px var(--t),0 0 22px var(--g)}
+.c.pk-stepan::after{right:7px;top:7px;width:9px;height:8px;opacity:.85;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 9 8'%3E%3Cg fill='%23d4af4f'%3E%3Ccircle cx='4.5' cy='2.6' r='2.4'/%3E%3Ccircle cx='2.2' cy='3.8' r='1.7'/%3E%3Ccircle cx='6.8' cy='3.8' r='1.7'/%3E%3Crect x='4' y='4' width='1' height='4'/%3E%3C/g%3E%3C/svg%3E") center/100% 100% no-repeat}
+/* Кайден: грозовой серый, ржавый ремень, янтарные глаза, дождь */
+.c.pk-kayden{--t:#8a4b2c;--bd:rgba(200,205,215,.2);--n:#f2b640;--s:#d7dae0;--g:rgba(242,182,64,.4);
+ --bg:linear-gradient(125deg,transparent 0 20%,rgba(138,75,44,.7) 20% 25%,transparent 25%),repeating-linear-gradient(105deg,rgba(200,210,225,.07) 0 1px,transparent 1px 7px),linear-gradient(170deg,#3b3f47,#1f2126)}
+.c.pk-kayden b{text-shadow:0 0 7px rgba(242,182,64,.55)}
+.c.pk-kayden::after{right:6px;top:7px;width:9px;height:3px;background:radial-gradient(circle at 1.5px 1.5px,#f2b640 0 1.3px,transparent 1.6px),radial-gradient(circle at 7.5px 1.5px,#f2b640 0 1.3px,transparent 1.6px);filter:drop-shadow(0 0 2px #f2b640)}
 </style></head><body>
 <div id="w"><div id="bar"><div id="rd"><small>Раунд</small><b id="r">1</b></div><div id="vp"><div id="tr" class="init"></div></div></div><div id="fx"></div></div>
 <script type="module">
@@ -233,6 +261,8 @@ const TI={enemy:"⚔️",ally:"🛡️",boss:"👑",lair:"🕳️",player:"🧙"
 let lastR=null,sig="";
 // Темы боссов приходят из трекера (поле h). Известные темы:
 const THEMES=["priestess","guurdezh","shar","architect"];
+// мини-оформления игроков (поле s): id и значок
+const SKINS={torvin:"🪓",achuak:"🐊",rolen:"📖",stepan:"🌳",kayden:"🐺"};
 function center(){
   const tr=$("tr"),on=tr.querySelector(".c.on")||tr.querySelector(".c");if(!on)return;
   tr.style.transform=`translateX(${$("vp").clientWidth/2-(on.offsetLeft+on.offsetWidth/2)}px)`;
@@ -245,7 +275,8 @@ function draw(P){
   $("tr").innerHTML=P.chips.map(c=>{
     const st=(c.on?" on":"")+(c.done?" done":""),th=(c.t==="boss"||c.t==="lair")&&THEMES.includes(c.h)?{theme:c.h}:null;
     if(th)return `<div class="c th th-${th.theme}${st}"><u class="t"></u><u class="b"></u><i class="m"></i><i class="l"></i><i class="r"></i><b>${esc(c.i)}</b><span>${esc(c.n)}</span></div>`;
-    return `<div class="c ${c.t}${st}"><b>${esc(c.i)}</b><span>${TI[c.t]||""} ${esc(c.n)}${c.c>1?" ×"+c.c:""}</span></div>`}).join("");
+    const sk=c.t==="player"&&Object.hasOwn(SKINS,c.s)?c.s:"";
+    return `<div class="c ${c.t}${sk?" pk pk-"+sk:""}${st}"${!sk&&c.t==="player"&&/^#[0-9a-f]{6}$/i.test(c.k||"")?` style="--t:${c.k}"`:""}><b>${esc(c.i)}</b><span>${sk?SKINS[sk]:TI[c.t]||""} ${esc(c.n)}${c.c>1?" ×"+c.c:""}</span></div>`}).join("");
   $("r").textContent=P.r;
   if(lastR!==null&&lastR!==P.r){const rd=$("rd");rd.classList.remove("bump");void rd.offsetWidth;rd.classList.add("bump")}
   $("fx").innerHTML=(P.fx||[]).map(f=>`<div class="f${f.r<=1?" low":""}${f.on?" on":""}">✨ ${esc(f.n)} · ${esc(f.w)} ⏳ ${f.r}</div>`).join("");

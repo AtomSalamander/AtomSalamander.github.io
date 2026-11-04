@@ -127,6 +127,9 @@ input,select{background:#0e0f22}
 .pr .pin{width:86px;text-align:center;font:700 1.15rem Georgia,serif;color:#d2b8ff;-moz-appearance:textfield}
 .pr .pin::-webkit-inner-spin-button,.pr .pin::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .pr .pin:disabled{opacity:.4}
+.pr .pcol{flex:none;width:26px;height:26px;padding:0;border:2px solid #ffffff2a;border-radius:50%;background:none;cursor:pointer;overflow:hidden}
+.pr .pcol::-webkit-color-swatch-wrapper{padding:0}.pr .pcol::-webkit-color-swatch{border:0;border-radius:50%}.pr .pcol::-moz-color-swatch{border:0;border-radius:50%}
+.pr .psk{flex:none;width:104px;padding:3px 5px;font-size:.8rem}
 .pr button{border:0;background:none;color:var(--mt);padding:2px 6px;box-shadow:none}
 .pr button:hover{color:var(--rd);box-shadow:none;transform:none}
 .padd{display:flex;gap:6px;margin-top:8px}.padd input{flex:1}
@@ -416,6 +419,12 @@ function closeM(){$('mod').classList.remove('show')}
 function copyI(){const G=groups();if(!G.length)return toast('Порядок пуст');const t='Раунд '+round+'\n'+G.map(g=>g.init+' — '+g.name+(g.ids.length>1?' ×'+g.ids.length:'')).join('\n');try{navigator.clipboard.writeText(t).then(()=>toast('Порядок скопирован'))}catch(e){toast('Не удалось скопировать')}}
 
 // ── игроки: список имён, выбор участников и ввод их инициативы ──
+// мини-оформления ячеек игроков на полоске (id должен совпадать с bar.html); без выбора — подбирается по имени
+const SKINS=[{id:'torvin',n:'Торвин',a:'#c99a4e'},{id:'achuak',n:'Ачуак',a:'#9cc46a'},{id:'rolen',n:'Ролен',a:'#4ee8cf'},{id:'stepan',n:'Степан',a:'#d4af4f'},{id:'kayden',n:'Кайден',a:'#f2b640'}];
+const skOf=p=>{if(!p)return'';if(p.skin===undefined){const n=(p.name||'').trim().toLowerCase();const s=SKINS.find(s=>n.startsWith(s.n.toLowerCase()));return s?s.id:''}return SKINS.some(s=>s.id==p.skin)?p.skin:''},pAcc=p=>okCol(p.color)?p.color:((SKINS.find(s=>s.id==skOf(p))||{}).a||'');
+const PCOL='#b48cff',okCol=v=>/^#[0-9a-f]{6}$/i.test(v||''),plP=c=>c&&c.type=='player'&&players.find(x=>x.pid==c.pid),plCol=c=>{const p=plP(c);return p?pAcc(p):''},plSk=c=>skOf(plP(c)),cst=g=>g.col?` style="--t:${g.col}"`:'';
+function pcol(el){const r=el.closest('.pr'),p=players.find(x=>x.pid==r.dataset.p);if(!p||!okCol(el.value))return;p.color=el.value;r.style.setProperty('--t',el.value);putPl();render()}
+function psk(el){const r=el.closest('.pr'),p=players.find(x=>x.pid==r.dataset.p);if(!p)return;p.skin=el.value;const a=pAcc(p);a?r.style.setProperty('--t',a):r.style.removeProperty('--t');putPl();render()}
 const newP=(p,v)=>({id:idc++,type:'player',pid:p.pid,name:p.name,init:v,maxHp:1,hp:1,tempHp:0,ac:0,mod:0,conditions:[],dead:false,note:'',fx:[]});
 function openP(mode){const inB=creatures.some(c=>c.type=='player');draft={};
   players.forEach(p=>{const e=creatures.find(c=>c.type=='player'&&c.pid==p.pid);draft[p.pid]={on:e?true:(inB?false:p.on!==false),v:e?String(e.init):''}});
@@ -424,7 +433,7 @@ function openP(mode){const inB=creatures.some(c=>c.type=='player');draft={};
   renderPl();$('mod').classList.add('show');
   setTimeout(()=>{const f=document.querySelector('#prow .pin:not(:disabled)');(f||$('pnew')).focus()},60)}
 function renderPl(){$('prow').innerHTML=players.length?players.map(p=>{const d=draft[p.pid]||(draft[p.pid]={on:true,v:''});
-  return `<div class="pr t-player${d.on?'':' off'}" data-p="${p.pid}"><input type="checkbox" ${d.on?'checked':''} onchange="pdr(this)" title="Участвует в бою"><span class="pn" title="Переименовать" onclick="renPl(this)">${esc(p.name)}</span><input class="pin" type="number" placeholder="иниц." value="${esc(d.v)}" ${d.on?'':'disabled'} oninput="pdi(this)"><button title="Удалить из списка" onclick="delPl(this)">✕</button></div>`}).join(''):'<div class="empty" style="padding:.8rem 0;font-size:.85rem">Впиши имена игроков ниже — они сохранятся для всех следующих боёв</div>'}
+  return `<div class="pr t-player${d.on?'':' off'}" data-p="${p.pid}"${pAcc(p)?` style="--t:${pAcc(p)}"`:''}><input type="checkbox" ${d.on?'checked':''} onchange="pdr(this)" title="Участвует в бою"><input class="pcol" type="color" value="${pAcc(p)||PCOL}" oninput="pcol(this)" title="Цвет ячейки инициативы"><select class="psk" onchange="psk(this)" title="Оформление ячейки на полоске игроков"><option value="">Без темы</option>${SKINS.map(s=>`<option value="${s.id}"${skOf(p)==s.id?' selected':''}>🎨 ${s.n}</option>`).join('')}</select><span class="pn" title="Переименовать" onclick="renPl(this)">${esc(p.name)}</span><input class="pin" type="number" placeholder="иниц." value="${esc(d.v)}" ${d.on?'':'disabled'} oninput="pdi(this)"><button title="Удалить из списка" onclick="delPl(this)">✕</button></div>`}).join(''):'<div class="empty" style="padding:.8rem 0;font-size:.85rem">Впиши имена игроков ниже — они сохранятся для всех следующих боёв</div>'}
 function pdr(el){const r=el.closest('.pr'),d=draft[r.dataset.p],i=r.querySelector('.pin');d.on=el.checked;r.classList.toggle('off',!d.on);i.disabled=!d.on;if(d.on)i.focus()}
 function pdi(el){draft[el.closest('.pr').dataset.p].v=el.value}
 function addPl(){const n=$('pnew').value.trim();if(!n)return;const p={pid:'pl'+Date.now().toString(36)+Math.random().toString(36).slice(2,5),name:n,on:true};
@@ -444,10 +453,10 @@ $('prow').addEventListener('keydown',e=>{if(e.key!=='Enter'||!e.target.classList
 
 // ── панель инициативы ──
 function groups(){const out=[];creatures.forEach((c,i)=>{if(inact(c)||c.dead&&i!=cur)return;const pl=c.type=='player',k=pl?'p'+c.id:base(c.name)+'|'+c.type+'|'+c.init,l=out[out.length-1];
-  if(l&&l.k==k&&!pl&&c.type!='boss'&&c.type!='lair'){l.ids.push(c.id);l.idx.push(i)}else out.push({k,t:c.type,name:pl?c.name:base(c.name),init:c.init,ids:[c.id],idx:[i]})});
+  if(l&&l.k==k&&!pl&&c.type!='boss'&&c.type!='lair'){l.ids.push(c.id);l.idx.push(i)}else out.push({k,t:c.type,name:pl?c.name:base(c.name),init:c.init,ids:[c.id],idx:[i],col:pl?plCol(c):'',sk:pl?plSk(c):''})});
   out.forEach(g=>{g.on=g.idx.includes(cur);g.done=cur>=0&&!g.on&&g.idx[g.idx.length-1]<cur});return out}
 function renderI(){renderFx();const box=$('chips'),sl=box.scrollLeft,G=groups(),rn=$('rn');
-  box.innerHTML=G.length?G.map(g=>`<div class="chip t-${g.t}${g.on?' on':''}${g.done?' done':''}" draggable="true" data-i="${g.ids[0]}" title="${g.t=='player'?'Клик — изменить инициативу':'Клик — показать карточку'}" onclick="chipClick(this)">${fxn(g)?`<em class="fxc" title="Эффектов на ходу">✨${fxn(g)}</em>`:''}<b>${g.init}</b><span>${TI[g.t]} ${esc(g.name)}${g.ids.length>1?' ×'+g.ids.length:''}</span>${g.on&&g.ids.length>1?`<small>${esc(creatures[cur].name)}</small>`:''}</div>`).join(''):'<div class="chint">Порядок ходов появится после броска инициативы</div>';
+  box.innerHTML=G.length?G.map(g=>`<div class="chip t-${g.t}${g.on?' on':''}${g.done?' done':''}"${cst(g)} draggable="true" data-i="${g.ids[0]}" title="${g.t=='player'?'Клик — изменить инициативу':'Клик — показать карточку'}" onclick="chipClick(this)">${fxn(g)?`<em class="fxc" title="Эффектов на ходу">✨${fxn(g)}</em>`:''}<b>${g.init}</b><span>${TI[g.t]} ${esc(g.name)}${g.ids.length>1?' ×'+g.ids.length:''}</span>${g.on&&g.ids.length>1?`<small>${esc(creatures[cur].name)}</small>`:''}</div>`).join(''):'<div class="chint">Порядок ходов появится после броска инициативы</div>';
   box.scrollLeft=sl;
   if(round!==lastRound){lastRound=round;rn.classList.remove('bump');void rn.offsetWidth;rn.classList.add('bump')}
   const key=round+':'+cur;if(key!==lastKey){lastKey=key;const on=box.querySelector('.chip.on');if(on)box.scrollTo({left:on.offsetLeft-box.clientWidth/2+on.offsetWidth/2,behavior:'smooth'})}}
@@ -517,9 +526,9 @@ function openView(){if(vw&&!vw.closed){vw.focus();return}
 let lastV='';
 function renderV(){if(!vw||vw.closed)return;const d=vw.document,q=i=>d.getElementById(i);if(!q('ch'))return;
   const hide=$('hn').checked,hid=c=>hide&&(c.type=='enemy'||c.type=='boss'),G=groups(),nm=g=>g.t=='player'||g.t=='ally'||g.t=='lair'||!hide?g.name:HID;
-  const sig=JSON.stringify([round,cur,hide,G.map(g=>[g.init,g.t,g.name,g.ids.length,g.on,g.done]),creatures.map(c=>[c.name,c.dead,(c.fx||[]).map(f=>[f.n,f.r])])]);if(sig===lastV)return;lastV=sig;
+  const sig=JSON.stringify([round,cur,hide,G.map(g=>[g.init,g.t,g.name,g.ids.length,g.on,g.done,g.col,g.sk]),creatures.map(c=>[c.name,c.dead,(c.fx||[]).map(f=>[f.n,f.r])])]);if(sig===lastV)return;lastV=sig;
   q('v-r').textContent=round;
-  q('ch').innerHTML=G.length?G.map(g=>`<div class="chip t-${g.t}${g.on?' on':''}${g.done?' done':''}"><b>${g.init}</b><span>${TI[g.t]} ${esc(nm(g))}${g.ids.length>1&&!(hide&&hid({type:g.t}))?' ×'+g.ids.length:''}</span></div>`).join(''):'<div class="empty">Бой ещё не начался</div>';
+  q('ch').innerHTML=G.length?G.map(g=>`<div class="chip t-${g.t}${g.on?' on':''}${g.done?' done':''}"${cst(g)}><b>${g.init}</b><span>${TI[g.t]} ${esc(nm(g))}${g.ids.length>1&&!(hide&&hid({type:g.t}))?' ×'+g.ids.length:''}</span></div>`).join(''):'<div class="empty">Бой ещё не начался</div>';
   const ai=G.findIndex(g=>g.on);
   q('now').textContent=ai>=0?(TI[G[ai].t]+' '+nm(G[ai])):(G.length?'Бой начинается…':'');
   q('nxt').innerHTML=ai>=0&&G.length>1?'Далее: <span>'+esc(nm(G[(ai+1)%G.length]))+'</span>':'';
@@ -664,7 +673,7 @@ function card(c,i){const on=i==cur||cur>=0&&!c.dead&&grpIdx(cur).includes(i),t=c
 let lastPub='',pubOff=false;try{pubOff=!!localStorage.getItem('dnd_puboff')}catch(e){}
 function togO(){pubOff=!pubOff;try{localStorage.setItem('dnd_puboff',pubOff?'1':'')}catch(e){}lastPub='';pubO();toast(pubOff?'Полоска убрана с карты':'Полоска снова на карте')}
 function pubO(){const hide=$('hn').checked,hd=t=>hide&&(t=='enemy'||t=='boss'),G=groups();
-  const P={v:1,r:round,chips:G.map(g=>{const c0=get(g.ids[0]),h=(g.t=='boss'||g.t=='lair')&&!hd(g.t)&&c0&&c0.theme||'',o={i:g.init,t:g.t,n:hd(g.t)?HID:g.name,c:hd(g.t)?1:g.ids.length,on:g.on,done:g.done};if(h)o.h=h;return o}),fx:[]};
+  const P={v:1,r:round,chips:G.map(g=>{const c0=get(g.ids[0]),h=(g.t=='boss'||g.t=='lair')&&!hd(g.t)&&c0&&c0.theme||'',o={i:g.init,t:g.t,n:hd(g.t)?HID:g.name,c:hd(g.t)?1:g.ids.length,on:g.on,done:g.done};if(h)o.h=h;if(g.col)o.k=g.col;if(g.sk)o.s=g.sk;return o}),fx:[]};
   creatures.forEach((c,i)=>{if(c.dead||c.res)return;(c.fx||[]).forEach(f=>P.fx.push({n:f.n,w:hd(c.type)?HID:c.name,r:f.r,on:i==cur}))});
   if(pubOff){P.chips=[];P.fx=[]}
   const pb=$('pubb');if(pb){pb.textContent=pubOff?'🦉 Полоска: выкл':'🦉 Полоска: вкл';pb.style.opacity=pubOff?.55:1}
