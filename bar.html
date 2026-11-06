@@ -1,5 +1,5 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=1yLVJEdh7Tq3Nf_Y_-QlddOI1-jrDLP8Da_HOU-TLGT7lO5lNFMN5ZD6hPtzTmsvToW-yccJ9x4OWlBkjziJ95tWNlqStVctQCGEvSIXiKXQP9RUX37UCEditeYso2axxpNaTPy3vJGEik_bhgIa5ItS-2hZj8lyvae2FAyY_q-cU5P8m2S4kbttOdZUPSbHAJxwZh_H-qHcMXBC9Ubv7FOmbdgmvtUp4jSClLOQyMN0TYnkEWwBiu6dRum9iBCdBtiIEntr2fXMH35Dgdv8J8_ePTVT5y_FaTGAO2MDcgmbXzDB8bBc0z-Mm4Y43IKVSojS577mkk71QOnoVdn6jQ" charset="UTF-8"></script><style>
+<script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=nSfEx4v3eM2SeSUooItjR4AoJsz5poFo9jhB2ZqLxBRfDvIbrXr0H7CA1HArKnsgscAvu5R6n6ROR9j5hJSA4Rw56hAlz0UWV_aiTb2Z7LHZMgZTQImfO2q4XaSgYlj95Q6mwAvIo-ZHmYCw86HesAzSPj-iScaLpavN083xuqoYwrvLYA684yogTHRZOUGwMsULVLO8J41j33VC_zmD_duWH3VOTujUjmk_4cGHPomGEj6xSro15CTpvKASWow4znGBBHO5wPgoI6zboF-pCb-DLoIKbk6DA7FuIF7pN0Tknvxy77DadIHud4XVNJVULLV1wPMqEeyXRQsv5M2s1A" charset="UTF-8"></script><style>
 *{box-sizing:border-box;margin:0}
 html,body{background:transparent;overflow:hidden;font-family:Georgia,'Times New Roman',serif;color:#ece9ff;user-select:none}
 #w{padding:4px}
@@ -349,22 +349,109 @@ html,body{background:transparent;overflow:hidden;font-family:Georgia,'Times New 
  --bg:linear-gradient(125deg,transparent 0 20%,rgba(138,75,44,.7) 20% 25%,transparent 25%),repeating-linear-gradient(105deg,rgba(200,210,225,.07) 0 1px,transparent 1px 7px),linear-gradient(170deg,#3b3f47,#1f2126)}
 .c.pk-kayden b{text-shadow:0 0 7px rgba(242,182,64,.55)}
 .c.pk-kayden::after{right:6px;top:7px;width:9px;height:3px;background:radial-gradient(circle at 1.5px 1.5px,#f2b640 0 1.3px,transparent 1.6px),radial-gradient(circle at 7.5px 1.5px,#f2b640 0 1.3px,transparent 1.6px);filter:drop-shadow(0 0 2px #f2b640)}
+
+/* ---- вертикальный режим (слева) и панель перемещения / настройки ---- */
+#ctrl{position:absolute;right:8px;top:6px;z-index:10;display:flex;gap:4px;opacity:0;transition:opacity .2s;pointer-events:none}
+#w:hover #ctrl,body.mv #ctrl{opacity:1;pointer-events:auto}
+#ctrl button{width:24px;height:24px;border-radius:7px;border:1px solid rgba(255,255,255,.22);background:rgba(16,14,34,.92);color:#ece9ff;font:12px/1 sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+#ctrl button:hover{border-color:#f3d58a;color:#f3d58a}
+#ctrl button.on{background:#43381a;border-color:#f3d58a;color:#f3d58a}
+#mv-ov{display:none;position:absolute;inset:0;z-index:8;cursor:grab;border-radius:20px;border:2px dashed #f3d58a;background:rgba(20,16,38,.45);align-items:center;justify-content:center;pointer-events:auto}
+#mv-ov span{background:rgba(14,15,34,.95);border:1px solid #f3d58a;color:#f3d58a;font:600 11px sans-serif;padding:4px 10px;border-radius:999px;box-shadow:0 4px 14px rgba(0,0,0,.7);pointer-events:none;white-space:nowrap}
+body.mv #mv-ov{display:flex}
+body.mv.dragging #mv-ov{cursor:grabbing;background:rgba(243,213,138,.12)}
+
+body.vert #w{display:flex;align-items:flex-start;gap:6px;height:100vh;padding:4px}
+body.vert #bar{flex-direction:column;width:166px;height:calc(100vh - 8px);flex:none}
+body.vert #rd{width:100%;height:56px;border-right:0;border-bottom:1px solid rgba(255,255,255,.1);padding:2px 0}
+body.vert #rd b{font-size:26px}
+body.vert #vp{width:100%;height:auto;flex:1;-webkit-mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent);mask-image:linear-gradient(180deg,transparent,#000 12%,#000 88%,transparent)}
+body.vert #vp::after{top:50%;left:0;transform:translateY(-50%);border:7px solid transparent;border-left:8px solid #f3d58a;border-right:0}
+body.vert #tr{width:100%;height:auto;flex-direction:column;padding:20px 0;gap:12px}
+body.vert .c{width:136px;max-width:136px}
+body.vert .c.on{margin:8px 0;transform:scale(1.12)}
+body.vert .c.th{width:142px;max-width:142px;min-width:128px}
+body.vert .c.th.on{margin:10px 0;transform:scale(1.07)}
+body.vert #fx{flex-direction:column;margin-top:0;max-height:calc(100vh - 16px);overflow:hidden;justify-content:flex-start}
+body.vert .f{font-size:11px;padding:3px 8px;max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.vert #ctrl{right:auto;left:8px;top:6px}
 </style></head><body>
-<div id="w"><div id="bar"><div id="rd"><small>Раунд</small><b id="r">1</b></div><div id="vp"><div id="tr" class="init"></div></div></div><div id="fx"></div></div>
+<div id="w">
+  <div id="bar">
+    <div id="ctrl">
+      <button id="b-dir" title="Положение: сверху / слева">⬅</button>
+      <button id="b-mv" title="Разблокировать / закрепить перетаскивание">🔓</button>
+      <button id="b-rst" title="Сбросить позицию по умолчанию">↺</button>
+    </div>
+    <div id="mv-ov"><span>✥ Перетащите полоску · клик на 🔒 чтобы закрепить</span></div>
+    <div id="rd"><small>Раунд</small><b id="r">1</b></div>
+    <div id="vp"><div id="tr" class="init"></div></div>
+  </div>
+  <div id="fx"></div>
+</div>
 <script type="module">
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 const KEY="com.dnd-tracker/initiative",POP="com.dnd-tracker/bar";
 const $=id=>document.getElementById(id);
+const get=(k,d="")=>{try{return localStorage.getItem(k)||d}catch(e){return d}};
+const set=(k,v)=>{try{v?localStorage.setItem(k,v):localStorage.removeItem(k)}catch(e){}};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const TI={enemy:"⚔️",ally:"🛡️",boss:"👑",lair:"🕳️",player:"🧙"};
-let lastR=null,sig="";
+let lastR=null,sig="",isVert=false;
 // Темы боссов приходят из трекера (поле h). Известные темы:
 const THEMES=["priestess","guurdezh","shar","architect","dragon"];
 // мини-оформления игроков (поле s): id и значок
 const SKINS={torvin:"🪓",achuak:"🐊",rolen:"📖",stepan:"🌳",kayden:"🐺"};
+
+function applyMode(){
+  const v=get("dndbar_dir","top")==="left",mv=get("dndbar_move")==="1";
+  const changed=v!==isVert;isVert=v;
+  document.body.classList.toggle("vert",v);
+  document.body.classList.toggle("mv",mv);
+  $("b-dir").textContent=v?"⬆":"⬅";
+  $("b-dir").title=v?"Переключить на верхнюю полоску":"Переключить на вертикальную полоску слева";
+  $("b-mv").textContent=mv?"🔒":"🔓";
+  $("b-mv").classList.toggle("on",mv);
+  if(changed){center();fit()}
+}
+$("b-dir").onclick=()=>{set("dndbar_dir",isVert?"top":"left");applyMode()};
+$("b-mv").onclick=()=>{set("dndbar_move",get("dndbar_move")==="1"?"":"1");applyMode()};
+$("b-rst").onclick=()=>{set("dndbar_pos","");set("dndbar_move","");applyMode()};
+addEventListener("storage",applyMode);
+
+// Перетаскивание полоски по экрану в режиме разблокировки
+let drag=null;
+$("mv-ov").addEventListener("pointerdown",e=>{
+  if(get("dndbar_move")!=="1")return;
+  e.preventDefault();
+  $("mv-ov").setPointerCapture(e.pointerId);
+  document.body.classList.add("dragging");
+  drag={id:e.pointerId,sx:e.screenX,sy:e.screenY};
+});
+$("mv-ov").addEventListener("pointerup",async e=>{
+  if(!drag||drag.id!==e.pointerId)return;
+  document.body.classList.remove("dragging");
+  const dx=e.screenX-drag.sx,dy=e.screenY-drag.sy;
+  drag=null;
+  if(Math.abs(dx)<4&&Math.abs(dy)<4)return;
+  try{
+    const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();
+    let cur=null;try{cur=JSON.parse(get("dndbar_pos","null"))}catch(err){}
+    const baseX=cur&&typeof cur.x==="number"?cur.x:(isVert?12:w/2);
+    const baseY=cur&&typeof cur.y==="number"?cur.y:(isVert?h/2:12);
+    const nx=Math.round(Math.max(20,Math.min(w-20,baseX+dx)));
+    const ny=Math.round(Math.max(10,Math.min(h-20,baseY+dy)));
+    set("dndbar_pos",JSON.stringify({x:nx,y:ny}));
+  }catch(err){}
+});
+
 function center(){
   const tr=$("tr"),on=tr.querySelector(".c.on")||tr.querySelector(".c");if(!on)return;
-  tr.style.transform=`translateX(${$("vp").clientWidth/2-(on.offsetLeft+on.offsetWidth/2)}px)`;
+  if(isVert){
+    tr.style.transform=`translateY(${$("vp").clientHeight/2-(on.offsetTop+on.offsetHeight/2)}px)`;
+  }else{
+    tr.style.transform=`translateX(${$("vp").clientWidth/2-(on.offsetLeft+on.offsetWidth/2)}px)`;
+  }
 }
 function marquee(){document.querySelectorAll("#tr .c>span").forEach(sp=>{const d=Math.ceil(sp.scrollWidth-sp.clientWidth);
   if(d>2){sp.classList.add("mq");sp.innerHTML=`<em style="--d:${d+6}px;animation-duration:${(d/22+3.2).toFixed(1)}s">${sp.innerHTML}</em>`}})}
@@ -385,9 +472,20 @@ function draw(P){
   if(first)requestAnimationFrame(()=>requestAnimationFrame(()=>$("tr").classList.remove("init")));
   fit();
 }
-function fit(){try{OBR.popover.setHeight(POP,$("w").offsetHeight)}catch(e){}}
+function fit(){
+  try{
+    if(isVert){
+      const hasFx=$("fx").children.length>0;
+      OBR.popover.setWidth(POP,hasFx?296:176);
+    }else{
+      OBR.popover.setHeight(POP,$("w").offsetHeight);
+    }
+  }catch(e){}
+}
 addEventListener("resize",center);
+applyMode();
 OBR.onReady(async()=>{
+  applyMode();
   const m=await OBR.room.getMetadata();draw(m[KEY]);
   OBR.room.onMetadataChange(m=>draw(m[KEY]));
 });
