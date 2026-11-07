@@ -349,8 +349,9 @@ if(EDIT){
 }
 // ---------- уход полоски вниз, чтобы не перекрывать кнопки Owlbear сверху ----------
 // Наведение на верхний край полоски (≈22px) → фон переоткрывает полоску ниже на ~60px.
-// Пока курсор над сдвинутой полоской — она держится внизу, ушёл курсор → через 2.5 с возвращается.
-const DV="dndbar_dive",HOT=22,DIVE_MS=2500;
+// Пока курсор над сдвинутой полоской — она держится внизу, ушёл с неё → сразу возвращается.
+// Если курсор так и не зашёл на сдвинутую полоску (остался на кнопках) — возврат через 0.7 с.
+const DV="dndbar_dive",HOT=22,DIVE_MS=700;
 if(!EDIT&&lsGet("dndbar_nodive")!=="1"){
   let hz=0,ping=0;
   const dived=()=>+(lsGet(DV)||0)>Date.now();
@@ -363,7 +364,7 @@ if(!EDIT&&lsGet("dndbar_nodive")!=="1"){
     if(hot&&!hz)hz=setTimeout(()=>{hz=0;dive()},120);
     else if(!hot&&hz){clearTimeout(hz);hz=0}
   });
-  document.documentElement.addEventListener("pointerleave",()=>{clearTimeout(hz);hz=0});
+  document.documentElement.addEventListener("pointerleave",()=>{clearTimeout(hz);hz=0;if(dived()){lsSet(DV,"0");mark()}});
 }
 addEventListener("resize",center);
 OBR.onReady(async()=>{
