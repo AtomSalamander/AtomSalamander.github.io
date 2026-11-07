@@ -1,15 +1,15 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=atfJ1AouIE5VFlmMaSNX9gk64XrXNpHp6fJf5SJg2RcFm1SKWErWvuu9NmS5cZEflcXEGVcT6y2hHaTxxjJCdPbDm8CSxV0fkJS5wRq3piu9DRY00M-VJ0wFOUgzH-cdIuxVbZY1mzl83zu4q7v4ox5dNB2joLm-yigfhxswTnPyx8pCbVMkDQrdm_WV61A3h0WR2Fxi23BGv9QkoEDJYlX2DH2hjP1fqizRfaaxnFTGTXZ2hJVEy5un_V2rwU4D2g14G11xOx_WMQNKQrN9UNT6mQa8o_CL-JJglj1VIUlGS5lvP-PN0eKbzCcmvFeGx0V34CZe06n-NjWeg7mvLA" charset="UTF-8"></script><style>
+<style>
 body{margin:0;padding:14px;font:14px/1.4 system-ui,sans-serif;background:#14162e;color:#ece9ff}
 h1{font:700 16px Georgia,serif;margin:0 0 10px;color:#f3d58a}
-button{width:100%;padding:9px;border:0;border-radius:10px;background:#b48cff;color:#1a1030;font:700 13px system-ui;cursor:pointer;margin-bottom:8px;transition:.15s}
-button:hover{filter:brightness(1.08)}button:active{transform:scale(.97)}
+button{width:100%;padding:9px;border:0;border-radius:10px;background:#b48cff;color:#1a1030;font:700 13px system-ui;cursor:pointer;margin-bottom:8px}
 button.alt{background:#2a2d52;color:#ece9ff;font-weight:600}
-button.on{background:#43381a;color:#f3d58a;box-shadow:inset 0 0 0 1px #d4af5a}
 .row{display:flex;gap:8px}.row button{flex:1}
-.sec{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#9a9cc0;margin:8px 0 5px}
-label{display:flex;gap:8px;align-items:center;cursor:pointer;margin:4px 0 8px}
+label{display:flex;gap:8px;align-items:center;cursor:pointer;margin-top:4px}
 #gm{display:none}
+button:disabled{opacity:.45;cursor:default}
+#pos{margin-top:10px;padding-top:10px;border-top:1px solid #ffffff20}
+#pos .row button{margin-bottom:0}
 </style></head><body>
 <h1>🎲 Инициатива</h1>
 <div id="gm">
@@ -21,37 +21,21 @@ label{display:flex;gap:8px;align-items:center;cursor:pointer;margin:4px 0 8px}
   <input id="url" readonly style="width:100%;box-sizing:border-box;padding:6px;border-radius:8px;border:1px solid #ffffff30;background:#0d0e20;color:#ece9ff;font:11px system-ui;margin-bottom:6px">
   <button class="alt" id="copy">Скопировать ссылку на трекер</button>
 </div>
-<div class="sec">Полоска на карте</div>
-<label><input type="checkbox" id="show" checked> Показывать полоску</label>
-<div class="row">
-  <button class="alt" id="o-top">⬆ Сверху</button>
-  <button class="alt" id="o-left">⬅ Слева</button>
-</div>
-<div class="row">
-  <button class="alt" id="lock">🔓 Двигать</button>
-  <button class="alt" id="reset" title="Вернуть полоску на стандартное место">↺ Сбросить</button>
-</div>
+<label><input type="checkbox" id="show" checked> Показывать полоску на карте</label>
+<div id="pos"><div class="row"><button class="alt" id="move">🔓 Двигать полоску</button><button class="alt" id="home">↺ На место</button></div></div>
 <script type="module">
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 const $=id=>document.getElementById(id),TID="com.dnd-tracker/tracker";
-const get=(k,d="")=>{try{return localStorage.getItem(k)||d}catch(e){return d}};
-const set=(k,v)=>{try{v?localStorage.setItem(k,v):localStorage.removeItem(k)}catch(e){}};
-function updUI(){
-  $("show").checked=get("dndbar_off")!=="1";
-  const v=get("dndbar_dir","top")==="left",mv=get("dndbar_move")==="1";
-  $("o-top").classList.toggle("on",!v);
-  $("o-left").classList.toggle("on",v);
-  $("lock").classList.toggle("on",mv);
-  $("lock").textContent=mv?"🔒 Закрепить":"🔓 Двигать";
-}
-updUI();
-addEventListener("storage",updUI);
-$("show").onchange=()=>{set("dndbar_off",$("show").checked?"":"1");updUI()};
-$("o-top").onclick=()=>{set("dndbar_dir","top");updUI()};
-$("o-left").onclick=()=>{set("dndbar_dir","left");updUI()};
-$("lock").onclick=()=>{set("dndbar_move",get("dndbar_move")==="1"?"":"1");updUI()};
-$("reset").onclick=()=>{set("dndbar_pos","");set("dndbar_move","");updUI()};
-
+try{$("show").checked=localStorage.getItem("dndbar_off")!=="1"}catch(e){}
+$("show").onchange=()=>{try{localStorage.setItem("dndbar_off",$("show").checked?"":"1")}catch(e){}};
+// положение полоски (у каждого своё, хранится локально)
+const ED="dndbar_edit",PK="dndbar_pos";
+const lg=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const ls=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
+function updPos(){const ed=lg(ED)==="1";$("move").textContent=ed?"🔒 Зафиксировать":"🔓 Двигать полоску";$("home").disabled=!lg(PK)}
+$("move").onclick=async()=>{const ed=lg(ED)==="1";ls(ED,ed?null:"1");updPos();if(!ed){try{await OBR.action.close()}catch(e){}}};
+$("home").onclick=()=>{ls(PK,null);updPos()};
+addEventListener("storage",updPos);updPos();
 async function closeAll(){try{await OBR.popover.close(TID)}catch(e){}try{await OBR.modal.close(TID)}catch(e){}}
 OBR.onReady(async()=>{
   if(await OBR.player.getRole()==="GM"){
@@ -65,8 +49,7 @@ OBR.onReady(async()=>{
       try{await OBR.action.close()}catch(e){}
     };
     $("full").onclick=async()=>{await closeAll();await OBR.modal.open({id:TID,url:"/tracker.html",width:1400,height:880});try{await OBR.action.close()}catch(e){}};
-    let code=get("dnd_room");
-    if(!code){code=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>(b%36).toString(36)).join("");set("dnd_room",code)}
+    let code="";try{code=localStorage.getItem("dnd_room")||"";if(!code){code=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>(b%36).toString(36)).join("");localStorage.setItem("dnd_room",code)}}catch(e){}
     $("tab").style.display="block";$("url").value=location.origin+"/tracker.html?room="+code;
     $("url").onclick=()=>$("url").select();
     $("copy").onclick=async()=>{try{await navigator.clipboard.writeText($("url").value);$("copy").textContent="Скопировано ✓"}catch(e){$("url").select();$("copy").textContent="Выделено — нажмите Ctrl+C"}};

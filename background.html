@@ -1,47 +1,48 @@
-<!doctype html><html><head><meta charset="utf-8"><script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=2vFlYUEd01LF9zV1l7cjPAvNQA_jK3PC9XZ6jAwuzm2oYOwcwHfoD76JDFURzAYkoufHuft9TQcS1bG71-275LqwWLuwOelRjwBO0x_-rujZFs8r5CH6CmjHz1IsdIgt26hZeLtehT9x8iZwERlAlLEZ407TBoiEByV96nX9DOia-He2hx551l0vV1MfkMf9ARA4SBg3zs8IGisvzK_qCCE7GRcBrG5v2AUyPDFnuUAtGdZ14XgFVL7FhJEqA1NomeKghIjqaaQTaOy6tAnZzIaJl-NLym3mFkZvl7m5yilYTO-iGNx4X_H3_veOeg7_5Cav0D-8H-d2paSuZFhVeQ" charset="UTF-8"></script></head><body>
+<!doctype html><html><head><meta charset="utf-8"></head><body>
 <script type="module">
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 const KEY="com.dnd-tracker/initiative",POP="com.dnd-tracker/bar";
-let data=null,isOpen=false,lastW=0,lastH=0,lastCfg="";
-const get=(k,d="")=>{try{return localStorage.getItem(k)||d}catch(e){return d}};
-const enabled=()=>get("dndbar_off")!=="1";
-const getPos=()=>{try{const p=JSON.parse(get("dndbar_pos","null"));return p&&typeof p.x==="number"&&typeof p.y==="number"?p:null}catch(e){return null}};
-
+let data=null,isOpen=false,lastW=0;
+const enabled=()=>{try{return localStorage.getItem("dndbar_off")!=="1"}catch(e){return true}};
+const ED="dndbar_edit",PK="dndbar_pos",M=16;
+const ls=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const editing=()=>ls(ED)==="1";
+function getPos(){try{const p=JSON.parse(ls(PK)||"null");if(p&&isFinite(p.x)&&isFinite(p.y))return p}catch(e){}return null}
+let lastH=0,openKey="";
 async function show(){
-  const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();
-  lastW=w;lastH=h;
-  const vert=get("dndbar_dir","top")==="left",pos=getPos();
-  lastCfg=vert+"|"+(pos?pos.x+","+pos.y:"");
-  const pw=vert?220:Math.max(320,Math.min(1000,w-200)),ph=vert?Math.max(280,Math.min(760,h-140)):110;
-  const ax=pos?Math.max(40,Math.min(w-40,pos.x)):(vert?12:w/2);
-  const ay=pos?Math.max(12,Math.min(h-40,pos.y)):(vert?h/2:12);
-  await OBR.popover.open({id:POP,url:"/bar.html",width:pw,height:ph,
-    anchorReference:"POSITION",anchorPosition:{left:ax,top:ay},
-    transformOrigin:{horizontal:vert&&!pos?"LEFT":"CENTER",vertical:vert&&!pos?"CENTER":"TOP"},
-    hidePaper:true,disableClickAway:true});
+  const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();lastW=w;lastH=h;
+  const W=Math.max(320,Math.min(1000,w-200));
+  if(editing()){
+    // режим перемещения: прозрачный слой на всю карту, полоска двигается внутри него плавно
+    await OBR.popover.open({id:POP,url:`/bar.html?edit=1&w=${W}&m=${M}`,width:w-2*M,height:h-2*M,
+      anchorReference:"POSITION",anchorPosition:{left:M,top:M},
+      transformOrigin:{horizontal:"LEFT",vertical:"TOP"},hidePaper:true,disableClickAway:true});
+  }else{
+    const p=getPos();
+    const cx=Math.min(Math.max(p?p.x*w:w/2,W/2+M),w-W/2-M),top=Math.min(Math.max(p?p.y*h:12,0),h-110);
+    await OBR.popover.open({id:POP,url:"/bar.html",width:W,height:110,
+      anchorReference:"POSITION",anchorPosition:{left:cx,top},
+      transformOrigin:{horizontal:"CENTER",vertical:"TOP"},hidePaper:true,disableClickAway:true});
+  }
   isOpen=true;
 }
-async function sync(force){
-  const want=enabled()&&data&&data.chips&&data.chips.length>0;
-  const pos=getPos(),cfg=(get("dndbar_dir","top")==="left")+"|"+(pos?pos.x+","+pos.y:"");
-  if(want){
-    if(!isOpen||force||cfg!==lastCfg){
-      if(isOpen&&cfg!==lastCfg){try{await OBR.popover.close(POP)}catch(e){}isOpen=false}
-      await show();
-    }
-  }else if(isOpen){await OBR.popover.close(POP);isOpen=false}
+async function sync(){
+  const ed=editing();
+  const want=enabled()&&(ed||(data&&data.chips&&data.chips.length>0));
+  if(want){const k=ed?"E":"N"+(ls(PK)||"");if(!isOpen||k!==openKey){openKey=k;await show()}}
+  else if(isOpen){openKey="";await OBR.popover.close(POP);isOpen=false}
 }
 OBR.onReady(async()=>{
   data=(await OBR.room.getMetadata())[KEY];
   OBR.room.onMetadataChange(m=>{data=m[KEY];sync()});
-  addEventListener("storage",()=>sync());
+  addEventListener("storage",sync);
   setInterval(async()=>{if(!isOpen)return;const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();if(Math.abs(w-lastW)>40||Math.abs(h-lastH)>40)show()},2000);
   sync();
   // приём данных из отдельной вкладки трекера (через ntfy.sh) — только у мастера
   if(await OBR.player.getRole()==="GM"){
     let es=null,cur="";
     const link=()=>{
-      let c=get("dnd_room");
+      let c="";try{c=localStorage.getItem("dnd_room")||""}catch(e){}
       if(c===cur&&es)return;if(es){es.close();es=null}cur=c;if(!c)return;
       es=new EventSource("https://ntfy.sh/dndinit-"+c+"/sse?since=latest");
       es.onmessage=e=>{try{const P=JSON.parse(JSON.parse(e.data).message);if(P&&P.chips)OBR.room.setMetadata({[KEY]:P})}catch(err){}};

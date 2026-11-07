@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>D&D Трекер боя</title>
-<script type="text/javascript" src="https://gc.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=0SOwxhusAkN2QZHX6YTtvnxJKoyyFzTgoPt2mJG0ciBEjCinAfUZDhfGDHH1ksOmYH6d7B43-5cjgcf7HcDCIadQwDo1mnTTvV31BFdw5vhFMkqEx5bAL0AptG4RzQmQRfX8jsRLpnbd-dFptroNEK63JD3VgiY7T5AxdST__Gz3R9A8YWuWK2u8yTszljTTqaPlUYgp9ea_3MTHNhXcIbnB8JK4pwZJmTTPWAWhGN7ZSqignh1ve3ZYR5JekuOABspQeFwvzYx8XGitTlqi0rT_zpubLWdQCuRNSJWiyvPTmVp6Z8AsXxyewAOCXZPcelge2TpfVsnrkC8H-0qbGQ" charset="UTF-8"></script><style>
+<style>
 :root{--bg:#0f1020;--pn:#181a32;--pn2:#20223f;--ln:#34375c;--gd:#d4af5a;--tx:#e6e6f0;--mt:#8b8da8;--gr:#4caf6a;--rd:#e05a4a;--bl:#5aa5e8}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font:15px/1.4 'Segoe UI',system-ui,sans-serif;background:radial-gradient(circle at top,#1a1c3a,var(--bg) 60%) fixed;color:var(--tx);display:flex;min-height:100vh}
@@ -376,7 +376,7 @@ function grpIdx(k){const c=creatures[k];if(!c)return[];if(c.type=='player'||c.ty
 function next(){if(!creatures.some(c=>!c.dead&&!inact(c)))return;gone=[];rn=[];act(()=>{const G=grpIdx(cur);G.forEach(k=>tickFx(creatures[k],'e'));let i=G.length?Math.max(...G):cur;do{i++;if(i>=creatures.length){i=0;round++}}while(creatures[i].dead||inact(creatures[i]));cur=i;grpIdx(cur).forEach(k=>{tickFx(creatures[k],'s');rchg(creatures[k])})});{const m=[];if(gone.length)m.push('⌛ Закончилось: '+gone.join(', '));m.push(...rn);if(m.length)toast(m.join(' · '),6000);gone=[];rn=[]}const c=creatures[cur];if(c){const e=$('c'+c.id);e&&e.scrollIntoView({block:'nearest',behavior:'smooth'})}}
 const TI={enemy:'⚔️',ally:'🛡️',boss:'👑',lair:'🕳️',object:'📦',player:'🧙'},TL={enemy:'Враг',ally:'Союзник',boss:'Босс',lair:'Логово',object:'Объект',player:'Игрок'},base=n=>n.replace(/ \d+$/,'');
 // темы оформления ячейки босса на полоске игроков (id должен совпадать с темой в bar.html)
-const THEMES=[{id:'priestess',n:'Слепая жрица',f:'boss'},{id:'guurdezh',n:"Гуур'Дезх",f:'boss'},{id:'shar',n:'Шар',f:'lair'},{id:'architect',n:'Архитектор',f:'boss'},{id:'dragon',n:'Дракон',f:'boss'}];
+const THEMES=[{id:'priestess',n:'Слепая жрица',f:'boss'},{id:'guurdezh',n:"Гуур'Дезх",f:'boss'},{id:'shar',n:'Шар',f:'lair'},{id:'architect',n:'Архитектор',f:'boss'}];
 const thName=id=>(THEMES.find(x=>x.id==id)||{n:id}).n;
 function thm(id){act(()=>{const c=get(id),ids=['',...THEMES.filter(x=>x.f==c.type).map(x=>x.id)],i=ids.indexOf(c.theme||'');c.theme=ids[(i+1)%ids.length]})}
 const OBJ=-999;
