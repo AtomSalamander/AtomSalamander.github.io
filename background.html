@@ -8,7 +8,9 @@ const ED="dndbar_edit",PK="dndbar_pos",M=16;
 const ls=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 const editing=()=>ls(ED)==="1";
 function getPos(){try{const p=JSON.parse(ls(PK)||"null");if(p&&isFinite(p.x)&&isFinite(p.y))return p}catch(e){}return null}
-let lastH=0,openKey="";
+let lastH=0,openKey="",diveT=0;
+const DV="dndbar_dive",DIVE=60;
+const diving=()=>ls("dndbar_nodive")!=="1"&&+(ls(DV)||0)>Date.now();
 async function show(){
   const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();lastW=w;lastH=h;
   const W=Math.max(320,Math.min(1000,w-200));
@@ -19,7 +21,7 @@ async function show(){
       transformOrigin:{horizontal:"LEFT",vertical:"TOP"},hidePaper:true,disableClickAway:true});
   }else{
     const p=getPos();
-    const cx=Math.min(Math.max(p?p.x*w:w/2,W/2+M),w-W/2-M),top=Math.min(Math.max(p?p.y*h:12,0),h-110);
+    const cx=Math.min(Math.max(p?p.x*w:w/2,W/2+M),w-W/2-M),top=Math.min(Math.max(p?p.y*h:12,0)+(diving()?DIVE:0),h-110);
     await OBR.popover.open({id:POP,url:"/bar.html",width:W,height:110,
       anchorReference:"POSITION",anchorPosition:{left:cx,top},
       transformOrigin:{horizontal:"CENTER",vertical:"TOP"},hidePaper:true,disableClickAway:true});
@@ -29,7 +31,9 @@ async function show(){
 async function sync(){
   const ed=editing();
   const want=enabled()&&(ed||(data&&data.chips&&data.chips.length>0));
-  if(want){const k=ed?"E":"N"+(ls(PK)||"");if(!isOpen||k!==openKey){openKey=k;await show()}}
+  clearTimeout(diveT);
+  const dv=!ed&&diving();if(dv)diveT=setTimeout(sync,+(ls(DV)||0)-Date.now()+30);
+  if(want){const k=ed?"E":"N"+(ls(PK)||"")+(dv?"D":"");if(!isOpen||k!==openKey){openKey=k;await show()}}
   else if(isOpen){openKey="";await OBR.popover.close(POP);isOpen=false}
 }
 OBR.onReady(async()=>{

@@ -22,11 +22,14 @@ button:disabled{opacity:.45;cursor:default}
   <button class="alt" id="copy">Скопировать ссылку на трекер</button>
 </div>
 <label><input type="checkbox" id="show" checked> Показывать полоску на карте</label>
+<label title="При наведении на верхний край полоска сдвигается вниз и не мешает кнопкам Owlbear"><input type="checkbox" id="dive" checked> Уходить вниз при наведении сверху</label>
 <div id="pos"><div class="row"><button class="alt" id="move">🔓 Двигать полоску</button><button class="alt" id="home">↺ На место</button></div></div>
 <script type="module">
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 const $=id=>document.getElementById(id),TID="com.dnd-tracker/tracker";
 try{$("show").checked=localStorage.getItem("dndbar_off")!=="1"}catch(e){}
+try{$("dive").checked=localStorage.getItem("dndbar_nodive")!=="1"}catch(e){}
+$("dive").onchange=()=>{try{localStorage.setItem("dndbar_nodive",$("dive").checked?"":"1");localStorage.removeItem("dndbar_dive")}catch(e){}};
 $("show").onchange=()=>{try{localStorage.setItem("dndbar_off",$("show").checked?"":"1")}catch(e){}};
 // положение полоски (у каждого своё, хранится локально)
 const ED="dndbar_edit",PK="dndbar_pos";

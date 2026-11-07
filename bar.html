@@ -260,6 +260,10 @@ body.edit{background:rgba(6,6,18,.22)}
 body.edit #w{position:absolute;left:0;top:0;cursor:grab;touch-action:none;will-change:transform}
 body.edit #w.drag{cursor:grabbing}
 body.edit #bar{outline:2px dashed rgba(243,213,138,.85);outline-offset:3px}
+/* --- уход вниз при наведении на верхний край --- */
+#bar{transition:opacity .25s,filter .25s}
+body.dive #bar{opacity:.55;filter:saturate(.7)}
+body.dive #lk{display:none}
 #tools{display:none}
 body.edit #tools{display:flex;align-items:center;gap:8px;position:absolute;left:50%;bottom:22px;transform:translateX(-50%);padding:8px 10px;border-radius:14px;
  background:rgba(20,22,46,.94);border:1px solid rgba(255,255,255,.14);box-shadow:0 8px 28px rgba(0,0,0,.5);font:13px system-ui;white-space:nowrap}
@@ -342,6 +346,24 @@ if(EDIT){
   addEventListener("keydown",e=>{if(e.key==="Enter"||e.key==="Escape")lock()});
   addEventListener("storage",e=>{if(e.key===PK&&e.newValue==null&&!drag){ease=.12;goTo(toLocal(null))}});
   addEventListener("resize",()=>goTo(toLocal(getPos()),true));
+}
+// ---------- уход полоски вниз, чтобы не перекрывать кнопки Owlbear сверху ----------
+// Наведение на верхний край полоски (≈22px) → фон переоткрывает полоску ниже на ~60px.
+// Пока курсор над сдвинутой полоской — она держится внизу, ушёл курсор → через 2.5 с возвращается.
+const DV="dndbar_dive",HOT=22,DIVE_MS=2500;
+if(!EDIT&&lsGet("dndbar_nodive")!=="1"){
+  let hz=0,ping=0;
+  const dived=()=>+(lsGet(DV)||0)>Date.now();
+  const mark=()=>document.body.classList.toggle("dive",dived());
+  mark();setInterval(mark,300);addEventListener("storage",e=>{if(e.key===DV)mark()});
+  const dive=()=>{lsSet(DV,String(Date.now()+DIVE_MS));mark()};
+  document.addEventListener("pointermove",e=>{
+    if(dived()){const t=Date.now();if(t-ping>400){ping=t;dive()}return}
+    const hot=e.clientY<HOT&&!(e.target.closest&&e.target.closest("#lk"));
+    if(hot&&!hz)hz=setTimeout(()=>{hz=0;dive()},120);
+    else if(!hot&&hz){clearTimeout(hz);hz=0}
+  });
+  document.documentElement.addEventListener("pointerleave",()=>{clearTimeout(hz);hz=0});
 }
 addEventListener("resize",center);
 OBR.onReady(async()=>{
