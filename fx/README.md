@@ -36,7 +36,7 @@
 **Шаги cast:** `projectile` (снаряд: size, speed, trail, arc), `beam` (луч: width, duration, hitAt),
 `burst` (вспышка+искры: radius, sparks), `area` (область: radius, opacity, edge), `rise` (частицы вверх: count, height),
 `image` (картинка/GIF/WebM: url, size, duration),
-`letters` (буквы имени цели вырываются, складываются в слово и улетают к заклинателю: text, size, speed, ghosts, color, stroke, glow),
+`letters` (буквы имени цели вырываются, складываются в слово и улетают к заклинателю: text, size, speed, ghosts, color, stroke, glow; буквы рисуются векторно из `glyphs.js` — русский и латинский алфавит, цифры),
 `implode` (кольцо и искры стягиваются в точку: radius, sparks, duration).
 `smoke` (клубы дыма: radius, count, size, rise, opacity, color2), `debris` (разлетающиеся обломки: radius, count, size, hot),
 `shock` (ударные кольца: radius, rings, width), `embers` (тлеющие угольки вверх: count, height, spread, color2),

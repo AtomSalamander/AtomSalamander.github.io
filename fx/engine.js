@@ -1,6 +1,7 @@
 // Движок анимаций: рисует локальные объекты на карте у каждого игрока
 // (не синхронизируются по сети — поэтому анимация плавная и не нагружает комнату).
 import OBR, { buildCurve, buildLine, buildImage, buildText } from "https://esm.sh/@owlbear-rodeo/sdk@3";
+import { GLYPHS } from "./glyphs.js";
 
 let DPI = 150;
 export async function grid() { try { DPI = (await OBR.scene.grid.getDpi()) || DPI; } catch (e) {} return DPI; }
@@ -160,21 +161,10 @@ function line(o) {
   return base(it, o);
 }
 // Одна буква (текстовый объект). Позиция текста — его левый верхний угол, поэтому центр считаем сами (place).
-function glyph(o) {
-  const fs = o.fs, box = Math.round(fs * 1.5);
-  const it = buildText().plainText(o.ch).textType("PLAIN").build();
-  it.text = it.text || {};
-  it.text.type = "PLAIN"; it.text.plainText = o.ch;
-  it.text.width = box; it.text.height = box;
-  it.text.style = {
-    fillColor: o.color || "#ffffff", fillOpacity: 0,
-    strokeColor: o.stroke || "#000000", strokeOpacity: 0, strokeWidth: o.sw ?? Math.max(1, fs * 0.06),
-    textAlign: "CENTER", textAlignVertical: "MIDDLE",
-    fontFamily: o.font || "Georgia", fontSize: fs, fontWeight: o.weight || 700, lineHeight: 1, padding: 0,
-  };
-  it.position = { x: o.x - box / 2, y: o.y - box / 2 };
-  it.box = box;
-  return base(it, o);
+function glyph(o) {   // буква как векторная фигура (без текстовых элементов — они ненадёжны в Owlbear)
+  const g = GLYPHS[o.ch] || GLYPHS["?"] || [], k = o.fs / 100, pts = [];
+  for (let i = 0; i + 1 < g.length; i += 2) pts.push({ x: g[i] * k, y: g[i + 1] * k });
+  return poly({ pts, x: o.x, y: o.y, fill: o.color || "#ffffff", fo: 0, so: 0, sw: 0, z: o.z, layer: o.layer });
 }
 // позиция левого верхнего угла, чтобы центр буквы был в (x,y) при масштабе s и повороте r (градусы)
 function place(box, x, y, s, r) {
@@ -285,7 +275,7 @@ const FX = {
     spawn(delay, ms.map(m => m.it), { dur, f: (p, P) => {
       for (const m of ms) {
         const lp = c01((p - m.q0) / 0.6), x = m.x + Math.sin(lp * 9 + m.ph) * m.w, y = m.y - H * out3(lp), fo = Math.sin(Math.PI * lp);
-        P.set(m.it.id, m.g ? { ...place(m.it.box, x, y, 1, 0), fo, so: fo * 0.7 } : { x, y, fo });
+        P.set(m.it.id, { x, y, fo });
       }
     } });
     return 0;
@@ -293,7 +283,7 @@ const FX = {
   // «Буквы имени»: буквы вырываются из цели, складываются в слово над ней, дрожат и по одной
   // улетают по спирали к заклинателю (A — цель, B — заклинатель). Возвращает время прилёта последней буквы.
   letters(A, B, o, delay) {
-    const word = [...String(o.text || A.name || "ИМЯ").toUpperCase()].filter(ch => /\p{L}/u.test(ch)).slice(0, o.max || 10);
+    const word = [...String(o.text || A.name || "ИМЯ").toUpperCase()].map(ch => ch === "Й" ? "И" : ch).filter(ch => GLYPHS[ch]).slice(0, o.max || 10);
     if (!word.length) word.push(..."ИМЯ");
     const n = word.length, fs = Math.round((o.size || 0.38) * DPI), gap = fs * 0.78;
     const tUp = o.up || 650, tHold = o.hold || 450, stag = o.stagger ?? 110;
@@ -308,8 +298,9 @@ const FX = {
       const mk = (fo, gz) => glyph({ ch, fs, x: A.x, y: A.y, color: o.color || "#ece8ff", stroke: o.stroke || "#1d1038", font: o.font, z: gz });
       const g = circle({ x: A.x, y: A.y, r: fs * 0.55, fill: o.glow || "#a78bfa", fo: 0, n: 14, z: z + k * 10 });
       const main = mk(0, z + k * 10 + 5), gh = [];
+      const sh = glyph({ ch, fs, x: A.x, y: A.y, color: o.stroke || "#1d1038", z: z + k * 10 + 4 });
       for (let j = 1; j <= ghosts; j++) gh.push(mk(0, z + k * 10 + 5 - j));
-      return { ch, k, sx, sy, bend, spin, ph, g, main, gh };
+      return { ch, k, sx, sy, bend, spin, ph, g, main, sh, gh };
     });
     // состояние буквы в момент tm (мс от старта)
     const at = (l, tm) => {
@@ -331,16 +322,17 @@ const FX = {
         s: 1 - 0.7 * e, r: l.spin * e, o: q < 0.8 ? 1 : 1 - (q - 0.8) / 0.2, fly: q > 0 && q < 1 ? 1 : 0, done: q >= 1 };
     };
     const items = [];
-    for (const l of L) items.push(l.g, l.main, ...l.gh);
+    for (const l of L) items.push(l.g, ...l.gh, l.sh, l.main);
     spawn(delay, items, { dur: total + 40, f: (p, P) => {
       const tm = p * (total + 40);
       for (const l of L) {
         const c = at(l, tm), op = c.done ? 0 : c.o;
-        P.set(l.main.id, { ...place(l.main.box, c.x, c.y, c.s, c.r), fo: op, so: op * 0.9 });
+        P.set(l.main.id, { x: c.x, y: c.y, s: c.s, r: c.r, fo: op });
+        P.set(l.sh.id, { x: c.x + fs * 0.05, y: c.y + fs * 0.06, s: c.s * 1.04, r: c.r, fo: op * 0.85 });
         P.set(l.g.id, { x: c.x, y: c.y, s: c.s * (1.1 + 0.15 * Math.sin(tm * 0.02 + l.ph)), fo: op * (c.fly ? 0.35 : 0.22) });
         l.gh.forEach((g, j) => {
           const c2 = at(l, tm - (j + 1) * 55), go = c.fly ? c2.o * 0.4 / (j + 1) : 0;
-          P.set(g.id, { ...place(g.box, c2.x, c2.y, c2.s, c2.r), fo: go, so: 0 });
+          P.set(g.id, { x: c2.x, y: c2.y, s: c2.s, r: c2.r, fo: go });
         });
       }
     } });
