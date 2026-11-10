@@ -2,7 +2,8 @@
 export const NS = "com.dnd-fx";
 export const STATE = NS + "/state";          // активные эффекты (метаданные комнаты)
 export const CH = NS + "/msg";               // канал сообщений
-export const PANEL = NS + "/panel";          // id закреплённой панели
+export const PANEL = NS + "/panel";
+export const ALLOW = NS + "/allow";        // id способностей, разрешённых игрокам          // id закреплённой панели
 export const INIT = "com.dnd-tracker/initiative"; // данные трекера инициативы
 
 export function normState(s) {

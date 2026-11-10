@@ -22,6 +22,10 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
 .ab i{font-style:normal;font-size:18px;line-height:20px}
 .ab b{display:block;font-weight:600}
 .ab small{color:#9a9cc0;font-size:11px}
+.ab>div{flex:1;min-width:0}
+.al{display:flex;align-items:center;gap:2px;font-size:13px;color:#9a9cc0;cursor:pointer;padding:2px 4px;border-radius:6px;white-space:nowrap}
+.al:hover{background:#ffffff12}
+.al input{margin:0;accent-color:#b48cff;cursor:pointer}
 #opts{position:sticky;bottom:-12px;background:#14162e;padding:10px 0 12px;border-top:1px solid #ffffff20;margin-top:8px}
 .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
 .row select{flex:1;min-width:0}
@@ -42,6 +46,7 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
   <div class="slot"><span>🎯 Цели</span><b id="tN">—</b><button class="alt sm" id="tSet">← выделение</button><button class="alt sm" id="tClr">✕</button></div>
   <div class="hint" id="selH">Выдели токены на карте (Shift — несколько) и нажми «← выделение».</div>
   <input id="q" placeholder="🔎 Поиск способности…">
+  <div class="hint" id="glH" hidden>Галочка 👥 справа — способность могут применять игроки.</div>
   <div id="list"></div>
   <div id="opts" hidden>
     <div class="row" id="uRow">
@@ -60,7 +65,7 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
     <button class="alt" id="goSave" hidden style="width:100%;margin-top:6px">🛡️ Спасбросок пройден</button>
   </div>
 </div>
-<div id="pl" class="hint" hidden>Способности применяет мастер. Здесь видно, какие эффекты сейчас висят.</div>
+<div id="pl" class="hint" hidden>Мастер пока не разрешил игрокам ни одной способности. Здесь видно, какие эффекты сейчас висят.</div>
 
 <h2>Активные эффекты</h2>
 <div id="act"></div>

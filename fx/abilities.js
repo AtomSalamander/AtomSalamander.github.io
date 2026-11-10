@@ -140,6 +140,45 @@ export const ABILITIES = [
     ],
     until: { who: "caster", when: "s", n: 1 },
   },
+  {
+    id: "chromatic-spear", name: "Стихийное копьё", icon: "🔱", group: "Заклинания",
+    desc: "1 ур., 90 фт. Дальнобойная атака заклинанием. Попадание: по 1к4 огнём, холодом, кислотой, электричеством и звуком (+2к4 за уровень ячейки выше 1-го).",
+    attack: true,
+    cast: [
+      { fx: "projectile", shape: "spear", color: "#c9b8ff", core: "#ffffff", color2: "#ffe08a", length: 1.1, size: 0.3, speed: 10, trail: 0,
+        glow: 0.3, glowColors: ["#ff6a1a", "#7fd6ff", "#7be33a", "#ffe45c", "#b7a6ff"],
+        ribbons: ["#ff6a1a", "#7fd6ff", "#7be33a", "#ffe45c", "#b7a6ff"], ribbonLen: 9, ribbonAmp: 0.16, embers: 8 },
+      { fx: "burst", at: "targets", after: "hit", color: "#ffffff", core: "#ffffff", radius: 0.7, sparks: 0, flash: 0.6, duration: 450 },
+      { fx: "burst", at: "targets", after: "hit", color: "#ff6a1a", core: "#ffe08a", radius: 0.85, sparks: 8 },
+      { fx: "debris", at: "targets", after: "hit", delay: 120, color: "#bfe9ff", color2: "#ffffff", hot: "#7fd6ff", radius: 1.1, count: 9, size: 0.09 },
+      { fx: "smoke", at: "targets", after: "hit", delay: 220, color: "#2f6a14", color2: "#7be33a", radius: 0.7, count: 5, size: 0.25, rise: 0.3, opacity: 0.45, duration: 1300 },
+      { fx: "bolt", from: "sky", after: "hit", delay: 300, color: "#ffe45c", core: "#ffffff", width: 0.05, jag: 0.35, duration: 380, grow: 0.12, height: 1.6 },
+      { fx: "shock", at: "targets", after: "hit", delay: 420, color: "#b7a6ff", radius: 1.5, rings: 3, width: 0.05, duration: 650 },
+      { fx: "embers", at: "targets", after: "hit", delay: 200, color: "#ffb347", color2: "#7fd6ff", count: 10, height: 0.8, duration: 1200 },
+    ],
+    castSave: [   // промах
+      { fx: "projectile", shape: "spear", miss: true, overshoot: 1.6, color: "#c9b8ff", core: "#ffffff", color2: "#ffe08a", length: 1.1, size: 0.3, speed: 10, trail: 0,
+        glow: 0.3, glowColors: ["#ff6a1a", "#7fd6ff", "#7be33a", "#ffe45c", "#b7a6ff"],
+        ribbons: ["#ff6a1a", "#7fd6ff", "#7be33a", "#ffe45c", "#b7a6ff"], ribbonLen: 9, ribbonAmp: 0.16, embers: 6 },
+      { fx: "burst", at: "miss", after: "hit", color: "#c9b8ff", core: "#ffffff", radius: 0.5, sparks: 6, flash: 0.3 },
+      { fx: "shock", at: "miss", after: "hit", color: "#b7a6ff", radius: 0.8, rings: 1, duration: 450 },
+    ],
+  },
+  {
+    id: "bow-shot", name: "Выстрел из лука", icon: "🏹", group: "Оружие",
+    desc: "Стрела летит по лёгкой дуге и втыкается в цель. Промах — пролетает мимо и втыкается в землю.",
+    attack: true,
+    cast: [
+      { fx: "projectile", shape: "arrow", length: 0.85, size: 0.12, speed: 26, arc: 0.3, trail: 4, color: "#e8e2d0", core: "#ffffff", stick: 1300 },
+      { fx: "burst", at: "targets", after: "hit", color: "#e8dcc0", core: "#ffffff", radius: 0.45, sparks: 6, flash: 0.3, duration: 450 },
+      { fx: "debris", at: "targets", after: "hit", color: "#8b5a2b", color2: "#c9a36b", hot: "#e8dcc0", radius: 0.6, count: 5, size: 0.05, duration: 600 },
+      { fx: "shock", at: "targets", after: "hit", color: "#ffffff", radius: 0.6, rings: 1, width: 0.03, duration: 350 },
+    ],
+    castSave: [   // промах
+      { fx: "projectile", shape: "arrow", miss: true, overshoot: 1.3, side: 0.3, length: 0.85, size: 0.12, speed: 26, arc: 0.3, trail: 4, color: "#e8e2d0", core: "#ffffff", stick: 1500 },
+      { fx: "smoke", at: "miss", after: "hit", color: "#6b5a45", color2: "#9c8a70", radius: 0.35, count: 4, size: 0.16, rise: 0.15, opacity: 0.4, duration: 900 },
+    ],
+  },
 ];
 
 export const ABIL = Object.fromEntries(ABILITIES.map(a => [a.id, a]));

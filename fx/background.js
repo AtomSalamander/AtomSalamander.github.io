@@ -3,12 +3,14 @@
 //  • рисует висящие эффекты на токенах;
 //  • у мастера — следит за трекером инициативы и снимает эффекты, когда наступает нужный ход.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import { STATE, INIT, CH, normState } from "./const.js";
+import { STATE, INIT, CH, ALLOW, normState } from "./const.js";
 import { ABIL } from "./abilities.js";
 import { play, startAura, stopAura, stopAll } from "./engine.js";
 import { turnEvents, applyEvents, samePos } from "./turns.js";
 
-let state = normState(null), ready = false, isGM = false, initSig = "";
+let state = normState(null), ready = false, isGM = false, initSig = "", allow = new Set(), myConn = "";
+const roles = new Map();     // connectionId → роль (GM / PLAYER) других участников
+const fromPlayer = ev => ev.connectionId && ev.connectionId !== myConn && roles.get(ev.connectionId) !== "GM";
 const rendered = new Map();   // id эффекта → нарисованная аура
 const hold = new Map();       // id эффекта → не показывать до (ждём попадания снаряда)
 
@@ -60,6 +62,7 @@ function onTurns(s, md) {
 }
 
 function onMeta(md) {
+  allow = new Set(Array.isArray(md[ALLOW]) ? md[ALLOW] : []);
   state = normState(md[STATE]);
   sync();
   if (isGM) {
@@ -72,11 +75,16 @@ function onMeta(md) {
 OBR.onReady(async () => {
   isGM = (await OBR.player.getRole()) === "GM";
   OBR.player.onChange(p => { isGM = p.role === "GM"; });
+  try { myConn = await OBR.player.getConnectionId(); } catch (e) {}
+  const setParty = ps => { roles.clear(); for (const p of ps || []) roles.set(p.connectionId, p.role); };
+  try { setParty(await OBR.party.getPlayers()); OBR.party.onChange(setParty); } catch (e) {}
   ready = await OBR.scene.isReady();
   OBR.scene.onReadyChange(r => { ready = r; sync(); });
 
   OBR.broadcast.onMessage(CH, async ev => {
     const m = ev.data || {};
+    if (fromPlayer(ev) && (m.op === "del" || m.op === "clear")) return;                 // снимает только мастер
+    if (fromPlayer(ev) && m.op === "play" && !allow.has(m.a)) return;                  // игрокам — только разрешённое
     if (m.op === "play") {
       const ids = Object.values(m.e || {});
       ids.forEach(id => hold.set(id, Date.now() + 8000));          // пока не знаем время попадания
@@ -87,7 +95,8 @@ OBR.onReady(async () => {
       for (const [tid, eid] of Object.entries(m.e || {})) hold.set(eid, Date.now() + (hits[tid] || 0) + ((A && A.auraDelay) || 0) + 150);
       sync();
     } else if (isGM && m.op === "add" && Array.isArray(m.list)) {
-      mutate(s => { s.e.push(...m.list); return s; });
+      const list = fromPlayer(ev) ? m.list.filter(x => x && allow.has(x.a)) : m.list;
+      if (list.length) mutate(s => { s.e.push(...list); return s; });
     } else if (isGM && m.op === "del" && Array.isArray(m.ids)) {
       mutate(s => { s.e = s.e.filter(e => !m.ids.includes(e.id)); return s; });
     } else if (isGM && m.op === "clear") {

@@ -89,6 +89,26 @@ function poly(o) {
   };
   return base(it, o);
 }
+// Формы снарядов (кончик в (0,0), тело вдоль −x). L — длина в пикселях
+const SHAPES = {
+  arrow(L, o) {
+    const w = L * 0.022, P = (...a) => { const r = []; for (let i = 0; i < a.length; i += 2) r.push({ x: a[i] * L, y: a[i + 1] * L }); return r; };
+    return [
+      { pts: P(-1, -0.075, -0.84, -0.022, -0.8, -0.022, -0.92, -0.085), fill: o.fletch || "#c0392b" },
+      { pts: P(-1, 0.075, -0.84, 0.022, -0.8, 0.022, -0.92, 0.085), fill: o.fletch2 || o.fletch || "#e8e2d0" },
+      { pts: [{ x: -L, y: -w / 2 }, { x: -L * 0.17, y: -w / 2 }, { x: -L * 0.17, y: w / 2 }, { x: -L, y: w / 2 }], fill: o.shaft || "#8b5a2b" },
+      { pts: P(0, 0, -0.2, -0.06, -0.16, 0, -0.2, 0.06), fill: o.tip || "#d9dde3", stroke: "#4a4f57", sw: L * 0.008 },
+    ];
+  },
+  spear(L, o) {
+    const P = (...a) => { const r = []; for (let i = 0; i < a.length; i += 2) r.push({ x: a[i] * L, y: a[i + 1] * L }); return r; };
+    return [
+      { pts: P(0.05, 0, -0.35, -0.11, -1, -0.03, -1.05, 0, -1, 0.03, -0.35, 0.11), fill: o.color || "#b48cff", fo: 0.35 },
+      { pts: P(0, 0, -0.3, -0.07, -0.95, -0.018, -0.95, 0.018, -0.3, 0.07), fill: o.core || "#ffffff", fo: 0.95, stroke: o.color || "#b48cff", sw: L * 0.01 },
+      { pts: P(-0.05, 0, -0.3, -0.03, -0.7, 0, -0.3, 0.03), fill: o.color2 || o.color || "#b48cff", fo: 0.6 },
+    ];
+  },
+};
 const backOut = p => { const q = c01(p) - 1, k = 1.7; return 1 + q * q * ((k + 1) * q + k); };
 const rnd = s => { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 function starPts(r, k = 5, inner = 0.45, rot = 0, ox = 0, oy = 0) {
@@ -192,10 +212,19 @@ const FX = {
     const r = (o.size || 0.3) * DPI / 2, n = o.trail ?? 6, col = o.color || "#ff7a1a", core = o.core || "#fff3c4";
     const arc = (o.arc || 0) * DPI, nx = -dy / dist, ny = dx / dist;
     const at = p => { const q = c01(p), h = Math.sin(Math.PI * q) * arc; return { x: A.x + dx * q + nx * h, y: A.y + dy * q + ny * h }; };
-    const z = Date.now(), s = at(0);
-    const glow = circle({ ...s, r: r * 2.2, fill: col, fo: 0.22, z: z + 1 });
-    const head = circle({ ...s, r, fill: col, fo: 1, z: z + 2 });
-    const hot = circle({ ...s, r: r * 0.5, fill: core, fo: 0.95, z: z + 3 });
+    const z = Date.now(), s = at(0), shp = o.shape ? SHAPES[o.shape] : null;
+    const glowFo = o.glow ?? (shp ? 0 : 0.22), glowCols = o.glowColors || null;
+    const glow = circle({ ...s, r: r * 2.2, fill: glowCols ? glowCols[0] : col, fo: glowFo, z: z + 1 });
+    const head = shp ? null : circle({ ...s, r, fill: col, fo: 1, z: z + 2 });
+    const hot = shp ? null : circle({ ...s, r: r * 0.5, fill: core, fo: 0.95, z: z + 3 });
+    // фигура снаряда: кончик в position, тело вдоль −x; поворачивается по направлению полёта
+    const L = (o.length || (o.size || 0.3) * 3) * DPI;
+    const parts = shp ? shp(L, o).map((q, k) => poly({ pts: q.pts, x: s.x, y: s.y, fill: q.fill, fo: 0, stroke: q.stroke, so: 0, sw: q.sw, z: z + 4 + k })) : [];
+    const partFo = shp ? shp(L, o).map(q => q.fo ?? 1) : [];
+    // спиральные цветные ленты за снарядом (ribbons: [цвета])
+    const rb = (o.ribbons || []).map((c, i) => ({ ph: i / (o.ribbons.length) * TAU,
+      pts: Array.from({ length: o.ribbonLen || 7 }, (_, j) => circle({ ...s, r: DPI * (o.ribbonSize || 0.05) * (1 - j / ((o.ribbonLen || 7) + 1) * 0.6), fill: c, fo: 0, n: 10, z: z - 30 - i * 10 - j })) }));
+    const stick = o.stick || 0;
     const trail = [];
     for (let k = 1; k <= n; k++) trail.push(circle({ ...s, r: r * (1 - k / (n + 1) * 0.7), fill: col, fo: 0.6 * (1 - k / (n + 1)), z: z - k }));
     // искры, которые снаряд роняет по пути (embers: сколько)
@@ -205,11 +234,25 @@ const FX = {
       em.push({ it: circle({ ...s, r: DPI * (0.02 + Math.random() * 0.03), fill: k % 2 ? col : core, fo: 0, n: 8, z: z - 20 - k }),
         ti: 0.05 + Math.random() * 0.9, dx: Math.cos(a) * d, dy: Math.sin(a) * d - DPI * 0.15 });
     }
-    const total = dur + (em.length ? life : 60);
-    spawn(delay, [glow, head, hot, ...trail, ...em.map(e => e.it)], { dur: total, f: (p, P) => {
+    const total = dur + Math.max(em.length ? life : 60, stick);
+    const ang = t => { const a = at(Math.min(t, 0.999)), b = at(Math.min(t, 0.999) + 0.001); return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI; };
+    const endAng = ang(0.999);
+    const items = [glow, ...(head ? [head, hot] : []), ...trail, ...em.map(e => e.it), ...rb.flatMap(x => x.pts), ...parts];
+    spawn(delay, items, { dur: total, f: (p, P) => {
       const tm = p * total, t = tm / dur, c = at(t), pu = 1 + 0.15 * Math.sin(tm * 0.05);
-      for (const it of [head, hot]) P.set(it.id, { x: c.x, y: c.y, fo: t > 1 ? 0 : undefined });
-      P.set(glow.id, { x: c.x, y: c.y, s: pu, fo: t > 1 ? 0 : 0.22 });
+      if (head) for (const it of [head, hot]) P.set(it.id, { x: c.x, y: c.y, fo: t > 1 ? 0 : undefined });
+      P.set(glow.id, { x: c.x, y: c.y, s: pu, fo: t > 1 ? 0 : glowFo, fc: glowCols ? glowCols[Math.floor(tm / 90) % glowCols.length] : undefined });
+      if (parts.length) {
+        const after = tm - dur;   // после попадания: дрожит и гаснет (или сразу исчезает, если stick = 0)
+        const fade = after < 0 ? Math.min(1, tm / 60) : stick ? c01((stick - after) / 350) : 0;
+        const r0 = after < 0 ? ang(t) : endAng + Math.sin(after * 0.06) * 9 * Math.exp(-after / 160);
+        parts.forEach((it, k) => P.set(it.id, { x: c.x, y: c.y, r: r0, fo: partFo[k] * fade, so: fade }));
+      }
+      for (const x of rb) x.pts.forEach((it, j) => {
+        const tq = t - (j + 1) * 0.035; if (tq < 0 || tq > 1) { P.set(it.id, { fo: 0 }); return; }
+        const c2 = at(tq), a = ang(tq) * Math.PI / 180, w = Math.sin(tq * 26 + x.ph + tm * 0.004) * DPI * (o.ribbonAmp || 0.16);
+        P.set(it.id, { x: c2.x - Math.sin(a) * w, y: c2.y + Math.cos(a) * w, fo: 0.85 * (1 - j / x.pts.length) });
+      });
       trail.forEach((it, k) => { const c2 = at(t - (k + 1) * 0.045); P.set(it.id, { x: c2.x, y: c2.y, fo: t - (k + 1) * 0.045 > 1 ? 0 : undefined }); });
       for (const e of em) {
         const age = (tm - e.ti * dur) / life;
@@ -487,7 +530,7 @@ export async function tokens(ids) {
 
 // Проиграть способность. Возвращает {idЦели: мс до попадания}
 export async function play(A, cId, tIds = []) {
-  const hits = {}, ret = {};   // ret — когда «обратный» снаряд долетел до заклинателя
+  const hits = {}, ret = {}, mp = {};   // ret — когда «обратный» снаряд долетел до заклинателя; mp — точки промаха
   if (!A) return hits;
   await grid();
   const info = await tokens([...new Set([cId, ...tIds].filter(Boolean))]);
@@ -509,7 +552,7 @@ export async function play(A, cId, tIds = []) {
     }
     if (st.fx === "bolt" && st.from === "sky") {   // молния с неба — заклинатель не нужен
       T.forEach((t, k) => {
-        const d = d0 + stag * k, S = { x: t.x + (Math.random() - 0.5) * DPI, y: t.y - (st.height || 4) * DPI };
+        const d = d0 + stag * k + (st.after === "hit" ? hits[t.id] || 0 : 0), S = { x: t.x + (Math.random() - 0.5) * DPI, y: t.y - (st.height || 4) * DPI };
         hits[t.id] = Math.max(hits[t.id] || 0, d + fn(S, t, st, d));
       });
       continue;
@@ -519,13 +562,21 @@ export async function play(A, cId, tIds = []) {
       T.forEach((t, k) => {
         if (t.id === C.id) return;
         const d = d0 + stag * k + (st.after === "hit" ? hits[t.id] || 0 : 0);
-        if (st.reverse) ret[t.id] = Math.max(ret[t.id] || 0, d + fn(t, C, st, d));   // от цели к заклинателю
+        if (st.miss) {   // промах: пролетает мимо цели и падает за ней
+          if (!mp[t.id]) {
+            const dx = t.x - C.x, dy = t.y - C.y, L = Math.hypot(dx, dy) || 1, sd = Math.random() < 0.5 ? -1 : 1;
+            const over = (st.overshoot ?? 1.4) * DPI, side = (t.r || DPI / 2) + (st.side ?? 0.35) * DPI;
+            mp[t.id] = { id: t.id, r: DPI / 2, x: t.x + dx / L * over - dy / L * side * sd, y: t.y + dy / L * over + dx / L * side * sd };
+          }
+          hits[t.id] = Math.max(hits[t.id] || 0, d + fn(C, mp[t.id], st, d));
+        } else if (st.reverse) ret[t.id] = Math.max(ret[t.id] || 0, d + fn(t, C, st, d));   // от цели к заклинателю
         else hits[t.id] = Math.max(hits[t.id] || 0, d + fn(C, t, st, d));
       });
       continue;
     }
     let at = st.at || "targets", list;
     if (at === "caster") list = C ? [C] : [];
+    else if (at === "miss") list = T.filter(t => mp[t.id]).map(t => mp[t.id]);
     else if (at === "center") {
       const x = T.reduce((s, t) => s + t.x, 0) / T.length, y = T.reduce((s, t) => s + t.y, 0) / T.length;
       list = [{ id: "@center", x, y, r: T[0].r, hit: Math.max(0, ...T.map(t => hits[t.id] || 0)) }];

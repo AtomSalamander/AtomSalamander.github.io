@@ -1,6 +1,7 @@
-// Панель мастера: выбор заклинателя/целей, список способностей, активные эффекты.
+// Панель: выбор заклинателя/целей, список способностей, активные эффекты.
+// Мастер видит всё и галочками «👥» разрешает способности игрокам; игроки видят только разрешённое.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import { STATE, INIT, CH, PANEL, normState } from "./const.js";
+import { STATE, INIT, CH, PANEL, ALLOW, normState } from "./const.js";
 import { ABILITIES, ABIL } from "./abilities.js";
 import { matchChip, untilText } from "./turns.js";
 
@@ -8,7 +9,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pinned = new URLSearchParams(location.search).has("pin");
 const SK = "dndfx_sel", AK = "dndfx_ab";
-let chips = [], state = normState(null), isGM = false;
+let chips = [], state = normState(null), isGM = false, allow = new Set(), roleKnown = false;
+const canUse = a => isGM || allow.has(a.id);
 let sel = load(SK) || { c: null, t: [] };
 let cur = localStorage.getItem(AK) || "";
 
@@ -42,17 +44,40 @@ function drawList() {
   const q = $("q").value.trim().toLowerCase();
   let html = "", g = null;
   for (const a of ABILITIES) {
+    if (!canUse(a)) continue;
     if (q && !(a.name + " " + (a.group || "") + " " + (a.desc || "")).toLowerCase().includes(q)) continue;
     if ((a.group || "") !== g) { g = a.group || ""; if (g) html += `<div class="grp">${esc(g)}</div>`; }
-    html += `<div class="ab${a.id === cur ? " sel" : ""}" data-id="${esc(a.id)}"><i>${esc(a.icon || "✨")}</i><div><b>${esc(a.name)}${a.aura ? " · ⏳" : ""}</b><small>${esc(a.desc || "")}</small></div></div>`;
+    html += `<div class="ab${a.id === cur ? " sel" : ""}" data-id="${esc(a.id)}"><i>${esc(a.icon || "✨")}</i><div><b>${esc(a.name)}${a.aura ? " · ⏳" : ""}</b><small>${esc(a.desc || "")}</small></div>${isGM ? `<label class="al" title="Разрешить игрокам"><input type="checkbox" data-al="${esc(a.id)}"${allow.has(a.id) ? " checked" : ""}>👥</label>` : ""}</div>`;
   }
   $("list").innerHTML = html || `<div class="empty">Ничего не найдено</div>`;
+  $("list").querySelectorAll(".al").forEach(l => { l.onclick = ev => ev.stopPropagation(); l.ondblclick = ev => ev.stopPropagation(); });
+  $("list").querySelectorAll("input[data-al]").forEach(cb => cb.onchange = () => setAllow(cb.dataset.al, cb.checked));
   $("list").querySelectorAll(".ab").forEach(el => {
     el.onclick = () => pick(el.dataset.id);
     el.ondblclick = () => { pick(el.dataset.id); cast(); };
   });
 }
 $("q").oninput = drawList;
+
+// галочки «👥 игрокам» — хранятся в метаданных комнаты
+async function setAllow(id, on) {
+  if (!isGM) return;
+  const md = await OBR.room.getMetadata();
+  const s = new Set(Array.isArray(md[ALLOW]) ? md[ALLOW] : []);
+  on ? s.add(id) : s.delete(id);
+  allow = s;
+  await OBR.room.setMetadata({ [ALLOW]: [...s].filter(x => ABIL[x]) });
+  toast(on ? `👥 Игрокам доступно: ${ABIL[id].name}` : `🔒 Только мастеру: ${ABIL[id].name}`);
+}
+function drawRole() {
+  if (!roleKnown) return;
+  const any = isGM || ABILITIES.some(canUse);
+  $("gm").hidden = !any; $("pl").hidden = any;
+  $("pin").hidden = !any && !pinned;
+  $("glH").hidden = !isGM;
+  if (!isGM && cur && ABIL[cur] && !canUse(ABIL[cur])) { cur = ""; $("opts").hidden = true; }
+  drawList();
+}
 
 function pick(id) {
   cur = id; try { localStorage.setItem(AK, id); } catch (e) {}
@@ -64,9 +89,9 @@ function pick(id) {
   $("uMode").value = u.when === "x" ? "x" : u.when === "e" && n === 0 ? "e0" : n === 1 ? u.when + "1" : u.when + "N";
   $("uNum").value = n > 1 ? n : 10;
   $("uWho").dataset.def = u.who === "caster" ? "@c" : "@t";
-  $("goSave").hidden = !A.save;
-  $("go").textContent = A.save ? `✨ Провал (${A.save}) — эффект` : "✨ Применить";
-  $("goSave").textContent = `🛡️ Спасбросок пройден — без эффекта`;
+  $("goSave").hidden = !A.save && !A.attack;
+  $("go").textContent = A.attack ? "🎯 Попадание" : A.save ? `✨ Провал (${A.save}) — эффект` : "✨ Применить";
+  $("goSave").textContent = A.attack ? "💨 Промах" : `🛡️ Спасбросок пройден — без эффекта`;
   drawWho(true);
   drawList();
 }
@@ -88,6 +113,7 @@ $("uMode").onchange = () => drawWho();
 // ── применение ──
 async function cast(saved = false) {
   const A = ABIL[cur]; if (!A) return;
+  if (!canUse(A)) return toast("🔒 Мастер закрыл эту способность");
   // токены могли удалить — пр��верим
   const exist = new Set((await OBR.scene.items.getItems([sel.c && sel.c.id, ...sel.t.map(t => t.id)].filter(Boolean))).map(i => i.id));
   const c = sel.c && exist.has(sel.c.id) ? sel.c : null;
@@ -112,7 +138,8 @@ async function cast(saved = false) {
     }
   }
   await OBR.broadcast.sendMessage(CH, { op: "play", a: A.id, v: saved ? "save" : undefined, c: c ? c.id : null, t: targets.map(x => x.id), e }, { destination: "ALL" });
-  if (list.length) await OBR.broadcast.sendMessage(CH, { op: "add", list }, { destination: "LOCAL" });
+  // мастер записывает сам; игрок отправляет мастеру (он держит список активных эффектов)
+  if (list.length) await OBR.broadcast.sendMessage(CH, { op: "add", list }, { destination: isGM ? "LOCAL" : "REMOTE" });
   if (lost.length) toast(`Не нашёл в инициативе: ${[...new Set(lost)].join(", ")}. Эффект будет висеть, пока не снимешь.`);
   else toast(`${A.icon || "✨"} ${A.name}`);
 }
@@ -132,6 +159,8 @@ function drawActive() {
 $("clr").onclick = () => { if (confirm("Снять все эффекты?")) OBR.broadcast.sendMessage(CH, { op: "clear" }, { destination: "LOCAL" }); };
 
 function onMeta(md) {
+  const al = JSON.stringify(Array.isArray(md[ALLOW]) ? [...md[ALLOW]].sort() : []);
+  if (al !== JSON.stringify([...allow].sort())) { allow = new Set(JSON.parse(al)); drawRole(); }
   state = normState(md[STATE]);
   const P = md[INIT];
   chips = P && Array.isArray(P.chips) ? P.chips : [];
@@ -153,8 +182,11 @@ addEventListener("storage", ev => { if (ev.key === SK) { sel = load(SK) || { c: 
 
 OBR.onReady(async () => {
   isGM = (await OBR.player.getRole()) === "GM";
-  $("gm").hidden = !isGM; $("pl").hidden = isGM; $("pin").hidden = !isGM && !pinned;
-  drawSel(); drawList(); if (ABIL[cur]) pick(cur);
-  onMeta(await OBR.room.getMetadata());
+  OBR.player.onChange(p => { const g = p.role === "GM"; if (g !== isGM) { isGM = g; drawRole(); drawActive(); } });
+  const md = await OBR.room.getMetadata();
+  allow = new Set(Array.isArray(md[ALLOW]) ? md[ALLOW] : []);
+  roleKnown = true; drawRole();
+  drawSel(); if (ABIL[cur] && canUse(ABIL[cur])) pick(cur);
+  onMeta(md);
   OBR.room.onMetadataChange(onMeta);
 });
