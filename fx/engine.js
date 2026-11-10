@@ -1,6 +1,6 @@
 // Движок анимаций: рисует локальные объекты на карте у каждого игрока
 // (не синхронизируются по сети — поэтому анимация плавная и не нагружает комнату).
-import OBR, { buildCurve, buildLine, buildImage } from "https://esm.sh/@owlbear-rodeo/sdk@3";
+import OBR, { buildCurve, buildLine, buildImage, buildText } from "https://esm.sh/@owlbear-rodeo/sdk@3";
 
 let DPI = 150;
 export async function grid() { try { DPI = (await OBR.scene.grid.getDpi()) || DPI; } catch (e) {} return DPI; }
@@ -36,9 +36,10 @@ function apply(d, q) {
   if (q.x != null) d.position = { x: q.x, y: q.y };
   if (q.s != null) d.scale = { x: q.s, y: q.s };
   if (q.r != null) d.rotation = q.r;
-  if (d.style) {
-    if (q.fo != null) d.style.fillOpacity = c01(q.fo);
-    if (q.so != null) d.style.strokeOpacity = c01(q.so);
+  const st = d.style || (d.text && d.text.style);
+  if (st) {
+    if (q.fo != null) st.fillOpacity = c01(q.fo);
+    if (q.so != null) st.strokeOpacity = c01(q.so);
   }
 }
 function spawn(delay, items, anim) {
@@ -79,6 +80,28 @@ function line(o) {
   it.endPosition = { x: o.p2.x, y: o.p2.y };
   it.style = { strokeColor: o.color, strokeOpacity: o.so ?? 1, strokeWidth: o.w, strokeDash: [] };
   return base(it, o);
+}
+// Одна буква (текстовый объект). Позиция текста — его левый верхний угол, поэтому центр считаем сами (place).
+function glyph(o) {
+  const fs = o.fs, box = Math.round(fs * 1.5);
+  const it = buildText().plainText(o.ch).textType("PLAIN").build();
+  it.text = it.text || {};
+  it.text.type = "PLAIN"; it.text.plainText = o.ch;
+  it.text.width = box; it.text.height = box;
+  it.text.style = {
+    fillColor: o.color || "#ffffff", fillOpacity: 0,
+    strokeColor: o.stroke || "#000000", strokeOpacity: 0, strokeWidth: o.sw ?? Math.max(1, fs * 0.06),
+    textAlign: "CENTER", textAlignVertical: "MIDDLE",
+    fontFamily: o.font || "Georgia", fontSize: fs, fontWeight: o.weight || 700, lineHeight: 1, padding: 0,
+  };
+  it.position = { x: o.x - box / 2, y: o.y - box / 2 };
+  it.box = box;
+  return base(it, o);
+}
+// позиция левого верхнего угла, чтобы центр буквы был в (x,y) при масштабе s и повороте r (градусы)
+function place(box, x, y, s, r) {
+  const a = r * Math.PI / 180, h = box / 2 * s;
+  return { x: x - (h * Math.cos(a) - h * Math.sin(a)), y: y - (h * Math.sin(a) + h * Math.cos(a)), s, r };
 }
 function mimeOf(url) {
   const m = String(url).toLowerCase().split("?")[0].match(/\.(\w+)$/);
@@ -165,6 +188,83 @@ const FX = {
     } });
     return 0;
   },
+  // «Буквы имени»: буквы вырываются из цели, складываются в слово над ней, дрожат и по одной
+  // улетают по спирали к заклинателю (A — цель, B — заклинатель). Возвращает время прилёта последней буквы.
+  letters(A, B, o, delay) {
+    const word = [...String(o.text || A.name || "ИМЯ").toUpperCase()].filter(ch => /\p{L}/u.test(ch)).slice(0, o.max || 10);
+    if (!word.length) word.push(..."ИМЯ");
+    const n = word.length, fs = Math.round((o.size || 0.38) * DPI), gap = fs * 0.78;
+    const tUp = o.up || 650, tHold = o.hold || 450, stag = o.stagger ?? 110;
+    const dist = Math.hypot(B.x - A.x, B.y - A.y) || 1;
+    const tFly = Math.max(650, dist / DPI / (o.speed || 7) * 1000);
+    const total = tUp + tHold + stag * (n - 1) + tFly;
+    const ghosts = o.ghosts ?? 2, z = Date.now() + 40;
+    const L = word.map((ch, k) => {
+      const sx = A.x + (k - (n - 1) / 2) * gap, sy = A.y - (A.r || DPI / 2) * 0.95 - (k % 2 ? 0.08 : 0) * DPI;
+      const bend = (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.9) * DPI;
+      const spin = (Math.random() * 2 - 1) * 260, ph = Math.random() * TAU;
+      const mk = (fo, gz) => glyph({ ch, fs, x: A.x, y: A.y, color: o.color || "#ece8ff", stroke: o.stroke || "#1d1038", font: o.font, z: gz });
+      const g = circle({ x: A.x, y: A.y, r: fs * 0.55, fill: o.glow || "#a78bfa", fo: 0, n: 14, z: z + k * 10 });
+      const main = mk(0, z + k * 10 + 5), gh = [];
+      for (let j = 1; j <= ghosts; j++) gh.push(mk(0, z + k * 10 + 5 - j));
+      return { ch, k, sx, sy, bend, spin, ph, g, main, gh };
+    });
+    // состояние буквы в момент tm (мс от старта)
+    const at = (l, tm) => {
+      const f0 = tUp + tHold + stag * l.k;
+      if (tm < tUp) {   // вырывается из токена и поднимается на место в слове
+        const e = out3(tm / tUp);
+        return { x: A.x + (l.sx - A.x) * e, y: A.y + (l.sy - A.y) * e - Math.sin(Math.PI * e) * 0.25 * DPI,
+          s: 0.25 + 0.75 * e, r: (1 - e) * l.spin * 0.4, o: c01(tm / (tUp * 0.5)), fly: 0 };
+      }
+      if (tm < f0) {    // висит над целью и дрожит — его «тянут»
+        const k2 = c01((tm - tUp) / (tHold + stag * l.k)), j = (1 + 2 * k2) * 0.025 * DPI;
+        return { x: l.sx + Math.sin(tm * 0.09 + l.ph) * j, y: l.sy + Math.cos(tm * 0.11 + l.ph) * j,
+          s: 1 + 0.06 * Math.sin(tm * 0.02 + l.ph), r: Math.sin(tm * 0.03 + l.ph) * 8, o: 0.85 + 0.15 * Math.sin(tm * 0.05 + l.ph), fly: 0 };
+      }
+      const q = c01((tm - f0) / tFly), e = q * q * (3 - 2 * q);   // полёт к заклинателю по изогнутой траектории
+      const dx = B.x - l.sx, dy = B.y - l.sy, d = Math.hypot(dx, dy) || 1, nx = -dy / d, ny = dx / d;
+      const h = Math.sin(Math.PI * e) * l.bend, sw = Math.sin(e * TAU * 1.5) * (1 - e) * 0.15 * DPI;
+      return { x: l.sx + dx * e + nx * (h + sw), y: l.sy + dy * e + ny * (h + sw),
+        s: 1 - 0.7 * e, r: l.spin * e, o: q < 0.8 ? 1 : 1 - (q - 0.8) / 0.2, fly: q > 0 && q < 1 ? 1 : 0, done: q >= 1 };
+    };
+    const items = [];
+    for (const l of L) items.push(l.g, l.main, ...l.gh);
+    spawn(delay, items, { dur: total + 40, f: (p, P) => {
+      const tm = p * (total + 40);
+      for (const l of L) {
+        const c = at(l, tm), op = c.done ? 0 : c.o;
+        P.set(l.main.id, { ...place(l.main.box, c.x, c.y, c.s, c.r), fo: op, so: op * 0.9 });
+        P.set(l.g.id, { x: c.x, y: c.y, s: c.s * (1.1 + 0.15 * Math.sin(tm * 0.02 + l.ph)), fo: op * (c.fly ? 0.35 : 0.22) });
+        l.gh.forEach((g, j) => {
+          const c2 = at(l, tm - (j + 1) * 55), go = c.fly ? c2.o * 0.4 / (j + 1) : 0;
+          P.set(g.id, { ...place(g.box, c2.x, c2.y, c2.s, c2.r), fo: go, so: 0 });
+        });
+      }
+    } });
+    return total;
+  },
+  // «Втягивание»: кольцо и искры стягиваются в точку
+  implode(c, o, delay) {
+    const R = (o.radius || 1.1) * DPI, col = o.color || "#7c3aed", core = o.core || "#ede9fe", dur = o.duration || 800, z = Date.now() + 30;
+    const ring = circle({ x: c.x, y: c.y, r: R, fill: col, stroke: col, so: 0, sw: DPI * 0.05, n: 36, dash: [DPI * 0.12, DPI * 0.1], z });
+    const dark = circle({ x: c.x, y: c.y, r: R * 0.8, fill: o.fill || "#120a22", fo: 0, n: 30, z: z - 1 });
+    const sp = [];
+    for (let k = 0; k < (o.sparks ?? 12); k++) {
+      const a = Math.random() * TAU, d = R * (0.8 + Math.random() * 0.6);
+      sp.push({ it: circle({ x: c.x, y: c.y, r: DPI * (0.03 + Math.random() * 0.03), fill: k % 2 ? col : core, fo: 0, n: 8, z: z + 1 + k }), a, d, q0: Math.random() * 0.3 });
+    }
+    spawn(delay, [dark, ring, ...sp.map(s => s.it)], { dur, f: (p, P) => {
+      const e = p * p;
+      P.set(ring.id, { s: Math.max(0.02, 1 - e), r: -200 * p, so: Math.sin(Math.PI * Math.min(1, p * 1.2)) });
+      P.set(dark.id, { s: Math.max(0.02, 1 - 0.7 * e), fo: 0.4 * Math.sin(Math.PI * p) });
+      for (const s of sp) {
+        const lp = c01((p - s.q0) / (1 - s.q0)), k = 1 - lp * lp, a = s.a + lp * 1.6;
+        P.set(s.it.id, { x: c.x + Math.cos(a) * s.d * k, y: c.y + Math.sin(a) * s.d * k, fo: Math.sin(Math.PI * lp) });
+      }
+    } });
+    return 0;
+  },
   image(c, o, delay) {
     const dur = o.duration || 1500;
     const it = picture({ x: c.x, y: c.y, url: o.url, cells: o.size || 2, px: o.px, pxh: o.pxh, mime: o.mime, s: 0.01 });
@@ -181,6 +281,10 @@ export async function tokens(ids) {
   await Promise.all(ids.map(async id => {
     try { const b = await OBR.scene.items.getItemBounds([id]); out[id] = { x: b.center.x, y: b.center.y, r: Math.max(b.width, b.height) / 2 }; } catch (e) {}
   }));
+  try {   // имена токенов (нужны, например, для «букв имени»)
+    for (const it of await OBR.scene.items.getItems(ids.filter(id => out[id])))
+      out[it.id].name = (it.text && it.text.plainText) || it.name || "";
+  } catch (e) {}
   return out;
 }
 
@@ -197,6 +301,15 @@ export async function play(A, cId, tIds = []) {
   for (const st of A.cast || []) {
     const fn = FX[st.fx]; if (!fn) { console.warn("[fx] неизвестный эффект", st.fx); continue; }
     const d0 = st.delay || 0, stag = st.stagger || 0;
+    if (st.fx === "letters") {   // всегда летят от цели к заклинателю
+      if (!C) continue;
+      T.forEach((t, k) => {
+        if (t.id === C.id) return;
+        const d = d0 + stag * k + (st.after === "hit" ? hits[t.id] || 0 : 0);
+        ret[t.id] = Math.max(ret[t.id] || 0, d + fn(t, C, st, d));
+      });
+      continue;
+    }
     if (st.fx === "projectile" || st.fx === "beam") {
       if (!C) continue;
       T.forEach((t, k) => {

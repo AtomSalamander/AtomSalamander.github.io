@@ -35,7 +35,9 @@
 
 **Шаги cast:** `projectile` (снаряд: size, speed, trail, arc), `beam` (луч: width, duration, hitAt),
 `burst` (вспышка+искры: radius, sparks), `area` (область: radius, opacity, edge), `rise` (частицы вверх: count, height),
-`image` (картинка/GIF/WebM: url, size, duration).
+`image` (картинка/GIF/WebM: url, size, duration),
+`letters` (буквы имени цели вырываются, складываются в слово и улетают к заклинателю: text, size, speed, ghosts, color, stroke, glow),
+`implode` (кольцо и искры стягиваются в точку: radius, sparks, duration).
 Общие поля: `at` (`targets` | `caster` | `center`), `after: "hit"` | `"return"`, `delay`, `stagger`, `color`, `core`.
 У `projectile` есть `reverse: true` — снаряд летит от цели к заклинателю; `after: "return"` — шаг в момент, когда он долетел.
 

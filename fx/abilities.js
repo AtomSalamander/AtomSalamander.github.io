@@ -14,15 +14,17 @@ export const ABILITIES = [
     id: "niala-name-theft", name: "Похищение имени", icon: "🫥", group: "Арка 7 · Мать Ниала",
     desc: "Перезарядка 5–6, 30 фт. Мдр СЛ 14, 4к8 психического. Провал: до конца следующего хода цели союзники не могут выбрать её целью (и лечением).",
     save: "Мдр СЛ 14",
-    // Провал: тёмная нить хватает цель, из неё вырываются серебряные «буквы» имени и улетают к Ниале
+    // Провал: тёмная нить хватает цель, из неё вырываются буквы её имени, складываются в слово,
+    // дрожат и по одной улетают по спирали к Ниале, которая их «втягивает»
     cast: [
-      { fx: "beam", color: "#3b1f63", core: "#cfc6ff", width: 0.06, duration: 1000, hitAt: 250 },
+      { fx: "beam", color: "#3b1f63", core: "#cfc6ff", width: 0.06, duration: 2600, hitAt: 250 },
       { fx: "area", at: "targets", after: "hit", color: "#140b26", edge: "#9d8cff", radius: 0.95, opacity: 0.55, duration: 1500 },
       { fx: "burst", at: "targets", after: "hit", color: "#a78bfa", core: "#f5f3ff", radius: 0.85, sparks: 12 },
       { fx: "rise", at: "targets", after: "hit", delay: 120, color: "#d9d4ff", core: "#ffffff", count: 16, height: 0.8, duration: 1100 },
-      { fx: "projectile", reverse: true, after: "hit", delay: 450, color: "#c9c2ff", core: "#ffffff", size: 0.16, speed: 8, arc: 0.7, trail: 9 },
-      { fx: "projectile", reverse: true, after: "hit", delay: 580, color: "#8b7bd8", core: "#eeeaff", size: 0.11, speed: 8, arc: -0.5, trail: 7 },
-      { fx: "burst", at: "caster", after: "return", color: "#6d28d9", core: "#e9e4ff", radius: 0.6, sparks: 6, flash: 0.5 },
+      // буквы имени цели (берутся из имени токена; можно задать вручную: text: "ИМЯ")
+      { fx: "letters", after: "hit", delay: 150, color: "#ece8ff", stroke: "#1d1038", glow: "#a78bfa", size: 0.38, speed: 7, ghosts: 2 },
+      { fx: "implode", at: "caster", after: "return", delay: -700, color: "#7c3aed", core: "#ede9fe", radius: 1.1, sparks: 14, duration: 800 },
+      { fx: "burst", at: "caster", after: "return", color: "#6d28d9", core: "#e9e4ff", radius: 0.7, sparks: 8, flash: 0.6 },
     ],
     // Успех: нить рвётся, имя остаётся у цели — половина урона, без эффекта
     castSave: [
