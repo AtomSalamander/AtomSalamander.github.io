@@ -73,3 +73,9 @@ count, radius, size, speed), `image` (картинка/GIF на токене: ur
 - `glow`, `glowColors: [цвета]` — ореол и переливание его цвета.
 - `miss: true` — снаряд пролетает мимо цели (`overshoot`, `side` в клетках); шаги с `at: "miss"` играют в точке падения.
 - Молния `from: "sky"` теперь понимает `after: "hit"`.
+
+
+## Часы и гипноз
+- Шаг `watch` — иллюзорные карманные часы на цепочке рядом с целью качаются как маятник (size, length, swing, period, side, color, edge, face, hands, glow, hitAt, duration; `glitch: true` — иллюзия рвётся и гаснет). Его `hitAt` считается моментом попадания, так что следующие шаги с `after: "hit"` и аура ждут его.
+- Шаг `spiral` — двойная гипнотическая спираль вращается вокруг цели и стягивается в неё (radius, turns, spin, width, color, color2).
+- Аура `hypno` — спираль под токеном, сходящиеся кольца и тикающие часы над головой (size, turns, spin, width, color, color2, clock: false — без часов, clockColor, clockSize, height).

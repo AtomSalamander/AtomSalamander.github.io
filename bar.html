@@ -349,22 +349,31 @@ if(EDIT){
 }
 // ---------- уход полоски вниз, чтобы не перекрывать кнопки Owlbear сверху ----------
 // Наведение на верхний край полоски (≈22px) → фон переоткрывает полоску ниже на ~60px.
-// Пока курсор над сдвинутой полоской — она держится внизу, ушёл с неё → сразу возвращается.
-// Если курсор так и не зашёл на сдвинутую полоску (остался на кнопках) — возврат через 0.7 с.
-const DV="dndbar_dive",HOT=22,DIVE_MS=700;
+// Пока курсор в зоне «от верхней грани полоски до верха экрана» или над самой полоской — она держится внизу.
+// По бокам этой зоны фон ставит две прозрачные полоски-датчика: курсор задел датчик → полоска сразу возвращается.
+// Ушёл с полоски вниз/вбок → сразу возвращается. Ушёл с неё вверх (в зону кнопок) → остаётся внизу.
+const DV="dndbar_dive",HOT=22,SAFE_MS=20000;
 if(!EDIT&&lsGet("dndbar_nodive")!=="1"){
   let hz=0,ping=0;
   const dived=()=>+(lsGet(DV)||0)>Date.now();
   const mark=()=>document.body.classList.toggle("dive",dived());
   mark();setInterval(mark,300);addEventListener("storage",e=>{if(e.key===DV)mark()});
-  const dive=()=>{lsSet(DV,String(Date.now()+DIVE_MS));mark()};
+  // SAFE_MS — только страховка на случай, если курсор «проскочил» мимо датчиков
+  const dive=()=>{ping=Date.now();lsSet(DV,String(Date.now()+SAFE_MS));mark()};
+  const undive=()=>{if(dived()){lsSet(DV,"0");mark()}};
   document.addEventListener("pointermove",e=>{
-    if(dived()){const t=Date.now();if(t-ping>400){ping=t;dive()}return}
+    if(dived()){if(Date.now()-ping>2000)dive();return}
     const hot=e.clientY<HOT&&!(e.target.closest&&e.target.closest("#lk"));
     if(hot&&!hz)hz=setTimeout(()=>{hz=0;dive()},120);
     else if(!hot&&hz){clearTimeout(hz);hz=0}
   });
-  document.documentElement.addEventListener("pointerleave",()=>{clearTimeout(hz);hz=0;if(dived()){lsSet(DV,"0");mark()}});
+  document.documentElement.addEventListener("pointerleave",e=>{
+    clearTimeout(hz);hz=0;if(!dived())return;
+    const x=e.clientX,y=e.clientY;
+    // ближе всего к верхнему краю → курсор ушёл вверх, в зону кнопок: остаёмся внизу
+    if(y<=Math.min(x,innerWidth-x,innerHeight-y))return;
+    undive();
+  });
 }
 addEventListener("resize",center);
 OBR.onReady(async()=>{

@@ -42,6 +42,34 @@ export const ABILITIES = [
     until: { who: "target", when: "e", n: 1 },
   },
 
+  // ─── Гуур'Дэж ───
+  {
+    id: "guurdezh-swing-watch", name: "Качнуть часы", icon: "🕰️", group: "Гуур'Дэж",
+    desc: "Одно существо в 30 фт., которое видит часы. Мдр СЛ 15. Провал: Гипноз до конца его следующего хода. (Легендарное «Так» — 2 действия.)",
+    save: "Мдр СЛ 15",
+    // Провал: рядом с целью возникают иллюзорные часы на цепочке, качаются, на циферблате крутится спираль,
+    // расходятся волны; затем огромная спираль закручивается вокруг цели и стягивается в неё
+    cast: [
+      { fx: "watch", color: "#e8c15a", edge: "#6b4a12", face: "#fff6dc", glow: "#c084fc", size: 0.23, length: 0.75, swing: 30, period: 1100, duration: 3000, hitAt: 1500 },
+      { fx: "spiral", at: "targets", after: "hit", color: "#a855f7", color2: "#f0abfc", radius: 1.4, turns: 2.5, spin: 600, duration: 1400 },
+      { fx: "implode", at: "targets", after: "hit", delay: 500, color: "#c084fc", core: "#fdf4ff", radius: 1.2, sparks: 12, duration: 900 },
+      { fx: "shock", at: "targets", after: "hit", delay: 1250, color: "#e9d5ff", radius: 1.0, rings: 2, duration: 600 },
+      { fx: "rise", at: "targets", after: "hit", delay: 1250, color: "#e9d5ff", core: "#fff6dc", count: 10, height: 0.6, duration: 1000 },
+    ],
+    // Успех: часы качаются, но цель отводит взгляд — иллюзия рвётся и гаснет
+    castSave: [
+      { fx: "watch", color: "#e8c15a", edge: "#6b4a12", face: "#fff6dc", glow: "#c084fc", size: 0.23, length: 0.75, swing: 30, period: 1100, duration: 2000, hitAt: 1150, glitch: true },
+      { fx: "burst", at: "targets", after: "hit", color: "#c084fc", core: "#fdf4ff", radius: 0.6, sparks: 8, stars: true, flash: 0.4 },
+    ],
+    // «Гипноз»: спираль под целью, сходящиеся кольца, тикающие часы над головой, золотые искорки
+    aura: [
+      { fx: "glow", color: "#6d28d9", size: 1.3, opacity: 0.22 },
+      { fx: "hypno", color: "#a855f7", color2: "#f0abfc", size: 1.2, turns: 2.2, spin: -80, opacity: 0.55, clockColor: "#e8c15a" },
+      { fx: "orbit", color: "#f5d77a", color2: "#f0abfc", count: 4, size: 0.04, radius: 1.0, speed: 45, opacity: 0.85, flicker: 0.4 },
+    ],
+    until: { who: "target", when: "e", n: 1 },
+  },
+
   // ─── Примеры (можно удалить, когда появятся свои) ───
   {
     id: "firebolt", name: "Огненный снаряд", icon: "🔥", group: "Примеры",

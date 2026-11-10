@@ -11,6 +11,17 @@ function getPos(){try{const p=JSON.parse(ls(PK)||"null");if(p&&isFinite(p.x)&&is
 let lastH=0,openKey="",diveT=0;
 const DV="dndbar_dive",DIVE=60;
 const diving=()=>ls("dndbar_nodive")!=="1"&&+(ls(DV)||0)>Date.now();
+// датчики по бокам зоны над сдвинутой полоской: курсор вышел из зоны вбок → полоска возвращается
+const SL="com.dnd-tracker/sensL",SR="com.dnd-tracker/sensR",SW=28;let sensOn=false;
+async function sensors(z){
+  if(!z){if(sensOn){sensOn=false;try{await OBR.popover.close(SL)}catch(e){}try{await OBR.popover.close(SR)}catch(e){}}return}
+  sensOn=true;
+  const o=(id,left,width)=>width<4?Promise.resolve():OBR.popover.open({id,url:"/sensor.html",width:Math.round(width),height:Math.max(8,Math.round(z.b)),
+    anchorReference:"POSITION",anchorPosition:{left:Math.round(left),top:0},
+    transformOrigin:{horizontal:"LEFT",vertical:"TOP"},hidePaper:true,disableClickAway:true,marginThreshold:0}).catch(()=>{});
+  const l0=Math.max(0,z.l-SW),r1=Math.min(z.w,z.r+SW);
+  await Promise.all([o(SL,l0,z.l-l0),o(SR,z.r,r1-z.r)]);
+}
 async function show(){
   const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();lastW=w;lastH=h;
   const W=Math.max(320,Math.min(1000,w-200));
@@ -19,12 +30,14 @@ async function show(){
     await OBR.popover.open({id:POP,url:`/bar.html?edit=1&w=${W}&m=${M}`,width:w-2*M,height:h-2*M,
       anchorReference:"POSITION",anchorPosition:{left:M,top:M},
       transformOrigin:{horizontal:"LEFT",vertical:"TOP"},hidePaper:true,disableClickAway:true});
+    await sensors(null);
   }else{
     const p=getPos();
-    const cx=Math.min(Math.max(p?p.x*w:w/2,W/2+M),w-W/2-M),top=Math.min(Math.max(p?p.y*h:12,0)+(diving()?DIVE:0),h-110);
+    const dv=diving(),cx=Math.min(Math.max(p?p.x*w:w/2,W/2+M),w-W/2-M),top=Math.min(Math.max(p?p.y*h:12,0)+(dv?DIVE:0),h-110);
     await OBR.popover.open({id:POP,url:"/bar.html",width:W,height:110,
       anchorReference:"POSITION",anchorPosition:{left:cx,top},
       transformOrigin:{horizontal:"CENTER",vertical:"TOP"},hidePaper:true,disableClickAway:true});
+    await sensors(dv?{l:cx-W/2,r:cx+W/2,b:top+30,w}:null);
   }
   isOpen=true;
 }
@@ -34,7 +47,7 @@ async function sync(){
   clearTimeout(diveT);
   const dv=!ed&&diving();if(dv)diveT=setTimeout(sync,+(ls(DV)||0)-Date.now()+30);
   if(want){const k=ed?"E":"N"+(ls(PK)||"")+(dv?"D":"");if(!isOpen||k!==openKey){openKey=k;await show()}}
-  else if(isOpen){openKey="";await OBR.popover.close(POP);isOpen=false}
+  else if(isOpen){openKey="";await OBR.popover.close(POP);isOpen=false;await sensors(null)}
 }
 OBR.onReady(async()=>{
   data=(await OBR.room.getMetadata())[KEY];

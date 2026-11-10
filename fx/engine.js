@@ -204,6 +204,20 @@ function picture(o) { // o: {url, cells, px, pxh, x, y}
   return base(it, o);
 }
 
+
+// точки окружности со смещённым центром (для фигур, которые вращаются вокруг другой точки)
+function ringPts(r, n, ox = 0, oy = 0) {
+  const pts = [];
+  for (let k = 0; k < n; k++) { const a = k / n * TAU; pts.push({ x: ox + Math.cos(a) * r, y: oy + Math.sin(a) * r }); }
+  return pts;
+}
+// спираль Архимеда: turns витков, от центра до радиуса R, начальный угол a0
+function spiralPts(R, turns, a0 = 0, ox = 0, oy = 0, n = 0) {
+  const N = n || Math.max(16, Math.round(turns * 18)), pts = [];
+  for (let i = 0; i <= N; i++) { const t = i / N, a = a0 + t * turns * TAU, r = R * t; pts.push({ x: ox + Math.cos(a) * r, y: oy + Math.sin(a) * r }); }
+  return pts;
+}
+
 // ── эффекты применения (каждая функция возвращает «время попадания» в мс) ──
 const FX = {
   projectile(A, B, o, delay) {
@@ -505,6 +519,79 @@ const FX = {
     } });
     return 0;
   },
+
+  // «Часы на цепочке»: рядом с целью из воздуха возникают иллюзорные карманные часы, качаются как маятник,
+  // на циферблате крутится гипнотическая спираль, от часов расходятся волны. Возвращает момент «захвата» (hitAt).
+  // Опции: size (радиус корпуса, клетки), length (цепочка), swing (амплитуда, °), period (мс), side (1 справа / −1 слева),
+  // color (золото), edge (обводка), face (циферблат), hands (стрелки), glow (цвет гипноза), glitch: true — иллюзия рассыпается.
+  watch(c, o, delay) {
+    const dur = o.duration || 2800, r = c.r || DPI / 2, sd = o.side ?? 1;
+    const px = c.x + sd * r * (o.dx ?? 1.65), py = c.y - r * (o.dy ?? 1.5);
+    const L = (o.length || 0.7) * DPI, R = (o.size || 0.2) * DPI, cy = L + R * 1.55;
+    const gold = o.color || "#e8c15a", dark = o.edge || "#6b4a12", face = o.face || "#fff6dc", hc = o.hands || "#2b1d0a", gl = o.glow || "#c084fc";
+    const amp = o.swing ?? 28, per = o.period || 1100, w = DPI * 0.018, L0 = o.layer || "ATTACHMENT";
+    let z = Date.now() + 40;
+    const mk = (pts, st) => poly({ x: px, y: py, pts, layer: L0, z: z++, ...st });
+    const halo = mk(ringPts(R * 2, 32, 0, cy), { fill: gl });
+    const waves = [0, 1, 2].map(() => mk(ringPts(R, 32, 0, cy), { stroke: gl, fill: gl, sw: DPI * 0.03 }));
+    const chain = mk([{ x: 0, y: 0 }, { x: 0, y: L + R * 0.2 }], { stroke: gold, sw: DPI * 0.028, dash: [DPI * 0.045, DPI * 0.03], closed: false });
+    const chain2 = mk([{ x: 0, y: 0 }, { x: 0, y: L + R * 0.2 }], { stroke: "#fff3c4", sw: DPI * 0.01, dash: [DPI * 0.02, DPI * 0.055], closed: false });
+    const pin = mk(ringPts(DPI * 0.045, 12), { stroke: gold, fill: gl, sw: w });
+    const bow = mk(ringPts(R * 0.22, 14, 0, L + R * 0.2), { stroke: gold, sw: DPI * 0.03 });
+    const crown = mk([{ x: -R * 0.16, y: L + R * 0.38 }, { x: R * 0.16, y: L + R * 0.38 }, { x: R * 0.2, y: L + R * 0.62 }, { x: -R * 0.2, y: L + R * 0.62 }], { fill: gold, stroke: dark, sw: w * 0.7 });
+    const caseO = mk(ringPts(R, 36, 0, cy), { fill: gold, stroke: dark, sw: w * 1.3 });
+    const bezel = mk(ringPts(R * 0.88, 36, 0, cy), { fill: "#b8862b", stroke: "#fff3c4", sw: w * 0.6 });
+    const dial = mk(ringPts(R * 0.78, 36, 0, cy), { fill: face, stroke: dark, sw: w * 0.5 });
+    const spir = mk(spiralPts(R * 0.66, 2.6, 0, 0, cy), { stroke: gl, sw: w * 0.9, closed: false, tension: 0.4 });
+    const ticks = [];
+    for (let i = 0; i < 12; i++) {
+      const a = i / 12 * TAU, big = i % 3 === 0, rr = R * 0.66;
+      ticks.push(mk(ringPts(R * (big ? 0.065 : 0.035), 8, Math.sin(a) * rr, cy - Math.cos(a) * rr), { fill: big ? dark : "#8a6a2a" }));
+    }
+    const hand = (len) => mk([{ x: 0, y: cy }, { x: 0, y: cy - len }], { stroke: hc, sw: w * 1.1, closed: false });
+    const hH = hand(R * 0.38), hM = hand(R * 0.58);
+    const hub = mk(ringPts(R * 0.07, 10, 0, cy), { fill: hc });
+    const glint = mk(starPts(R * 0.42, 4, 0.22, 0, -R * 0.45, cy - R * 0.45), { fill: "#ffffff" });
+    const body = [chain, chain2, pin, bow, crown, caseO, bezel, dial, ...ticks, hH, hM, hub];
+    const all = [halo, ...waves, ...body, spir, glint];
+    const hit = o.hitAt ?? 1400;
+    spawn(delay, all, { dur, f: (p, P) => {
+      const tm = p * dur, ap = c01(tm / 450), out = o.glitch ? c01((p - 0.55) / 0.45) : c01((p - 0.8) / 0.2);
+      const ill = 0.88 + 0.12 * Math.sin(tm * 0.031) * Math.sin(tm * 0.013);   // лёгкое «дрожание» иллюзии
+      let A = ap * (1 - out) * ill;
+      if (o.glitch && out > 0) A *= (rnd(Math.floor(tm / 45)) > out * 0.8 ? 1 : 0.15);   // иллюзия «рвётся»
+      const th = amp * Math.min(1, tm / 600) * Math.sin(tm / per * TAU), s = Math.max(0.01, 0.35 + 0.65 * backOut(ap)) * (o.glitch ? 1 - 0.25 * out : 1), rot = -th;
+      for (const it of body) P.set(it.id, { s, r: rot, so: A, fo: A });
+      P.set(chain2.id, { s, r: rot, so: A * 0.7 });
+      P.set(bow.id, { s, r: rot, so: A, fo: 0 });
+      P.set(pin.id, { s, r: rot, so: A, fo: A * 0.6 });
+      P.set(halo.id, { s, r: rot, fo: A * (0.16 + 0.1 * Math.sin(tm * 0.008)) });
+      const sa = tm * 0.006;
+      P.set(spir.id, { s, r: rot, so: A * 0.75, pts: spiralPts(R * 0.66, 2.6, sa, 0, cy) });
+      const am = tm * 0.012, ah = tm * 0.003;   // стрелки бегут с неестественной скоростью
+      P.set(hM.id, { s, r: rot, so: A, pts: [{ x: 0, y: cy }, { x: Math.sin(am) * R * 0.58, y: cy - Math.cos(am) * R * 0.58 }] });
+      P.set(hH.id, { s, r: rot, so: A, pts: [{ x: 0, y: cy }, { x: Math.sin(ah) * R * 0.38, y: cy - Math.cos(ah) * R * 0.38 }] });
+      const g = Math.pow(Math.max(0, Math.abs(Math.sin(tm / per * TAU)) - 0.7) / 0.3, 2);   // блик в крайних точках качания
+      P.set(glint.id, { s, r: rot, fo: A * g, pts: starPts(R * (0.3 + 0.25 * g), 4, 0.22, tm * 0.002, -R * 0.45, cy - R * 0.45) });
+      waves.forEach((it, k) => {
+        const wp = ((tm - 300 - k * per / 3) / per) % 1, on = tm > 300 + k * per / 3;
+        P.set(it.id, on ? { s, r: rot, pts: ringPts(R * (1 + 2.6 * out3(wp)), 32, 0, cy), so: A * 0.7 * (1 - wp), fo: A * 0.06 * (1 - wp) } : { so: 0, fo: 0 });
+      });
+    } });
+    return hit;
+  },
+  // «Гипнотическая спираль»: огромная двойная спираль вращается вокруг цели и стягивается в неё
+  spiral(c, o, delay) {
+    const dur = o.duration || 1300, R = (o.radius || 1.3) * DPI, col = o.color || "#c084fc", col2 = o.color2 || "#f0abfc", z = Date.now() + 25;
+    const arms = [0, 1].map(k => poly({ x: c.x, y: c.y, pts: spiralPts(R, o.turns || 2.5, k * Math.PI), stroke: k ? col2 : col, sw: DPI * (o.width || 0.05), closed: false, tension: 0.4, layer: o.layer, z: z + k }));
+    const core = circle({ x: c.x, y: c.y, r: R * 0.35, fill: col2, fo: 0, n: 24, layer: o.layer, z: z - 1 });
+    spawn(delay, [core, ...arms], { dur, f: (p, P) => {
+      const s = Math.max(0.02, 1.15 - 0.95 * p * p), A = Math.sin(Math.PI * Math.min(1, p * 1.15));
+      arms.forEach(it => P.set(it.id, { s, r: (o.spin ?? 540) * p, so: A * (o.opacity ?? 0.9) }));
+      P.set(core.id, { s: 0.4 + 0.8 * p, fo: 0.35 * Math.sin(Math.PI * p) });
+    } });
+    return 0;
+  },
   image(c, o, delay) {
     const dur = o.duration || 1500;
     const it = picture({ x: c.x, y: c.y, url: o.url, cells: o.size || 2, px: o.px, pxh: o.pxh, mime: o.mime, s: 0.01 });
@@ -547,6 +634,13 @@ export async function play(A, cId, tIds = []) {
         if (t.id === C.id) return;
         const d = d0 + stag * k + (st.after === "hit" ? hits[t.id] || 0 : 0);
         ret[t.id] = Math.max(ret[t.id] || 0, d + fn(t, C, st, d));
+      });
+      continue;
+    }
+    if (st.fx === "watch") {   // часы появляются рядом с каждой целью; их hitAt — момент попадания
+      T.forEach((t, k) => {
+        const d = d0 + stag * k + (st.after === "hit" ? hits[t.id] || 0 : 0);
+        hits[t.id] = Math.max(hits[t.id] || 0, d + fn(t, st, d));
       });
       continue;
     }
@@ -687,6 +781,41 @@ export async function startAura(parts, tok) {
         fs.push((t, P) => P.set(it.id, { r: r0 + sp2 * t + 12 * Math.sin(t * 0.9 + k), s: 0.85 + 0.25 * Math.sin(t * 1.3 + k * 1.7),
           fo: o * appear(t) * (0.6 + 0.4 * Math.sin(t * 1.1 + k * 2.3)) * fl(t + k) }));
       }
+    } else if (p.fx === "hypno") {
+      // Гипноз: двойная спираль медленно вращается под целью, к центру сходятся кольца,
+      // над головой висят призрачные часы, стрелка которых тикает раз в секунду
+      const R = T.r * (p.size || 1.2), o = op ?? 0.55, c2 = p.color2 || col, L = p.layer || "MOUNT", spn = p.spin ?? -80;
+      const arms = [0, 1].map(k => circle({ x: T.x, y: T.y, r: 1, attach: tok, layer: L, z: z + items.length + k }));
+      arms.forEach((it, k) => { it.points = spiralPts(R, p.turns || 2.2, k * Math.PI); it.style.strokeColor = k ? c2 : col; it.style.strokeWidth = DPI * (p.width || 0.04); it.style.closed = false; it.style.tension = 0.4; });
+      items.push(...arms);
+      const rings = [0, 1, 2].map(k => { const it = circle({ x: T.x, y: T.y, r: R, fill: c2, stroke: c2, sw: DPI * 0.025, n: 40, attach: tok, layer: L, z: z + items.length }); items.push(it); return it; });
+      const cl = [];
+      if (p.clock !== false) {
+        const cc = p.clockColor || "#e8c15a", cr = DPI * (p.clockSize || 0.13), oy = -T.r * (p.height ?? 1.05), ck = { attach: tok, z: 0 };
+        const mk = (pts, st) => { const it = poly({ x: T.x, y: T.y, pts, attach: tok, z: z + items.length, ...st }); items.push(it); return it; };
+        const fc = mk(ringPts(cr, 24, 0, oy), { fill: "#fff6dc", stroke: cc, sw: DPI * 0.022 });
+        const bw = mk(ringPts(cr * 0.25, 10, 0, oy - cr * 1.25), { stroke: cc, sw: DPI * 0.015 });
+        const tk = [0, 1, 2, 3].map(i => mk(ringPts(cr * 0.08, 6, Math.sin(i * Math.PI / 2) * cr * 0.72, oy - Math.cos(i * Math.PI / 2) * cr * 0.72), { fill: "#6b4a12" }));
+        const hs = mk([{ x: 0, y: oy }, { x: 0, y: oy - cr * 0.75 }], { stroke: p.color || "#7c3aed", sw: DPI * 0.014, closed: false });
+        const hm = mk([{ x: 0, y: oy }, { x: cr * 0.45, y: oy }], { stroke: "#2b1d0a", sw: DPI * 0.016, closed: false });
+        cl.push({ fc, bw, tk, hs, hm, cr, oy });
+      }
+      fs.push((t, P) => {
+        const A = o * appear(t) * fl(t);
+        arms.forEach(it => P.set(it.id, { r: spn * t, s: 1 + 0.05 * Math.sin(t * 1.8), so: A }));
+        rings.forEach((it, k) => { const q = ((t * 0.45 + k / 3) % 1); P.set(it.id, { s: Math.max(0.05, 1.15 - q), so: A * 0.8 * Math.sin(Math.PI * q), fo: A * 0.05 * Math.sin(Math.PI * q) }); });
+        for (const c of cl) {
+          const sec = Math.floor(t), fr = t - sec, kick = fr < 0.12 ? Math.sin(fr / 0.12 * Math.PI) * 0.15 : 0;   // стрелка «щёлкает» с отскоком
+          const a = (sec + Math.min(1, fr / 0.08)) * TAU / 12 + kick, bob = Math.sin(t * 1.6) * c.cr * 0.25, CA = appear(t) * (0.75 + 0.2 * Math.sin(t * 2.2)) * fl(t);
+          const sh = pts => pts.map(q => ({ x: q.x, y: q.y + bob }));
+          P.set(c.fc.id, { pts: sh(ringPts(c.cr, 24, 0, c.oy)), fo: CA * 0.92, so: CA });
+          P.set(c.bw.id, { pts: sh(ringPts(c.cr * 0.25, 10, 0, c.oy - c.cr * 1.25)), so: CA });
+          c.tk.forEach((it, i) => P.set(it.id, { pts: sh(ringPts(c.cr * 0.08, 6, Math.sin(i * Math.PI / 2) * c.cr * 0.72, c.oy - Math.cos(i * Math.PI / 2) * c.cr * 0.72)), fo: CA }));
+          P.set(c.hs.id, { pts: sh([{ x: 0, y: c.oy }, { x: Math.sin(a) * c.cr * 0.75, y: c.oy - Math.cos(a) * c.cr * 0.75 }]), so: CA });
+          const am = t * TAU / 60;
+          P.set(c.hm.id, { pts: sh([{ x: 0, y: c.oy }, { x: Math.sin(am + 1.5) * c.cr * 0.48, y: c.oy - Math.cos(am + 1.5) * c.cr * 0.48 }]), so: CA });
+        }
+      });
     } else if (p.fx === "image") {
       const it = picture({ x: T.x, y: T.y, url: p.url, cells: (p.size || 1.5) * T.r * 2 / DPI, px: p.px, pxh: p.pxh, mime: p.mime, attach: tok, layer: p.layer, s: 0.01, z: z + items.length });
       items.push(it);
