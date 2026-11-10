@@ -1,0 +1,16 @@
+{
+  "name": "Эффекты (DnD FX)",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "description": "Анимации способностей и висящие эффекты на токенах. Таймеры эффектов связаны с трекером инициативы.",
+  "author": "DM",
+  "icon": "/fx/icon.svg",
+  "background_url": "/fx/background.html",
+  "action": {
+    "title": "Эффекты",
+    "icon": "/fx/icon.svg",
+    "popover": "/fx/panel.html",
+    "width": 360,
+    "height": 620
+  }
+}

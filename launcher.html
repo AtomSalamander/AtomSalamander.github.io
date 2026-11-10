@@ -1,0 +1,63 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+body{margin:0;padding:14px;font:14px/1.4 system-ui,sans-serif;background:#14162e;color:#ece9ff}
+h1{font:700 16px Georgia,serif;margin:0 0 10px;color:#f3d58a}
+button{width:100%;padding:9px;border:0;border-radius:10px;background:#b48cff;color:#1a1030;font:700 13px system-ui;cursor:pointer;margin-bottom:8px}
+button.alt{background:#2a2d52;color:#ece9ff;font-weight:600}
+.row{display:flex;gap:8px}.row button{flex:1}
+label{display:flex;gap:8px;align-items:center;cursor:pointer;margin-top:4px}
+#gm{display:none}
+button:disabled{opacity:.45;cursor:default}
+#pos{margin-top:10px;padding-top:10px;border-top:1px solid #ffffff20}
+#pos .row button{margin-bottom:0}
+</style></head><body>
+<h1>🎲 Инициатива</h1>
+<div id="gm">
+  <button id="side">Открыть трекер сбоку</button>
+  <div class="row"><button class="alt" id="full">На весь экран</button><button class="alt" id="close">Закрыть</button></div>
+</div>
+<div id="tab" style="display:none;margin-bottom:8px">
+  <div style="font-size:12px;color:#9a9cc0;margin-bottom:4px">Трекер в отдельной вкладке:</div>
+  <input id="url" readonly style="width:100%;box-sizing:border-box;padding:6px;border-radius:8px;border:1px solid #ffffff30;background:#0d0e20;color:#ece9ff;font:11px system-ui;margin-bottom:6px">
+  <button class="alt" id="copy">Скопировать ссылку на трекер</button>
+</div>
+<label><input type="checkbox" id="show" checked> Показывать полоску на карте</label>
+<label title="При наведении на верхний край полоска сдвигается вниз и не мешает кнопкам Owlbear"><input type="checkbox" id="dive" checked> Уходить вниз при наведении сверху</label>
+<div id="pos"><div class="row"><button class="alt" id="move">🔓 Двигать полоску</button><button class="alt" id="home">↺ На место</button></div></div>
+<script type="module">
+import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
+const $=id=>document.getElementById(id),TID="com.dnd-tracker/tracker";
+try{$("show").checked=localStorage.getItem("dndbar_off")!=="1"}catch(e){}
+try{$("dive").checked=localStorage.getItem("dndbar_nodive")!=="1"}catch(e){}
+$("dive").onchange=()=>{try{localStorage.setItem("dndbar_nodive",$("dive").checked?"":"1");localStorage.removeItem("dndbar_dive")}catch(e){}};
+$("show").onchange=()=>{try{localStorage.setItem("dndbar_off",$("show").checked?"":"1")}catch(e){}};
+// положение полоски (у каждого своё, хранится локально)
+const ED="dndbar_edit",PK="dndbar_pos";
+const lg=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const ls=(k,v)=>{try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v)}catch(e){}};
+function updPos(){const ed=lg(ED)==="1";$("move").textContent=ed?"🔒 Зафиксировать":"🔓 Двигать полоску";$("home").disabled=!lg(PK)}
+$("move").onclick=async()=>{const ed=lg(ED)==="1";ls(ED,ed?null:"1");updPos();if(!ed){try{await OBR.action.close()}catch(e){}}};
+$("home").onclick=()=>{ls(PK,null);updPos()};
+addEventListener("storage",updPos);updPos();
+async function closeAll(){try{await OBR.popover.close(TID)}catch(e){}try{await OBR.modal.close(TID)}catch(e){}}
+OBR.onReady(async()=>{
+  if(await OBR.player.getRole()==="GM"){
+    $("gm").style.display="block";
+    $("side").onclick=async()=>{
+      await closeAll();
+      const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();
+      await OBR.popover.open({id:TID,url:"/tracker.html",width:Math.min(560,w-120),height:Math.max(400,h-100),
+        anchorReference:"POSITION",anchorPosition:{left:w-12,top:64},
+        transformOrigin:{horizontal:"RIGHT",vertical:"TOP"},disableClickAway:true});
+      try{await OBR.action.close()}catch(e){}
+    };
+    $("full").onclick=async()=>{await closeAll();await OBR.modal.open({id:TID,url:"/tracker.html",width:1400,height:880});try{await OBR.action.close()}catch(e){}};
+    let code="";try{code=localStorage.getItem("dnd_room")||"";if(!code){code=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>(b%36).toString(36)).join("");localStorage.setItem("dnd_room",code)}}catch(e){}
+    $("tab").style.display="block";$("url").value=location.origin+"/tracker.html?room="+code;
+    $("url").onclick=()=>$("url").select();
+    $("copy").onclick=async()=>{try{await navigator.clipboard.writeText($("url").value);$("copy").textContent="Скопировано ✓"}catch(e){$("url").select();$("copy").textContent="Выделено — нажмите Ctrl+C"}};
+    $("close").onclick=async()=>{await closeAll();try{await OBR.action.close()}catch(e){}};
+  }
+  try{await OBR.action.setHeight(document.body.scrollHeight+8)}catch(e){}
+});
+</script></body></html>

@@ -1,0 +1,70 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:12px;font:13px/1.4 system-ui,sans-serif;background:#14162e;color:#ece9ff}
+header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+h1{flex:1;font:700 16px Georgia,serif;margin:0;color:#f3d58a}
+h2{font:700 12px system-ui;margin:14px 0 6px;color:#9a9cc0;text-transform:uppercase;letter-spacing:.06em}
+button{padding:8px 10px;border:0;border-radius:9px;background:#b48cff;color:#1a1030;font:700 13px system-ui;cursor:pointer}
+button.alt{background:#2a2d52;color:#ece9ff;font-weight:600}
+button.sm{padding:4px 8px;font-size:12px}
+button:disabled{opacity:.45;cursor:default}
+.slot{display:flex;align-items:center;gap:6px;padding:6px 8px;background:#1c1f3d;border-radius:10px;margin-bottom:6px}
+.slot>span{width:62px;color:#9a9cc0;font-size:12px}
+.slot>b{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hint{font-size:11px;color:#7d80a8;margin:2px 2px 8px}
+input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-radius:8px;padding:6px 8px;font:13px system-ui}
+#q{width:100%;margin-bottom:6px}
+.grp{font:700 11px system-ui;color:#f3d58a;margin:8px 2px 4px;opacity:.85}
+.ab{display:flex;gap:8px;align-items:flex-start;padding:7px 8px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.ab:hover{background:#1c1f3d}
+.ab.sel{background:#2a2350;border-color:#b48cff80}
+.ab i{font-style:normal;font-size:18px;line-height:20px}
+.ab b{display:block;font-weight:600}
+.ab small{color:#9a9cc0;font-size:11px}
+#opts{position:sticky;bottom:-12px;background:#14162e;padding:10px 0 12px;border-top:1px solid #ffffff20;margin-top:8px}
+.row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.row select{flex:1;min-width:0}
+#go{width:100%}
+.fx{display:flex;gap:6px;align-items:center;padding:6px 8px;background:#1c1f3d;border-radius:10px;margin-bottom:5px}
+.fx div{flex:1;min-width:0}
+.fx b{font-weight:600}
+.fx small{display:block;color:#9a9cc0;font-size:11px}
+.fx button{background:none;color:#ff9a94;padding:2px 6px}
+.empty{color:#7d80a8;font-size:12px}
+#toast{position:fixed;left:12px;right:12px;bottom:12px;padding:8px 10px;border-radius:10px;background:#2a2d52;box-shadow:0 4px 16px #0008;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none}
+#toast.on{opacity:1}
+</style></head><body>
+<header><h1>✨ Эффекты</h1><button class="alt sm" id="pin">📌 Сбоку</button></header>
+
+<div id="gm" hidden>
+  <div class="slot"><span>🪄 Кто</span><b id="cN">—</b><button class="alt sm" id="cSet">← выделение</button><button class="alt sm" id="cClr">✕</button></div>
+  <div class="slot"><span>🎯 Цели</span><b id="tN">—</b><button class="alt sm" id="tSet">← выделение</button><button class="alt sm" id="tClr">✕</button></div>
+  <div class="hint" id="selH">Выдели токены на карте (Shift — несколько) и нажми «← выделение».</div>
+  <input id="q" placeholder="🔎 Поиск способности…">
+  <div id="list"></div>
+  <div id="opts" hidden>
+    <div class="row" id="uRow">
+      <select id="uMode">
+        <option value="s1">до начала следующего хода</option>
+        <option value="e1">до конца следующего хода</option>
+        <option value="e0">до конца текущего хода</option>
+        <option value="sN">до начала N-го хода</option>
+        <option value="eN">до конца N-го хода</option>
+        <option value="x">пока не сниму</option>
+      </select>
+      <input id="uNum" type="number" min="1" max="100" value="10" style="width:58px" title="Сколько ходов (10 = 1 минута)">
+    </div>
+    <div class="row" id="uRow2"><span style="color:#9a9cc0;font-size:12px">чей ход:</span><select id="uWho"></select></div>
+    <button id="go">✨ Применить</button>
+    <button class="alt" id="goSave" hidden style="width:100%;margin-top:6px">🛡️ Спасбросок пройден</button>
+  </div>
+</div>
+<div id="pl" class="hint" hidden>Способности применяет мастер. Здесь видно, какие эффекты сейчас висят.</div>
+
+<h2>Активные эффекты</h2>
+<div id="act"></div>
+<button class="alt sm" id="clr" hidden style="margin-top:4px">Снять все</button>
+<div id="toast"></div>
+<script type="module" src="./panel.js"></script>
+</body></html>

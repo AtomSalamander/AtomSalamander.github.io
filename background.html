@@ -1,0 +1,57 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body>
+<script type="module">
+import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
+const KEY="com.dnd-tracker/initiative",POP="com.dnd-tracker/bar";
+let data=null,isOpen=false,lastW=0;
+const enabled=()=>{try{return localStorage.getItem("dndbar_off")!=="1"}catch(e){return true}};
+const ED="dndbar_edit",PK="dndbar_pos",M=16;
+const ls=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
+const editing=()=>ls(ED)==="1";
+function getPos(){try{const p=JSON.parse(ls(PK)||"null");if(p&&isFinite(p.x)&&isFinite(p.y))return p}catch(e){}return null}
+let lastH=0,openKey="",diveT=0;
+const DV="dndbar_dive",DIVE=60;
+const diving=()=>ls("dndbar_nodive")!=="1"&&+(ls(DV)||0)>Date.now();
+async function show(){
+  const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();lastW=w;lastH=h;
+  const W=Math.max(320,Math.min(1000,w-200));
+  if(editing()){
+    // режим перемещения: прозрачный слой на всю карту, полоска двигается внутри него плавно
+    await OBR.popover.open({id:POP,url:`/bar.html?edit=1&w=${W}&m=${M}`,width:w-2*M,height:h-2*M,
+      anchorReference:"POSITION",anchorPosition:{left:M,top:M},
+      transformOrigin:{horizontal:"LEFT",vertical:"TOP"},hidePaper:true,disableClickAway:true});
+  }else{
+    const p=getPos();
+    const cx=Math.min(Math.max(p?p.x*w:w/2,W/2+M),w-W/2-M),top=Math.min(Math.max(p?p.y*h:12,0)+(diving()?DIVE:0),h-110);
+    await OBR.popover.open({id:POP,url:"/bar.html",width:W,height:110,
+      anchorReference:"POSITION",anchorPosition:{left:cx,top},
+      transformOrigin:{horizontal:"CENTER",vertical:"TOP"},hidePaper:true,disableClickAway:true});
+  }
+  isOpen=true;
+}
+async function sync(){
+  const ed=editing();
+  const want=enabled()&&(ed||(data&&data.chips&&data.chips.length>0));
+  clearTimeout(diveT);
+  const dv=!ed&&diving();if(dv)diveT=setTimeout(sync,+(ls(DV)||0)-Date.now()+30);
+  if(want){const k=ed?"E":"N"+(ls(PK)||"")+(dv?"D":"");if(!isOpen||k!==openKey){openKey=k;await show()}}
+  else if(isOpen){openKey="";await OBR.popover.close(POP);isOpen=false}
+}
+OBR.onReady(async()=>{
+  data=(await OBR.room.getMetadata())[KEY];
+  OBR.room.onMetadataChange(m=>{data=m[KEY];sync()});
+  addEventListener("storage",sync);
+  setInterval(async()=>{if(!isOpen)return;const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();if(Math.abs(w-lastW)>40||Math.abs(h-lastH)>40)show()},2000);
+  sync();
+  // приём данных из отдельной вкладки трекера (через ntfy.sh) — только у мастера
+  if(await OBR.player.getRole()==="GM"){
+    let es=null,cur="";
+    const link=()=>{
+      let c="";try{c=localStorage.getItem("dnd_room")||""}catch(e){}
+      if(c===cur&&es)return;if(es){es.close();es=null}cur=c;if(!c)return;
+      es=new EventSource("https://ntfy.sh/dndinit-"+c+"/sse?since=latest");
+      es.onmessage=e=>{try{const P=JSON.parse(JSON.parse(e.data).message);if(P&&P.chips)OBR.room.setMetadata({[KEY]:P})}catch(err){}};
+    };
+    addEventListener("storage",link);link();
+  }
+});
+</script></body></html>
