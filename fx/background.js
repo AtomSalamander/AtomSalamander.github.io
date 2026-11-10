@@ -81,9 +81,10 @@ OBR.onReady(async () => {
       const ids = Object.values(m.e || {});
       ids.forEach(id => hold.set(id, Date.now() + 8000));          // пока не знаем время попадания
       let hits = {};
-      if (ready) { try { const A = ABIL[m.a];
+      const A = ABIL[m.a];
+      if (ready) { try {
         hits = await play(m.v === "save" && A && A.castSave ? { ...A, cast: A.castSave } : A, m.c, m.t || []); } catch (e) { console.warn("[fx] play", e); } }
-      for (const [tid, eid] of Object.entries(m.e || {})) hold.set(eid, Date.now() + (hits[tid] || 0) + 150);
+      for (const [tid, eid] of Object.entries(m.e || {})) hold.set(eid, Date.now() + (hits[tid] || 0) + ((A && A.auraDelay) || 0) + 150);
       sync();
     } else if (isGM && m.op === "add" && Array.isArray(m.list)) {
       mutate(s => { s.e.push(...m.list); return s; });

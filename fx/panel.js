@@ -92,7 +92,7 @@ async function cast(saved = false) {
   const exist = new Set((await OBR.scene.items.getItems([sel.c && sel.c.id, ...sel.t.map(t => t.id)].filter(Boolean))).map(i => i.id));
   const c = sel.c && exist.has(sel.c.id) ? sel.c : null;
   const t = sel.t.filter(x => exist.has(x.id));
-  const needsCaster = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam") || A.auraOn === "caster";
+  const needsCaster = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam" || (s.fx === "bolt" && s.from !== "sky")) || A.auraOn === "caster";
   if (needsCaster && !c) return toast("Нужен заклинатель: выдели его и нажми «← выделение» у «Кто»");
   if (!t.length && !c) return toast("Выбери цели");
   const targets = t.length ? t : [c];

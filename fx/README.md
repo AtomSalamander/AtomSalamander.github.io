@@ -38,6 +38,12 @@
 `image` (картинка/GIF/WebM: url, size, duration),
 `letters` (буквы имени цели вырываются, складываются в слово и улетают к заклинателю: text, size, speed, ghosts, color, stroke, glow),
 `implode` (кольцо и искры стягиваются в точку: radius, sparks, duration).
+`smoke` (клубы дыма: radius, count, size, rise, opacity, color2), `debris` (разлетающиеся обломки: radius, count, size, hot),
+`shock` (ударные кольца: radius, rings, width), `embers` (тлеющие угольки вверх: count, height, spread, color2),
+`bolt` (молния: width, jag, segments, flick, grow; `wave: true` — извивающееся щупальце, freq; `from: "sky"` — бьёт с неба, height),
+`sigil` (рунический круг под целью: radius, points, runes, rune, spin, fill).
+Доп. опции: у `projectile` — `embers` (искры за снарядом), у `burst` — `stars: true` (звёздочки вместо искр),
+у `rise` — `glyph: "+"`, `glyphEvery`, `glyphSize`, `glyphColor` (символы среди частиц).
 Общие поля: `at` (`targets` | `caster` | `center`), `after: "hit"` | `"return"`, `delay`, `stagger`, `color`, `core`.
 У `projectile` есть `reverse: true` — снаряд летит от цели к заклинателю; `after: "return"` — шаг в момент, когда он долетел.
 
@@ -45,4 +51,9 @@
 (анимация `castSave`, без ауры).
 
 **Ауры:** `ring` (кольцо: size, width, dash, spin, pulse), `glow` (свечение под токеном), `orbit` (огоньки по кругу:
-count, radius, size, speed), `image` (картинка/GIF на токене: url, size, spin). У всех аур есть `flicker` (0–1) — мерцание.
+count, radius, size, speed), `image` (картинка/GIF на токене: url, size, spin),
+`dome` (сияющий купол/барьер с сотами: size, cells, grid, highlight, fill, sweep, rippleEvery),
+`sigil` (вращающийся рунический круг под токеном: size, runes, rune, spin, fill), `stars` (звёздочки над головой: count, size, speed, color2),
+`wisps` (клубящаяся тьма/дымка вокруг: count, size, radius, speed, color2). У всех аур есть `flicker` (0–1) — мерцание.
+
+`auraDelay: 650` (поле способности) — задержка появления ауры после попадания, в мс (например, купол возникает, когда искры собрались).
