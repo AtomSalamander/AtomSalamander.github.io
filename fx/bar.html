@@ -37,6 +37,17 @@ footer{margin-top:8px;color:#7d80a8;font-size:10.5px;text-align:center;white-spa
 .empty{padding:6px 4px;color:#9a9cc0;text-align:center;line-height:1.45}
 body.min main{display:none}
 body.min header{border-bottom:0}
+.t .ev{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:400;background:#0d0e20cc;border:1px solid var(--c);box-shadow:0 0 6px -1px var(--c);cursor:pointer;z-index:2;transition:transform .1s}
+.t .ev:hover{transform:scale(1.18)}
+.t .pk{position:absolute;inset:-1px;z-index:3;border-radius:12px;background:#0d0e20f4;border:1px solid var(--c);display:grid;grid-template-columns:repeat(3,18px);gap:2px;place-content:center;cursor:default;animation:pk .12s}
+@keyframes pk{from{transform:scale(.85);opacity:0}}
+.t .pk b{width:18px;height:18px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:400;cursor:pointer;background:#ffffff0d;border:1px solid transparent}
+.t .pk b:hover{border-color:var(--e)}
+.t .pk b.on{background:color-mix(in srgb,var(--e) 55%,transparent);box-shadow:0 0 6px var(--e)}
+.t s{display:none;position:absolute;top:22px;right:3px;text-decoration:none;font-size:11px;filter:drop-shadow(0 0 3px #7fd6ff)}
+body.alt .t.two s{display:block}
+body.alt .t.two{border-style:dashed;border-color:#7fd6ff77}
+#mode.on{background:#7fd6ff;color:#0d1a2a}
 #dragTip{display:none;position:absolute;inset:0;background:#0d0e20d0;color:#f3d58a;font:600 12px system-ui;align-items:center;justify-content:center;text-align:center;padding:8px;z-index:5;border-radius:16px}
 body.drag #dragTip{display:flex}
 </style></head><body>
@@ -45,13 +56,14 @@ body.drag #dragTip{display:flex}
     <div id="grip" title="Зажми и перетащи панель">⠿</div>
     <h1>⚡</h1>
     <div id="who" title="Заклинатель. Клик — взять выделенный токен (или Alt+1)">🪄<b id="whoN">—</b></div>
+    <button class="ib" id="mode" title="Вариант по ЛКМ">🎯</button>
     <button class="ib" id="edit" title="Редактировать: перетаскивать и удалять">✎</button>
     <button class="ib" id="min" title="Свернуть">▾</button>
     <button class="ib" id="close" title="Закрыть (открыть снова — кнопка ⚡ в панели эффектов)">✕</button>
   </header>
   <main>
     <div id="grid"></div>
-    <footer id="foot">ЛКМ — попадание / провал · ПКМ — промах / спасбросок</footer>
+    <footer id="foot"></footer>
   </main>
   <div id="dragTip">📍 Отпусти — панель переедет сюда</div>
 </div>

@@ -287,6 +287,57 @@ const FX = {
     } });
     return o.hitAt ?? 120;
   },
+  // «Тьма»: из точки разливается сфера магической тьмы — мягкий край из нескольких слоёв,
+  // щупальца теней по краю, искорки света втягиваются внутрь и гаснут; держится hold мс и рассеивается
+  gloom(c, o, delay) {
+    const R = (o.radius || 3) * DPI, col = o.color || "#05030a", col2 = o.color2 || "#140b28", edge = o.edge || "#3b2466", glow = o.glow || "#8a5cff";
+    const hold = o.hold ?? 5000, tIn = o.grow || 900, tOut = o.fade || 1500, dur = tIn + hold + tOut, z = Date.now() + 5, L = o.layer || "ATTACHMENT";
+    const items = [];
+    const disks = [[1.1, 0.2], [1.0, 0.34], [0.9, 0.5], [0.74, 0.62], [0.52, 0.72]].map(([k, a], i) => {
+      const it = circle({ x: c.x, y: c.y, r: R * k, fill: i < 2 ? col2 : col, fo: 0, n: 48, s: 0.01, layer: L, z: z + i });
+      items.push(it); return { it, a, ph: Math.random() * TAU };
+    });
+    const nt = o.tendrils ?? 10, tend = [];
+    for (let k = 0; k < nt; k++) {
+      const it = poly({ x: c.x, y: c.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: k % 2 ? col : col2, sw: DPI * (0.06 + Math.random() * 0.06), closed: false, tension: 0.5, layer: L, z: z + 6 });
+      items.push(it);
+      tend.push({ it, a0: k / nt * TAU + Math.random() * 0.4, len: R * (0.2 + Math.random() * 0.3), ph: Math.random() * TAU, sp: 0.6 + Math.random() * 0.7, dir: Math.random() < 0.5 ? -1 : 1 });
+    }
+    const rims = [0, 1].map(k => { const it = circle({ x: c.x, y: c.y, r: R * (1 - k * 0.07), fill: edge, stroke: k ? glow : edge, sw: DPI * (k ? 0.022 : 0.05), dash: k ? [DPI * 0.06, DPI * 0.22] : [DPI * 0.32, DPI * 0.16], n: 56, s: 0.01, layer: L, z: z + 10 + k }); items.push(it); return it; });
+    const rush = circle({ x: c.x, y: c.y, r: R * 1.6, fill: glow, stroke: glow, sw: DPI * 0.04, n: 48, layer: L, z: z + 12 }); items.push(rush);
+    const core = circle({ x: c.x, y: c.y, r: DPI * 0.4, fill: glow, fo: 0, n: 24, layer: L, z: z + 13 }); items.push(core);
+    const nm = o.motes ?? 18, motes = [];
+    for (let k = 0; k < nm; k++) {
+      const it = circle({ x: c.x, y: c.y, r: DPI * (0.025 + Math.random() * 0.03), fill: k % 3 ? (o.mote || "#cbb8ff") : "#ffffff", fo: 0, n: 8, layer: L, z: z + 14 + k });
+      items.push(it); motes.push({ it, a: Math.random() * TAU, per: 1.3 + Math.random() * 1.3, off: Math.random(), d: R * (1.1 + Math.random() * 0.5), sw: Math.random() < 0.5 ? -1 : 1 });
+    }
+    spawn(delay, items, { dur, f: (p, P) => {
+      const tm = p * dur, sec = tm / 1000, g = Math.max(0.01, tm < tIn ? backOut(tm / tIn) : 1);
+      const env = tm < tIn ? c01(tm / (tIn * 0.5)) : tm > tIn + hold ? Math.max(0, 1 - (tm - tIn - hold) / tOut) : 1;
+      const spread = tm > tIn + hold ? 1 + 0.12 * (1 - env) : 1;   // рассеиваясь, чуть расплывается
+      disks.forEach(d => P.set(d.it.id, { s: g * spread * (1 + 0.025 * Math.sin(sec * 1.3 + d.ph)), fo: d.a * env }));
+      P.set(rims[0].id, { s: g * spread, r: sec * 7, so: 0.55 * env });
+      P.set(rims[1].id, { s: g * spread, r: -sec * 13, so: 0.4 * env * (0.7 + 0.3 * Math.sin(sec * 2.1)) });
+      const rq = c01(tm / tIn);
+      P.set(rush.id, { s: 1 - 0.375 * out3(rq), so: rq < 1 ? 0.85 * Math.sin(Math.PI * rq) : 0 });
+      const cq = c01(tm / 550);
+      P.set(core.id, { s: 0.4 + 2.2 * cq, fo: cq < 1 ? 0.55 * Math.sin(Math.PI * cq) : 0 });
+      for (const t of tend) {
+        const pts = [], a = t.a0 + 0.18 * Math.sin(sec * t.sp * 0.7 + t.ph);
+        for (let j = 0; j <= 6; j++) {
+          const f = j / 6, rr = R * g * spread * 0.82 + t.len * f * (0.7 + 0.3 * Math.sin(sec * t.sp + t.ph)) * env;
+          const aa = a + t.dir * f * f * 0.8 * Math.sin(sec * t.sp * 1.3 + t.ph + f * 2);
+          pts.push({ x: Math.cos(aa) * rr, y: Math.sin(aa) * rr });
+        }
+        P.set(t.it.id, { pts, so: 0.8 * env * c01((tm - tIn * 0.4) / 400) });
+      }
+      for (const m of motes) {
+        const q = (sec / m.per + m.off) % 1, d = m.d * (1 - q * q * 0.85), a = m.a + m.sw * q * 2.2 + Math.floor(sec / m.per + m.off) * 1.7;
+        P.set(m.it.id, { x: c.x + Math.cos(a) * d, y: c.y + Math.sin(a) * d, fo: Math.sin(Math.PI * q) * env * c01((tm - 300) / 400) * 0.9 });
+      }
+    } });
+    return 0;
+  },
   burst(c, o, delay) {
     const R = (o.radius || 1) * DPI, col = o.color || "#ffb347", core = o.core || "#fff3c4", dur = o.duration || 700, z = Date.now() + 10;
     const flash = circle({ x: c.x, y: c.y, r: R, fill: core, fo: 0, s: 0.2, z });
@@ -897,6 +948,33 @@ export async function startAura(parts, tok) {
           P.set(c.hs.id, { pts: sh([{ x: 0, y: c.oy }, { x: Math.sin(a) * c.cr * 0.75, y: c.oy - Math.cos(a) * c.cr * 0.75 }]), so: CA });
           const am = t * TAU / 60;
           P.set(c.hm.id, { pts: sh([{ x: 0, y: c.oy }, { x: Math.sin(am + 1.5) * c.cr * 0.48, y: c.oy - Math.cos(am + 1.5) * c.cr * 0.48 }]), so: CA });
+        }
+      });
+    } else if (p.fx === "plates") {
+      // Каменная облицовка: пластины слетаются к цели, с отскоком смыкаются в кольцо,
+      // медленно «дышат», по ним вспыхивают кварцевые блики
+      const n = p.count || 8, o = op ?? 0.95, r1 = T.r * (p.radius || 0.92), r2 = r1 + T.r * (p.width || 0.2), gapA = p.gap ?? 0.08;
+      const c2 = p.color2 || col, ed = p.edge || "#d9cfb8", L = p.layer || "ATTACHMENT", sp3 = p.spin ?? 4, pl = [], gl = [];
+      for (let k = 0; k < n; k++) {
+        const a0 = k / n * TAU + gapA / 2, a1 = (k + 1) / n * TAU - gapA / 2, pts = [], m = 6, j = () => 1 + (Math.random() - 0.5) * 0.08;
+        for (let i = 0; i <= m; i++) { const a = a0 + (a1 - a0) * i / m, rr = r2 * j(); pts.push({ x: Math.cos(a) * rr, y: Math.sin(a) * rr }); }
+        for (let i = m; i >= 0; i--) { const a = a0 + (a1 - a0) * i / m, rr = r1 * j(); pts.push({ x: Math.cos(a) * rr, y: Math.sin(a) * rr }); }
+        const it = poly({ x: T.x, y: T.y, pts, fill: k % 2 ? c2 : col, stroke: ed, sw: DPI * 0.018, attach: tok, layer: L, z: z + items.length });
+        items.push(it); pl.push({ it, k, d: k * 0.06 });
+      }
+      for (let k = 0; k < (p.glints ?? 4); k++) {
+        const a = Math.random() * TAU, rr = (r1 + r2) / 2, ox = Math.cos(a) * rr, oy = Math.sin(a) * rr;
+        const it = poly({ x: T.x, y: T.y, pts: starPts(DPI * 0.02, 4, 0.3, 0, ox, oy), fill: p.glint || "#e6f6ff", stroke: "#ffffff", sw: DPI * 0.006, attach: tok, layer: L, z: z + items.length + 40 });
+        items.push(it); gl.push({ it, ox, oy, per: 2.4 + Math.random() * 2.6, off: Math.random() * 3 });
+      }
+      fs.push((t, P) => {
+        for (const q of pl) {
+          const ap = c01((t - q.d) / 0.55), s = ap < 1 ? 1.7 - 0.7 * backOut(ap) : 1 + 0.012 * Math.sin(t * 1.5 + q.k), A = o * c01(ap * 2) * fl(t);
+          P.set(q.it.id, { s, r: sp3 * t, fo: A * (0.88 + 0.12 * Math.sin(t * 0.8 + q.k * 1.3)), so: A * 0.8 });
+        }
+        for (const g of gl) {
+          const q = ((t + g.off) % g.per) / 0.6, A = q < 1 ? Math.sin(Math.PI * q) : 0, on = c01((t - 0.9) / 0.3);
+          P.set(g.it.id, { pts: starPts(DPI * 0.08 * (0.3 + 0.9 * A), 4, 0.28, t * 2, g.ox, g.oy), r: sp3 * t, fo: A * on, so: A * 0.8 * on });
         }
       });
     } else if (p.fx === "image") {

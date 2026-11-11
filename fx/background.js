@@ -9,7 +9,7 @@ import { NS, STATE, INIT, CH, ALLOW, SEL, normState } from "./const.js";
 import { ABIL, paint, aimKind } from "./abilities.js";
 import { play, startAura, stopAura, stopAll, label } from "./engine.js";
 import { turnEvents, applyEvents, samePos, makeEffects } from "./turns.js";
-import { startAim, startPick } from "./aim.js";
+import { startAim, startPick, cancelAim, aiming } from "./aim.js";
 import { loadBar, openBar } from "./barctl.js";
 
 // Горячие клавиши (формат Owlbear: "Alt+1", "Shift+C", "Ctrl+Alt+2"…). На Mac Alt = Option.
@@ -139,7 +139,6 @@ async function onCast(m) {
   const P = paint(A, m.el);
   const color = (P.cast || []).map(x => x.color).find(x => typeof x === "string" && x[0] === "#") || "#b48cff";
   const save = m.v === "save";
-  const tag = save ? (A.attack ? " (промах)" : " (спасбросок)") : "";
 
   const fireWith = async ({ pt, targets, asPoint }) => {
     const { e, list, lost } = makeEffects({ A, c, targets, dur: save ? null : m.dur, chips, uid, el: m.el });
@@ -150,16 +149,18 @@ async function onCast(m) {
       if (isGM) mutate(s => { s.e.push(...list); return s; });
       else await OBR.broadcast.sendMessage(CH, { op: "add", list }, { destination: "REMOTE" });
     }
-    const who = kind === "area" ? (targets.length ? "в области: " + targets.map(t => t.name).join(", ") : "в области никого")
-      : targets.length ? "→ " + targets.map(t => t.name).join(", ") : "→ в точку";
-    note(`${A.icon || "✨"} ${A.name}${tag} ${who}` + (lost.length ? `. Не нашёл в инициативе: ${[...new Set(lost)].join(", ")}` : ""));
+    if (lost.length) note(`${A.icon || "✨"} ${A.name}: не нашёл в инициативе ${[...new Set(lost)].join(", ")}`);
   };
 
   try {
+    if (kind === "self") {
+      if (!c) return note(`Сначала выбери заклинателя: выдели свой токен и нажми ${KEY_CASTER}`);
+      return fireWith({ targets: [c] });
+    }
     if (kind === "area") {
       if (!c) return note(`Сначала выбери заклинателя: выдели свой токен и нажми ${KEY_CASTER}`);
       await startAim({ A, cId: c.id, color, isGM, onFire: ({ pt, targets }) => fireWith({ pt, targets }) });
-      return note(`🎯 ${A.name}: наведи и кликни по карте · Esc — отмена`);
+      return;
     }
     if (m.use === "sel") {
       let t = sel.t || [];
@@ -176,11 +177,18 @@ async function onCast(m) {
       A, cId: c ? c.id : undefined, color, isGM, allowPoint: kind === "dir",
       onFire: ({ pt, targets }) => fireWith({ pt, targets, asPoint: !targets.length && !!pt }),
     });
-    note(`🎯 ${A.icon || "✨"} ${A.name}${tag}: кликни по ${kind === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
   } catch (e) {
     console.warn("[fx] cast", e);
     note(`Не нашёл заклинателя на карте — выдели свой токен и нажми ${KEY_CASTER}`);
   }
+}
+
+// ── ПКМ по плитке панели быстрого доступа ──
+// идёт наведение → отменить его; иначе — вариант «промах / спасбросок пройден» (если он есть у способности)
+async function onRmb(m) {
+  if (aiming()) return cancelAim();
+  const A = ABIL[m.a];
+  if (A && !A.area && !A.self && (A.attack || A.save)) return onCast(m);   // вариант (v) присылает панель с учётом переключателя
 }
 
 // ── горячие клавиши: выделение → «Кто» / «Цели» ──
@@ -213,6 +221,7 @@ OBR.onReady(async () => {
     if (fromPlayer(ev) && m.op === "play" && !allow.has(m.a)) return;                  // игрокам — только разрешённое
     if (m.op === "play") onPlay(m);
     else if (m.op === "cast") { if (!ev.connectionId || !myConn || ev.connectionId === myConn) onCast(m); }   // только свой прицел
+    else if (m.op === "rmb") { if (!ev.connectionId || !myConn || ev.connectionId === myConn) onRmb(m); }
     else if (isGM && m.op === "add" && Array.isArray(m.list)) {
       const list = fromPlayer(ev) ? m.list.filter(x => x && allow.has(x.a)) : m.list;
       if (list.length) mutate(s => { s.e.push(...list); return s; });

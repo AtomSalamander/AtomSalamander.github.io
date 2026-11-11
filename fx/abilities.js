@@ -103,13 +103,19 @@ export const ABILITIES = [
   // ─── Примеры (можно удалить, когда появятся свои) ───
   {
     id: "firebolt", name: "Огненный снаряд", icon: "🔥", group: "Примеры",
-    desc: "Сгусток огня с искрами летит в цель: вспышка, ударное кольцо, угольки и дымок.",
+    desc: "Сгусток огня с искрами летит в цель: вспышка, ударное кольцо, угольки и дымок. Промах — пролетает мимо.",
+    attack: true,
     cast: [
       { fx: "projectile", color: "#ff5a10", core: "#ffe08a", size: 0.34, speed: 13, trail: 7, embers: 10 },
       { fx: "burst", at: "targets", after: "hit", color: "#ff7a1a", core: "#fff1b0", radius: 0.85, sparks: 12 },
       { fx: "shock", at: "targets", after: "hit", color: "#ffb347", radius: 1.1, rings: 1, duration: 450 },
       { fx: "embers", at: "targets", after: "hit", color: "#ffb347", color2: "#ff4d10", count: 10, height: 0.9, duration: 1300 },
       { fx: "smoke", at: "targets", after: "hit", delay: 120, color: "#3d3530", color2: "#5a4c44", count: 5, radius: 0.7, size: 0.28, opacity: 0.4, duration: 1600 },
+    ],
+    castSave: [   // промах
+      { fx: "projectile", miss: true, overshoot: 1.5, color: "#ff5a10", core: "#ffe08a", size: 0.34, speed: 13, trail: 7, embers: 8 },
+      { fx: "burst", at: "miss", after: "hit", color: "#ff7a1a", core: "#fff1b0", radius: 0.5, sparks: 6, flash: 0.3 },
+      { fx: "smoke", at: "miss", after: "hit", delay: 80, color: "#3d3530", color2: "#5a4c44", count: 4, radius: 0.45, size: 0.22, opacity: 0.4, duration: 1200 },
     ],
   },
   {
@@ -295,6 +301,73 @@ export const ABILITIES = [
       { fx: "smoke", at: "miss", after: "hit", color: "#6b5a45", color2: "#9c8a70", radius: 0.35, count: 4, size: 0.16, rise: 0.15, opacity: 0.4, duration: 900 },
     ],
   },
+  {
+    id: "darkness", name: "Тьма", icon: "🌑", group: "Заклинания",
+    desc: "2 круг, воплощение, концентрация до 10 минут. В выбранной точке схлопывается свет, и сфера магической тьмы радиусом 15 фт разливается вокруг: клубится по краям, тянет щупальца теней и глотает искры света. Тёмное зрение сквозь неё не видит.",
+    area: { shape: "sphere", radius: 15, range: 60 },
+    cast: [
+      { fx: "implode", at: "center", color: "#8a5cff", core: "#e9ddff", fill: "#05030a", radius: 1.6, sparks: 22, duration: 700 },
+      { fx: "gloom", at: "center", delay: 550, radius: 3, hold: 6000 },
+      { fx: "shock", at: "center", delay: 600, color: "#6d46c9", radius: 3.4, rings: 3, width: 0.06, opacity: 0.7, duration: 900 },
+      { fx: "smoke", at: "center", delay: 650, color: "#0b0714", color2: "#1d1233", radius: 2.6, count: 14, size: 0.7, rise: 0.15, opacity: 0.55, duration: 3200, zo: 30 },
+      { fx: "smoke", at: "center", delay: 3500, color: "#0b0714", color2: "#241640", radius: 2.8, count: 10, size: 0.65, rise: 0.2, opacity: 0.45, duration: 3200, zo: 30 },
+      { fx: "smoke", at: "center", delay: 6700, color: "#0b0714", color2: "#241640", radius: 3.4, count: 12, size: 0.6, rise: 0.4, opacity: 0.4, duration: 2200, zo: 30 },
+    ],
+  },
+  {
+    id: "mage-armor", name: "Доспехи мага", icon: "🔮", group: "Заклинания",
+    desc: "1 круг, ограждение, касание, 8 часов. Под целью вспыхивает рунный круг, вокруг неё сворачивается спираль силы, и цель окутывает мерцающее защитное поле (КД = 13 + Ловкость). Держится, пока не снимут.",
+    cast: [
+      { fx: "sigil", at: "targets", color: "#5b8cff", rune: "#d6e4ff", radius: 1.15, points: 6, runes: 10, spin: 60, fill: 0.08, duration: 1900 },
+      { fx: "rise", at: "targets", delay: 200, color: "#8fb4ff", core: "#ffffff", count: 16, height: 1.3, duration: 1500 },
+      { fx: "spiral", at: "targets", delay: 350, color: "#6f97ff", color2: "#cfe0ff", radius: 1.4, turns: 2, spin: -420, width: 0.04, opacity: 0.85, duration: 1100 },
+      { fx: "implode", at: "targets", delay: 500, color: "#7aa2ff", core: "#eef3ff", fill: "#0b1640", radius: 1.5, sparks: 16, duration: 800 },
+      { fx: "shock", at: "targets", delay: 1250, color: "#cfe0ff", radius: 1.5, rings: 2, width: 0.045, duration: 700 },
+      { fx: "burst", at: "targets", delay: 1250, color: "#7aa2ff", core: "#ffffff", radius: 1.0, sparks: 10, stars: true, flash: 0.45 },
+    ],
+    auraDelay: 1250,   // поле появляется, когда спираль сомкнулась
+    aura: [
+      { fx: "glow", color: "#4f7dff", size: 1.3, opacity: 0.16, period: 3 },
+      { fx: "ring", color: "#9db8ff", size: 1.08, width: 0.035, dash: true, spin: 18, opacity: 0.6, period: 3, flicker: 0.2 },
+      { fx: "ring", color: "#cfe0ff", size: 1.17, width: 0.018, spin: -10, opacity: 0.3, period: 4 },
+      { fx: "orbit", color: "#e6eeff", color2: "#7aa2ff", count: 4, size: 0.035, radius: 1.12, speed: 35, opacity: 0.85 },
+    ],
+    until: { who: "target", when: "x" },
+  },
+  {
+    id: "armor-of-richter", name: "Доспех Рихтера", icon: "🪨", group: "Заклинания",
+    desc: "1 круг, преобразование, касание, 1 час. Под целью проступают земляные руны, камни и пыль стягиваются к ней, и тело покрывается каменной облицовкой с кварцевыми прожилками (+2 к КД). Держится, пока не снимут.",
+    cast: [
+      { fx: "sigil", at: "targets", color: "#a08a5c", rune: "#efe2c4", radius: 1.1, points: 4, runes: 6, spin: 30, fill: 0.1, duration: 1500 },
+      { fx: "implode", at: "targets", delay: 100, color: "#8c7f6b", core: "#e8f4ff", fill: "#2a241c", radius: 1.7, sparks: 20, duration: 850 },
+      { fx: "smoke", at: "targets", delay: 700, color: "#6b604f", color2: "#9a8e78", radius: 0.9, count: 8, size: 0.3, rise: 0.2, opacity: 0.45, duration: 1500 },
+      { fx: "shock", at: "targets", delay: 750, color: "#c9bfa8", radius: 1.3, rings: 2, width: 0.06, duration: 600 },
+      { fx: "debris", at: "targets", delay: 750, color: "#5e5446", color2: "#8a7d66", hot: "#d8f0ff", radius: 1.0, count: 10, size: 0.08, height: 0.4, duration: 900 },
+      { fx: "burst", at: "targets", delay: 950, color: "#bfe6ff", core: "#ffffff", radius: 0.7, sparks: 7, stars: true, flash: 0.35 },
+    ],
+    auraDelay: 750,   // пластины слетаются в момент удара
+    aura: [
+      { fx: "glow", color: "#6b5d48", size: 1.3, opacity: 0.2, period: 3 },
+      { fx: "plates", color: "#7d705c", color2: "#93856d", edge: "#d6cbb2", glint: "#e6f6ff", count: 8, radius: 0.95, width: 0.2, glints: 4 },
+    ],
+    until: { who: "target", when: "x" },
+  },
+  {
+    id: "shield-spell", name: "Щит", icon: "🔰", group: "Заклинания",
+    desc: "1 круг, реакция, на себя. Мгновенный хлопок силы — вокруг заклинателя вспыхивает прозрачный барьер (+5 к КД) до начала его следующего хода. Цель выбирать не нужно.",
+    self: true,
+    cast: [
+      { fx: "shock", at: "targets", color: "#bfe3ff", radius: 1.7, rings: 3, width: 0.05, duration: 500 },
+      { fx: "burst", at: "targets", color: "#7fc8ff", core: "#ffffff", radius: 1.25, sparks: 12, stars: true, flash: 0.7, duration: 500 },
+      { fx: "implode", at: "targets", color: "#9fd6ff", core: "#ffffff", fill: "#0a2036", radius: 1.4, sparks: 10, duration: 450 },
+    ],
+    auraDelay: 120,
+    aura: [
+      { fx: "glow", color: "#7fc8ff", size: 1.45, opacity: 0.12 },
+      { fx: "dome", color: "#7fc8ff", grid: "#cfeaff", highlight: "#ffffff", size: 1.4, cells: 3, fill: 0.1, opacity: 0.85 },
+    ],
+    until: { who: "caster", when: "s", n: 1 },
+  },
 ];
 
 export const ABIL = Object.fromEntries(ABILITIES.map(a => [a.id, a]));
@@ -303,6 +376,7 @@ export const ABIL = Object.fromEntries(ABILITIES.map(a => [a.id, a]));
 // "dir" — направленное от заклинателя: клик по токену ИЛИ по месту; "tok" — клик только по токену.
 export function aimKind(A) {
   if (!A) return null;
+  if (A.self) return "self";   // на себя — без прицела
   if (A.area) return "area";
   const dir = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam" || s.fx === "letters" || (s.fx === "bolt" && s.from !== "sky"));
   return dir ? "dir" : "tok";

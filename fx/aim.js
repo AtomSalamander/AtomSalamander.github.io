@@ -126,10 +126,11 @@ async function cleanup() {
   try { await OBR.tool.remove(TOOL); } catch (e) {}
   return s;
 }
-export async function cancelAim(silent) {
-  const s = await cleanup();
-  if (s && !silent) note("🎯 Прицел отменён");
-}
+export async function cancelAim() { await cleanup(); }
+
+// правая кнопка мыши (поля события зависят от версии Owlbear — проверяем все варианты)
+const isRight = ev => !!ev && (ev.button === 2 || ev.buttons === 2 ||
+  (ev.nativeEvent && (ev.nativeEvent.button === 2 || ev.nativeEvent.buttons === 2)));
 export const aiming = () => !!S;
 
 async function fire(p) {
@@ -177,7 +178,11 @@ async function arm(s, items, label, first) {
     icons: [{ icon: ICON, label: "Прицел", filter: { activeTools: [TOOL] } }],
     cursors: [{ cursor: "crosshair" }],
     onToolMove: (_, ev) => { move(ev.pointerPosition); },
-    onToolClick: (_, ev) => { s.kind === "pick" ? firePick(ev.pointerPosition, ev) : fire(ev.pointerPosition); return false; },
+    onToolDown: (_, ev) => { if (isRight(ev)) { cancelAim(); return false; } },   // ПКМ по карте — отмена
+    onToolClick: (_, ev) => {
+      if (isRight(ev)) { cancelAim(); return false; }
+      s.kind === "pick" ? firePick(ev.pointerPosition, ev) : fire(ev.pointerPosition); return false;
+    },
     onKeyDown: (_, ev) => {
       if (ev.key === "Escape") cancelAim();
       else if (ev.key === "Enter" && s.kind === "pick" && S === s) firePick(s.last && s.last.p, null, true);
@@ -225,7 +230,7 @@ export async function startAim({ A, cId, color = "#ff7a1a", isGM = false, onFire
   }
   s.shapeIds = items.filter(i => [s.ui.wedge, s.ui.line, s.ui.area, s.ui.dot].includes(i.id)).map(i => i.id);
   items.push(...ringsFor(s, toks, "#ff5a5a", z, cfg.shape === "cone" ? cId : null));
-  await arm(s, items, "Прицел заклинания (Esc — отмена)",
+  await arm(s, items, "Прицел заклинания (ПКМ / Esc — отмена)",
     { x: C.x + (cfg.shape === "cone" ? s.L : 0), y: C.y - (cfg.shape === "cone" ? 0 : DPI * 2) });
 }
 
@@ -253,5 +258,5 @@ export async function startPick({ A, cId, color = "#b48cff", isGM = false, allow
   s.shapeIds = items.map(i => i.id);
   items.push(...ringsFor(s, toks, color, z, null));
   const c0 = C || toks[0] || { x: 0, y: 0 };
-  await arm(s, items, "Выбор цели (Shift — несколько, Esc — отмена)", { x: c0.x + DPI * 2, y: c0.y });
+  await arm(s, items, "Выбор цели (Shift — несколько, ПКМ / Esc — отмена)", { x: c0.x + DPI * 2, y: c0.y });
 }

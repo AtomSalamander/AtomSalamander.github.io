@@ -34,7 +34,7 @@ function drawGoSel() {
   const A = ABIL[cur], b = $("goSel");
   if (!b) return;
   const n = (sel.t || []).length;
-  b.hidden = !A || aimKind(A) === "area" || !n;
+  b.hidden = !A || aimKind(A) === "area" || aimKind(A) === "self" || !n;
   b.textContent = `⤷ Сразу по выделенным целям (${n}) · Alt+2`;
 }
 function drawSel() {
@@ -99,9 +99,9 @@ function pick(id) {
   $("uMode").value = u.when === "x" ? "x" : u.when === "e" && n === 0 ? "e0" : n === 1 ? u.when + "1" : u.when + "N";
   $("uNum").value = n > 1 ? n : 10;
   $("uWho").dataset.def = u.who === "caster" ? "@c" : "@t";
-  $("goSave").hidden = !!A.area || (!A.save && !A.attack);
+  $("goSave").hidden = !!A.area || !!A.self || (!A.save && !A.attack);
   const k = aimKind(A), pickT = k === "dir" ? " — выбрать цель/место" : " — выбрать цель";
-  $("go").textContent = k === "area" ? "🎯 Прицелиться — клик по карте" : A.attack ? "🎯 Попадание" + pickT : A.save ? `✨ Провал (${A.save})` + pickT : "✨ Применить" + pickT;
+  $("go").textContent = k === "area" ? "🎯 Прицелиться — клик по карте" : k === "self" ? "✨ Применить на себя" : A.attack ? "🎯 Попадание" + pickT : A.save ? `✨ Провал (${A.save})` + pickT : "✨ Применить" + pickT;
   $("goSave").textContent = A.attack ? "💨 Промах" + pickT : "🛡️ Спасбросок пройден" + pickT;
   drawGoSel();
   drawWho(true); drawEl();
@@ -146,7 +146,7 @@ async function cast(saved = false, use) {
   if (!canUse(A)) return toast("🔒 Мастер закрыл эту способность");
   await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), use }, { destination: "LOCAL" });
   const k = aimKind(A);
-  if (use === "sel") return toast(`${A.icon || "✨"} ${A.name}`);
+  if (use === "sel" || k === "self") return toast(`${A.icon || "✨"} ${A.name}`);
   toast(k === "area" ? "🎯 Наведи на карте и кликни · Esc — отмена" : `🎯 Кликни по ${k === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
   if (!pinned) { try { await OBR.action.close(); } catch (e) {} }
 }

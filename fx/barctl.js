@@ -8,9 +8,13 @@ export const TILE = 64, GAP = 6, COLS = 4, PAD = 10, HEAD = 44;
 export function loadBar() {
   try {
     const b = JSON.parse(localStorage.getItem(BK));
-    if (b && typeof b === "object") return { slots: Array.isArray(b.slots) ? b.slots.filter(x => x && x.a) : [], pos: b.pos || null, min: !!b.min, open: !!b.open };
+    if (b && typeof b === "object") {
+      const seen = new Set(), slots = [];   // одна плитка на способность (старые дубли разных стихий схлопываются)
+      for (const x of Array.isArray(b.slots) ? b.slots : []) if (x && x.a && !seen.has(x.a)) { seen.add(x.a); slots.push(x); }
+      return { slots, pos: b.pos || null, min: !!b.min, open: !!b.open, alt: !!b.alt };
+    }
   } catch (e) {}
-  return { slots: [], pos: null, min: false, open: false };
+  return { slots: [], pos: null, min: false, open: false, alt: false };
 }
 export function saveBar(b) { try { localStorage.setItem(BK, JSON.stringify(b)); } catch (e) {} }
 
@@ -43,8 +47,8 @@ export async function closeBar() {
 // добавить слот {a, el, dur}; true — добавлен, false — уже был (обновлён)
 export async function addSlot(slot) {
   const b = loadBar();
-  const i = b.slots.findIndex(s => s.a === slot.a && (s.el || "") === (slot.el || ""));
-  if (i >= 0) b.slots[i] = slot; else b.slots.push(slot);
+  const i = b.slots.findIndex(s => s.a === slot.a);   // плитка одна на способность, вид меняется на самой плитке
+  if (i >= 0) b.slots[i] = { ...b.slots[i], ...slot, el: slot.el || b.slots[i].el }; else b.slots.push(slot);
   b.min = false;
   saveBar(b);
   await openBar(b);
