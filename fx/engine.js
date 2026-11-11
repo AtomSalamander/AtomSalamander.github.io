@@ -692,6 +692,7 @@ export async function play(A, cId, tIds = [], opt = {}) {
   let T = tIds.filter(id => info[id]).map(id => ({ id, ...info[id] }));
   const PT = opt.pt && isFinite(opt.pt.x) && isFinite(opt.pt.y) ? { id: "@pt", x: +opt.pt.x, y: +opt.pt.y, r: DPI / 2 } : null;
   if (!T.length && C && !PT) T = [C];
+  if (!T.length && PT && opt.asTarget) T = [PT];   // направленное заклинание «в место» — точка как цель
   if (!T.length && !PT) return hits;
   // точка области: прицел, а без него — центр целей (кроме заклинателя)
   const pointOf = () => {

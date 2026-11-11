@@ -1,14 +1,16 @@
 // Фон мода эффектов — работает у КАЖДОГО игрока:
 //  • проигрывает анимации способностей, которые прислал мастер;
 //  • рисует висящие эффекты на токенах;
-//  • прицел для заклинаний по области и горячие клавиши Alt+1 / Alt+2;
+//  • прицел: областью или кликом по цели / месту (op:"cast" из панели или панели быстрого доступа);
+//  • горячие клавиши Alt+1 / Alt+2;
 //  • у мастера — следит за трекером инициативы и снимает эффекты, когда наступает нужный ход.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { NS, STATE, INIT, CH, ALLOW, SEL, normState } from "./const.js";
-import { ABIL, paint } from "./abilities.js";
+import { ABIL, paint, aimKind } from "./abilities.js";
 import { play, startAura, stopAura, stopAll, label } from "./engine.js";
 import { turnEvents, applyEvents, samePos, makeEffects } from "./turns.js";
-import { startAim } from "./aim.js";
+import { startAim, startPick } from "./aim.js";
+import { loadBar, openBar } from "./barctl.js";
 
 // Горячие клавиши (формат Owlbear: "Alt+1", "Shift+C", "Ctrl+Alt+2"…). На Mac Alt = Option.
 const KEY_CASTER = "Alt+1";    // выделенный токен → «Кто»
@@ -90,37 +92,94 @@ async function onPlay(m) {
   let hits = {};
   const A = ABIL[m.a] ? paint(ABIL[m.a], m.el) : null;
   if (ready && A) { try {
-    hits = await play(m.v === "save" && A.castSave ? { ...A, cast: A.castSave } : A, m.c, m.t || [], { pt: m.pt });
+    hits = await play(m.v === "save" && A.castSave ? { ...A, cast: A.castSave } : A, m.c, m.t || [], { pt: m.pt, asTarget: !!m.pa });
   } catch (e) { console.warn("[fx] play", e); } }
   for (const [tid, eid] of Object.entries(m.e || {})) hold.set(eid, Date.now() + (hits[tid] || 0) + ((A && A.auraDelay) || 0) + 150);
   sync();
 }
 
-// ── прицел (op:"aim" из своей панели) ──
-async function onAim(m) {
+// ── заклинатель: по id, иначе по имени (другая сцена), иначе единственный свой токен игрока ──
+async function resolveCaster(c) {
+  const sel = loadSel();
+  if (c && c.id) {
+    const [it] = await OBR.scene.items.getItems([c.id]);
+    if (it) return { id: it.id, name: tokName(it) };
+  }
+  const all = await OBR.scene.items.getItems(i => i.layer === "CHARACTER" || i.layer === "MOUNT");
+  let found = null;
+  if (c && c.name) {
+    const same = all.filter(i => tokName(i).toLowerCase() === String(c.name).toLowerCase());
+    if (same.length === 1) found = same[0];
+  }
+  let auto = false;
+  if (!found && !isGM) {
+    const mine = all.filter(i => i.layer === "CHARACTER" && i.createdUserId === OBR.player.id);
+    if (mine.length === 1) { found = mine[0]; auto = true; }
+  }
+  if (!found) return null;
+  sel.c = { id: found.id, name: tokName(found) };
+  try { localStorage.setItem(SEL, JSON.stringify(sel)); } catch (e) {}
+  if (auto) note(`🪄 Твой токен: ${sel.c.name} (${KEY_CASTER} — сменить)`);
+  return sel.c;
+}
+
+// ── применение (op:"cast" из своей панели / панели быстрого доступа) ──
+// m = { a, v?, el?, dur?, use? }: use:"sel" — по целям из Alt+2 без прицела
+async function onCast(m) {
   const A = ABIL[m.a];
-  if (!A || !A.area || !m.c) return;
+  if (!A) return;
   if (!isGM && !allow.has(A.id)) return note("🔒 Мастер закрыл эту способность");
+  if (!ready) return note("Сцена ещё не загружена");
+  const kind = aimKind(A), sel = loadSel();
+  const c = await resolveCaster(sel.c);
+  if (A.id === "dragons-breath" && c) {   // стихия из «наделения» на этом токене
+    const b = state.e.find(e => e.a === "dragons-breath-buff" && e.tok === c.id && e.el);
+    if (b) m = { ...m, el: b.el };
+  }
   const P = paint(A, m.el);
-  const color = (P.cast || []).map(s => s.color).find(c => typeof c === "string" && c[0] === "#") || "#ff7a1a";
-  const caster = { id: m.c, name: m.cn || "заклинатель" };
+  const color = (P.cast || []).map(x => x.color).find(x => typeof x === "string" && x[0] === "#") || "#b48cff";
+  const save = m.v === "save";
+  const tag = save ? (A.attack ? " (промах)" : " (спасбросок)") : "";
+
+  const fireWith = async ({ pt, targets, asPoint }) => {
+    const { e, list, lost } = makeEffects({ A, c, targets, dur: save ? null : m.dur, chips, uid, el: m.el });
+    const msg = { op: "play", a: A.id, v: m.v, c: c ? c.id : null, t: targets.map(t => t.id), pt: pt || undefined, pa: asPoint ? 1 : undefined, el: m.el, e };
+    await OBR.broadcast.sendMessage(CH, msg, { destination: "REMOTE" });
+    onPlay(msg);
+    if (list.length) {
+      if (isGM) mutate(s => { s.e.push(...list); return s; });
+      else await OBR.broadcast.sendMessage(CH, { op: "add", list }, { destination: "REMOTE" });
+    }
+    const who = kind === "area" ? (targets.length ? "в области: " + targets.map(t => t.name).join(", ") : "в области никого")
+      : targets.length ? "→ " + targets.map(t => t.name).join(", ") : "→ в точку";
+    note(`${A.icon || "✨"} ${A.name}${tag} ${who}` + (lost.length ? `. Не нашёл в инициативе: ${[...new Set(lost)].join(", ")}` : ""));
+  };
+
   try {
-    await startAim({ A, cId: m.c, color, isGM, onFire: async ({ pt, targets }) => {
-      const { e, list, lost } = makeEffects({ A, c: caster, targets, dur: m.dur, chips, uid, el: m.el });
-      const msg = { op: "play", a: A.id, c: m.c, t: targets.map(t => t.id), pt, el: m.el, e };
-      await OBR.broadcast.sendMessage(CH, msg, { destination: "REMOTE" });
-      onPlay(msg);
-      if (list.length) {
-        if (isGM) mutate(s => { s.e.push(...list); return s; });
-        else await OBR.broadcast.sendMessage(CH, { op: "add", list }, { destination: "REMOTE" });
+    if (kind === "area") {
+      if (!c) return note(`Сначала выбери заклинателя: выдели свой токен и нажми ${KEY_CASTER}`);
+      await startAim({ A, cId: c.id, color, isGM, onFire: ({ pt, targets }) => fireWith({ pt, targets }) });
+      return note(`🎯 ${A.name}: наведи и кликни по карте · Esc — отмена`);
+    }
+    if (m.use === "sel") {
+      let t = sel.t || [];
+      if (t.length) {
+        const have = new Set((await OBR.scene.items.getItems(t.map(x => x.id))).map(i => i.id));
+        t = t.filter(x => have.has(x.id));
       }
-      const who = targets.length ? "в области: " + targets.map(t => t.name).join(", ") : "в области никого";
-      note(`${A.icon || "✨"} ${A.name} — ${who}` + (lost.length ? `. Не нашёл в инициативе: ${[...new Set(lost)].join(", ")}` : ""));
-    } });
-    note(`🎯 ${A.name}: наведи и кликни по карте · Esc — отмена`);
+      if (!t.length && kind === "tok" && c) t = [c];
+      if (!t.length) return note(`Выдели цели и нажми ${KEY_TARGETS}`);
+      return fireWith({ targets: t });
+    }
+    if (kind === "dir" && !c) return note(`Сначала выбери заклинателя: выдели свой токен и нажми ${KEY_CASTER}`);
+    await startPick({
+      A, cId: c ? c.id : undefined, color, isGM, allowPoint: kind === "dir",
+      onFire: ({ pt, targets }) => fireWith({ pt, targets, asPoint: !targets.length && !!pt }),
+    });
+    note(`🎯 ${A.icon || "✨"} ${A.name}${tag}: кликни по ${kind === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
   } catch (e) {
-    console.warn("[fx] aim", e);
-    note("Не нашёл токен «Кто» на карте — выдели его и нажми " + KEY_CASTER);
+    console.warn("[fx] cast", e);
+    note(`Не нашёл заклинателя на карте — выдели свой токен и нажми ${KEY_CASTER}`);
   }
 }
 
@@ -153,7 +212,7 @@ OBR.onReady(async () => {
     if (fromPlayer(ev) && (m.op === "del" || m.op === "clear")) return;                 // снимает только мастер
     if (fromPlayer(ev) && m.op === "play" && !allow.has(m.a)) return;                  // игрокам — только разрешённое
     if (m.op === "play") onPlay(m);
-    else if (m.op === "aim") { if (!ev.connectionId || !myConn || ev.connectionId === myConn) onAim(m); }   // только свой прицел
+    else if (m.op === "cast") { if (!ev.connectionId || !myConn || ev.connectionId === myConn) onCast(m); }   // только свой прицел
     else if (isGM && m.op === "add" && Array.isArray(m.list)) {
       const list = fromPlayer(ev) ? m.list.filter(x => x && allow.has(x.a)) : m.list;
       if (list.length) mutate(s => { s.e.push(...list); return s; });
@@ -191,4 +250,7 @@ OBR.onReady(async () => {
 
   onMeta(await OBR.room.getMetadata());
   OBR.room.onMetadataChange(onMeta);
+
+  // панель быстрого доступа — вернуть, если была открыта
+  try { if (loadBar().open) await openBar(); } catch (e) { console.warn("[fx] bar", e); }
 });

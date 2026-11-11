@@ -39,12 +39,12 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
 #toast{position:fixed;left:12px;right:12px;bottom:12px;padding:8px 10px;border-radius:10px;background:#2a2d52;box-shadow:0 4px 16px #0008;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}
 </style></head><body>
-<header><h1>✨ Эффекты</h1><button class="alt sm" id="pin">📌 Сбоку</button></header>
+<header><h1>✨ Эффекты</h1><button class="alt sm" id="barBtn" title="Панель быстрого доступа: показать / скрыть" style="margin-left:auto;margin-right:6px">⚡ Быстрый доступ</button><button class="alt sm" id="pin">📌 Сбоку</button></header>
 
 <div id="gm" hidden>
   <div class="slot"><span>🪄 Кто</span><b id="cN">—</b><button class="alt sm" id="cSet">← выделение</button><button class="alt sm" id="cClr">✕</button></div>
   <div class="slot"><span>🎯 Цели</span><b id="tN">—</b><button class="alt sm" id="tSet">← выделение</button><button class="alt sm" id="tClr">✕</button></div>
-  <div class="hint" id="selH">Выдели токены на карте (Shift — несколько) и нажми <b>Alt+1</b> — «Кто», <b>Alt+2</b> — «Цели» (или «← выделение»). Для заклинаний по области цели не нужны.</div>
+  <div class="hint" id="selH">Один раз выдели свой токен и нажми <b>Alt+1</b> — он запомнится. Дальше «Применить» → клик по цели или месту на карте (Shift — несколько целей, Enter — по отмеченным, Esc — отмена). <b>Alt+2</b> — заранее выбрать цели.</div>
   <input id="q" placeholder="🔎 Поиск способности…">
   <div class="hint" id="glH" hidden>Галочка 👥 справа — способность могут применять игроки.</div>
   <div id="list"></div>
@@ -64,6 +64,8 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
     <div class="row" id="uRow2"><span style="color:#9a9cc0;font-size:12px">чей ход:</span><select id="uWho"></select></div>
     <button id="go">✨ Применить</button>
     <button class="alt" id="goSave" hidden style="width:100%;margin-top:6px">🛡️ Спасбросок пройден</button>
+    <button class="alt" id="goSel" hidden style="width:100%;margin-top:6px">⤷ По выделенным целям</button>
+    <button class="alt" id="fav" style="width:100%;margin-top:6px;color:#f3d58a">⭐ В быстрый доступ</button>
   </div>
 </div>
 <div id="pl" class="hint" hidden>Мастер пока не разрешил игрокам ни одной способности. Здесь видно, какие эффекты сейчас висят.</div>

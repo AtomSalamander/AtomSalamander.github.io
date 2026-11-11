@@ -2,8 +2,9 @@
 // Мастер видит всё и галочками «👥» разрешает способности игрокам; игроки видят только разрешённое.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { STATE, INIT, CH, PANEL, ALLOW, SEL, normState } from "./const.js";
-import { ABILITIES, ABIL, ELEMENTS, elOf } from "./abilities.js";
-import { makeEffects, untilText } from "./turns.js";
+import { ABILITIES, ABIL, ELEMENTS, elOf, aimKind } from "./abilities.js";
+import { untilText } from "./turns.js";
+import { addSlot, openBar, closeBar, loadBar } from "./barctl.js";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -28,7 +29,16 @@ async function fromSelection() {
   const items = await OBR.scene.items.getItems(ids);
   return items.map(i => ({ id: i.id, name: tokName(i) }));
 }
+// кнопка «по выделенным целям» — если цели уже выбраны через Alt+2
+function drawGoSel() {
+  const A = ABIL[cur], b = $("goSel");
+  if (!b) return;
+  const n = (sel.t || []).length;
+  b.hidden = !A || aimKind(A) === "area" || !n;
+  b.textContent = `⤷ Сразу по выделенным целям (${n}) · Alt+2`;
+}
 function drawSel() {
+  drawGoSel();
   $("cN").textContent = sel.c ? sel.c.name : "—";
   $("tN").textContent = sel.t.length ? sel.t.map(t => t.name).join(", ") : "—";
   $("tN").title = $("tN").textContent;
@@ -90,8 +100,10 @@ function pick(id) {
   $("uNum").value = n > 1 ? n : 10;
   $("uWho").dataset.def = u.who === "caster" ? "@c" : "@t";
   $("goSave").hidden = !!A.area || (!A.save && !A.attack);
-  $("go").textContent = A.area ? "🎯 Прицелиться — клик по карте" : A.attack ? "🎯 Попадание" : A.save ? `✨ Провал (${A.save}) — эффект` : "✨ Применить";
-  $("goSave").textContent = A.attack ? "💨 Промах" : `🛡️ Спасбросок пройден — без эффекта`;
+  const k = aimKind(A), pickT = k === "dir" ? " — выбрать цель/место" : " — выбрать цель";
+  $("go").textContent = k === "area" ? "🎯 Прицелиться — клик по карте" : A.attack ? "🎯 Попадание" + pickT : A.save ? `✨ Провал (${A.save})` + pickT : "✨ Применить" + pickT;
+  $("goSave").textContent = A.attack ? "💨 Промах" + pickT : "🛡️ Спасбросок пройден" + pickT;
+  drawGoSel();
   drawWho(true); drawEl();
   drawList();
 }
@@ -126,36 +138,27 @@ function drawWho(reset) {
 }
 $("uMode").onchange = () => drawWho();
 
-// ── применение ──
-async function cast(saved = false) {
+// ── применение: фон включает прицел (область / клик по цели или месту) ──
+const curEl = A => A.elements ? elOf(A, $("el").value) : undefined;
+const curDur = A => A.aura ? { mode: $("uMode").value, who: $("uWho").value, n: $("uNum").value } : null;
+async function cast(saved = false, use) {
   const A = ABIL[cur]; if (!A) return;
   if (!canUse(A)) return toast("🔒 Мастер закрыл эту способность");
-  // токены могли удалить — пр��верим
-  const exist = new Set((await OBR.scene.items.getItems([sel.c && sel.c.id, ...sel.t.map(t => t.id)].filter(Boolean))).map(i => i.id));
-  const c = sel.c && exist.has(sel.c.id) ? sel.c : null;
-  const t = sel.t.filter(x => exist.has(x.id));
-  const el = A.elements ? elOf(A, $("el").value) : undefined;
-  const dur = saved ? null : { mode: $("uMode").value, who: $("uWho").value, n: $("uNum").value };
-  if (A.area) {   // по области — нужен только «Кто», точку выбирают на карте
-    if (!c) return toast("Нужен заклинатель: выдели токен и нажми Alt+1");
-    await OBR.broadcast.sendMessage(CH, { op: "aim", a: A.id, c: c.id, cn: c.name, el, dur: A.aura ? dur : null }, { destination: "LOCAL" });
-    toast("🎯 Наведи на карте и кликни · Esc — отмена");
-    if (!pinned) { try { await OBR.action.close(); } catch (e) {} }
-    return;
-  }
-  const needsCaster = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam" || s.fx === "cone" || (s.fx === "bolt" && s.from !== "sky")) || A.auraOn === "caster";
-  if (needsCaster && !c) return toast("Нужен заклинатель: выдели его и нажми Alt+1 (или «← выделение» у «Кто»)");
-  if (!t.length && !c) return toast("Выбери цели");
-  const targets = t.length ? t : [c];
-  const { e, list, lost } = makeEffects({ A, c, targets, dur: A.aura ? dur : null, chips, uid, el });
-  await OBR.broadcast.sendMessage(CH, { op: "play", a: A.id, v: saved ? "save" : undefined, c: c ? c.id : null, t: targets.map(x => x.id), el, e }, { destination: "ALL" });
-  // мастер записывает сам; игрок отправляет мастеру (он держит список активных эффектов)
-  if (list.length) await OBR.broadcast.sendMessage(CH, { op: "add", list }, { destination: isGM ? "LOCAL" : "REMOTE" });
-  if (lost.length) toast(`Не нашёл в инициативе: ${[...new Set(lost)].join(", ")}. Эффект будет висеть, пока не снимешь.`);
-  else toast(`${A.icon || "✨"} ${A.name}`);
+  await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), use }, { destination: "LOCAL" });
+  const k = aimKind(A);
+  if (use === "sel") return toast(`${A.icon || "✨"} ${A.name}`);
+  toast(k === "area" ? "🎯 Наведи на карте и кликни · Esc — отмена" : `🎯 Кликни по ${k === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
+  if (!pinned) { try { await OBR.action.close(); } catch (e) {} }
 }
 $("go").onclick = () => cast(false);
 $("goSave").onclick = () => cast(true);
+$("goSel").onclick = () => cast(false, "sel");
+$("fav").onclick = async () => {
+  const A = ABIL[cur]; if (!A) return;
+  const added = await addSlot({ a: A.id, el: curEl(A), dur: curDur(A) });
+  toast(added ? `⭐ ${A.name} — в панели быстрого доступа` : `⭐ ${A.name}: настройки обновлены`);
+};
+$("barBtn").onclick = async () => { if (loadBar().open) await closeBar(); else await openBar(); };
 
 // ── активные эффекты ──
 function drawActive() {

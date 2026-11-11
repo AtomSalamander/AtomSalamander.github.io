@@ -298,3 +298,12 @@ export const ABILITIES = [
 ];
 
 export const ABIL = Object.fromEntries(ABILITIES.map(a => [a.id, a]));
+
+// Как целиться: "area" — область (нужен только заклинатель);
+// "dir" — направленное от заклинателя: клик по токену ИЛИ по месту; "tok" — клик только по токену.
+export function aimKind(A) {
+  if (!A) return null;
+  if (A.area) return "area";
+  const dir = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam" || s.fx === "letters" || (s.fx === "bolt" && s.from !== "sky"));
+  return dir ? "dir" : "tok";
+}
