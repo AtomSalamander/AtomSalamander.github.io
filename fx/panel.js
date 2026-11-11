@@ -9,7 +9,7 @@ import { addSlot, openBar, closeBar, loadBar } from "./barctl.js";
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pinned = new URLSearchParams(location.search).has("pin");
-const SK = SEL, AK = "dndfx_ab", EK = "dndfx_el_", RK = "dndfx_r_";
+const SK = SEL, AK = "dndfx_ab", EK = "dndfx_el_", RK = "dndfx_r_", TK = "dndfx_att_";
 let chips = [], state = normState(null), isGM = false, allow = new Set(), roleKnown = false;
 const canUse = a => isGM || allow.has(a.id);
 let sel = load(SK) || { c: null, t: [] };
@@ -104,7 +104,7 @@ function pick(id) {
   $("go").textContent = k === "area" ? "🎯 Прицелиться — клик по карте" : k === "self" ? "✨ Применить на себя" : A.attack ? "🎯 Попадание" + pickT : A.save ? `✨ Провал (${A.save})` + pickT : "✨ Применить" + pickT;
   $("goSave").textContent = A.attack ? "💨 Промах" + pickT : "🛡️ Спасбросок пройден" + pickT;
   drawGoSel();
-  drawWho(true); drawEl(); drawRad();
+  drawWho(true); drawEl(); drawRad(); drawAtt();
   drawList();
 }
 // выбор стихии (чародейский выброс, дыхание дракона…)
@@ -143,6 +143,15 @@ $("rad").onchange = () => setRad($("rad").value);
 $("rDn").onclick = () => setRad(+$("rad").value - radStep());
 $("rUp").onclick = () => setRad(+$("rad").value + radStep());
 $("rad").onwheel = ev => { ev.preventDefault(); setRad(+$("rad").value + (ev.deltaY > 0 ? -1 : 1) * radStep()); };
+// прикрепление зоны к токену (Тьма)
+const canAtt = A => !!(A && A.zone && A.attachable);
+function drawAtt() {
+  const A = ABIL[cur], row = $("aRow");
+  if (!row) return;
+  row.style.display = canAtt(A) ? "" : "none";
+  if (canAtt(A)) $("att").checked = localStorage.getItem(TK + A.id) !== "0";
+}
+$("att").onchange = () => { try { localStorage.setItem(TK + cur, $("att").checked ? "1" : "0"); } catch (e) {} };
 function drawWho(reset) {
   const A = ABIL[cur], w = $("uWho");
   $("uRow").style.display = $("uRow2").style.display = A && A.aura ? "" : "none";
@@ -161,11 +170,12 @@ $("uMode").onchange = () => drawWho();
 // ── применение: фон включает прицел (область / клик по цели или месту) ──
 const curEl = A => A.elements ? elOf(A, $("el").value) : undefined;
 const curRad = A => A.area && A.area.adjust ? radOf(A, $("rad").value) : undefined;
+const curAtt = A => canAtt(A) ? !!$("att").checked : undefined;
 const curDur = A => A.aura ? { mode: $("uMode").value, who: $("uWho").value, n: $("uNum").value } : null;
 async function cast(saved = false, use) {
   const A = ABIL[cur]; if (!A) return;
   if (!canUse(A)) return toast("🔒 Мастер закрыл эту способность");
-  await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), rad: curRad(A), use }, { destination: "LOCAL" });
+  await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), rad: curRad(A), att: curAtt(A), use }, { destination: "LOCAL" });
   const k = aimKind(A);
   if (use === "sel" || k === "self") return toast(`${A.icon || "✨"} ${A.name}`);
   toast(k === "area" ? "🎯 Наведи на карте и кликни · Esc — отмена" : `🎯 Кликни по ${k === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
@@ -176,7 +186,7 @@ $("goSave").onclick = () => cast(true);
 $("goSel").onclick = () => cast(false, "sel");
 $("fav").onclick = async () => {
   const A = ABIL[cur]; if (!A) return;
-  const added = await addSlot({ a: A.id, el: curEl(A), dur: curDur(A), rad: curRad(A) });
+  const added = await addSlot({ a: A.id, el: curEl(A), dur: curDur(A), rad: curRad(A), att: curAtt(A) });
   toast(added ? `⭐ ${A.name} — в панели быстрого доступа` : `⭐ ${A.name}: настройки обновлены`);
 };
 $("barBtn").onclick = async () => { if (loadBar().open) await closeBar(); else await openBar(); };
@@ -190,9 +200,21 @@ function drawActive() {
   const L = state.e;
   $("act").innerHTML = L.length ? L.map(e => {
     const A = ABIL[e.a] || { name: e.a, icon: "✨" };
-    return `<div class="fx"><div><b>${esc(A.icon || "✨")} ${esc(A.name)}${e.el && ELEMENTS[e.el] ? " · " + esc(ELEMENTS[e.el].name) : ""}</b> → ${e.pt ? "📍 сфера " + esc(e.rr) + " фт" : esc(e.tn)}<small>${esc(untilText(e))}</small></div>${isGM && e.pt ? rdBtns(e, A) : ""}${isGM ? `<button data-id="${esc(e.id)}" title="Снять">✕</button>` : ""}</div>`;
+    const where = e.pt ? (e.tok ? `📎 ${esc(e.tn)} · сфера ${esc(e.rr)} фт` : "📍 сфера " + esc(e.rr) + " фт") : esc(e.tn);
+    const att = isGM && e.pt && A.zone && A.attachable
+      ? `<button class="rd" data-at="${esc(e.id)}" data-on="${e.tok ? 1 : 0}" title="${e.tok ? "Открепить — оставить там, где сейчас токен" : "Прикрепить к выделенному токену"}">${e.tok ? "📍" : "📎"}</button>` : "";
+    return `<div class="fx"><div><b>${esc(A.icon || "✨")} ${esc(A.name)}${e.el && ELEMENTS[e.el] ? " · " + esc(ELEMENTS[e.el].name) : ""}</b> → ${where}<small>${esc(untilText(e))}</small></div>${isGM && e.pt ? rdBtns(e, A) : ""}${att}${isGM ? `<button data-id="${esc(e.id)}" title="Снять">✕</button>` : ""}</div>`;
   }).join("") : `<div class="empty">Нет активных эффектов</div>`;
   $("act").querySelectorAll("button[data-rd]").forEach(b => b.onclick = () => OBR.broadcast.sendMessage(CH, { op: "rad", id: b.dataset.rd, d: +b.dataset.d }, { destination: "LOCAL" }));
+  $("act").querySelectorAll("button[data-at]").forEach(b => b.onclick = async () => {
+    let tok = null;
+    if (b.dataset.on !== "1") {
+      const s = await fromSelection(); if (!s.length) return;
+      tok = s[0];
+    }
+    await OBR.broadcast.sendMessage(CH, { op: "att", id: b.dataset.at, tok }, { destination: "LOCAL" });
+    toast(tok ? `📎 Тьма прикреплена к «${tok.name}»` : "📍 Тьма откреплена и осталась на месте");
+  });
   $("act").querySelectorAll("button[data-id]").forEach(b => b.onclick = () => OBR.broadcast.sendMessage(CH, { op: "del", ids: [b.dataset.id] }, { destination: "LOCAL" }));
   $("clr").hidden = !isGM || L.length < 2;
 }

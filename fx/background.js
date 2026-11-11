@@ -7,7 +7,7 @@
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { NS, STATE, INIT, CH, ALLOW, SEL, normState } from "./const.js";
 import { ABIL, paint, aimKind, radOf, sized } from "./abilities.js";
-import { play, startAura, startZone, stopAura, stopAll, label } from "./engine.js";
+import { play, startAura, startZone, stopAura, stopAll, label, tokens } from "./engine.js";
 import { turnEvents, applyEvents, samePos, makeEffects } from "./turns.js";
 import { startAim, startPick, cancelAim, aiming, feetPerCell } from "./aim.js";
 import { loadBar, openBar } from "./barctl.js";
@@ -43,14 +43,20 @@ async function doSync() {
     const w = want.get(id);
     if (!w || w.tok !== r.tok || (r.pt && w.rr !== r.rr)) { if (w && r.pt) quick.add(id); stopAura(r); rendered.delete(id); }
   }
-  // зоны в точке (Тьма) — без токена, висят до снятия
+  // зоны (Тьма) — в точке или прикреплённые к токену (e.tok), висят до снятия
   for (const e of state.e) {
     if (!e.pt || rendered.has(e.id) || !ABIL[e.a] || !ABIL[e.a].zone) continue;
     const h = hold.get(e.id);
     if (h && h > Date.now()) { setTimeout(sync, h - Date.now() + 20); continue; }
     hold.delete(e.id);
     try {
-      const r = await startZone(ABIL[e.a].zone, e.pt, (+e.rr || 15) / (await feetPerCell()), quick.has(e.id));
+      let at = e.pt;
+      if (e.tok) {   // прикреплена к токену: рисуем от его текущего центра; токена нет на сцене — не рисуем
+        const T = (await tokens([e.tok]))[e.tok];
+        if (!T) continue;
+        at = T;
+      }
+      const r = await startZone(ABIL[e.a].zone, at, (+e.rr || 15) / (await feetPerCell()), quick.has(e.id), e.tok || null);
       r.rr = e.rr; rendered.set(e.id, r);
     } catch (err) { console.warn("[fx] zone", err); }
   }
@@ -156,13 +162,14 @@ async function onCast(m) {
   const color = (P.cast || []).map(x => x.color).find(x => typeof x === "string" && x[0] === "#") || "#b48cff";
   const save = m.v === "save";
 
-  const fireWith = async ({ pt, targets, asPoint }) => {
+  const fireWith = async ({ pt, targets, asPoint, tok }) => {
     const { e, list, lost } = makeEffects({ A, c, targets, dur: save ? null : m.dur, chips, uid, el: m.el });
     const rad = radOf(A, m.rad);
     let z;
-    if (A.zone && pt) {   // Тьма: зона в точке, висит до снятия
+    if (A.zone && pt) {   // Тьма: зона в точке или на токене (tok), висит до снятия
       z = uid();
-      list.push({ id: z, a: A.id, tok: null, pt: { x: pt.x, y: pt.y }, rr: rad || A.area.radius, tn: "точка", w: null, m: "x", n: 1, k: 0 });
+      const on = A.attachable && tok && tok.id ? tok : null;
+      list.push({ id: z, a: A.id, tok: on ? on.id : null, pt: { x: pt.x, y: pt.y }, rr: rad || A.area.radius, tn: on ? on.name : "точка", w: null, m: "x", n: 1, k: 0 });
     }
     const msg = { op: "play", a: A.id, v: m.v, c: c ? c.id : null, t: targets.map(t => t.id), pt: pt || undefined, pa: asPoint ? 1 : undefined, el: m.el, e, rad: rad || undefined, z };
     await OBR.broadcast.sendMessage(CH, msg, { destination: "REMOTE" });
@@ -181,7 +188,8 @@ async function onCast(m) {
     }
     if (kind === "area") {
       if (!c) return note(`Сначала выбери заклинателя: выдели свой токен и нажми ${KEY_CASTER}`);
-      await startAim({ A: sized(A, m.rad), cId: c.id, color, isGM, onFire: ({ pt, targets }) => fireWith({ pt, targets }) });
+      const attach = !!(A.zone && A.attachable) && m.att !== false;   // клик по токену — прикрепить зону к нему
+      await startAim({ A: sized(A, m.rad), cId: c.id, color, isGM, attach, onFire: ({ pt, targets, tok }) => fireWith({ pt, targets, tok: attach ? tok : null }) });
       return;
     }
     if (m.use === "sel") {
@@ -239,7 +247,7 @@ OBR.onReady(async () => {
 
   OBR.broadcast.onMessage(CH, async ev => {
     const m = ev.data || {};
-    if (fromPlayer(ev) && (m.op === "del" || m.op === "clear" || m.op === "rad")) return;                 // снимает только мастер
+    if (fromPlayer(ev) && (m.op === "del" || m.op === "clear" || m.op === "rad" || m.op === "att")) return;                 // снимает только мастер
     if (fromPlayer(ev) && m.op === "play" && !allow.has(m.a)) return;                  // игрокам — только разрешённое
     if (m.op === "play") onPlay(m);
     else if (m.op === "cast") { if (!ev.connectionId || !myConn || ev.connectionId === myConn) onCast(m); }   // только свой прицел
@@ -255,6 +263,24 @@ OBR.onReady(async () => {
         const v = radOf(ABIL[e.a], (+e.rr || 15) + (+m.d || 0));
         if (!v || v === e.rr) return null;
         e.rr = v; return s;
+      });
+    } else if (isGM && m.op === "att" && m.id) {   // прикрепить зону к токену (m.tok = {id, name}) / открепить (m.tok = null)
+      const cur = state.e.find(x => x.id === m.id);
+      const tid = m.tok && m.tok.id ? m.tok.id : cur && cur.tok;
+      const T = tid ? (await tokens([tid]))[tid] : null;
+      if (m.tok && !T) return note("Не нашёл этот токен на сцене");
+      mutate(s => {
+        const e = s.e.find(x => x.id === m.id);
+        if (!e || !e.pt || !ABIL[e.a] || !ABIL[e.a].zone || !ABIL[e.a].attachable) return null;
+        if (m.tok && m.tok.id) {
+          if (e.tok === m.tok.id) return null;
+          e.tok = m.tok.id; e.tn = m.tok.name || "токен"; e.pt = { x: T.x, y: T.y };
+        } else {
+          if (!e.tok) return null;
+          if (T) e.pt = { x: T.x, y: T.y };   // остаётся там, где сейчас стоит токен
+          e.tok = null; e.tn = "точка";
+        }
+        return s;
       });
     } else if (isGM && m.op === "clear") {
       mutate(s => { s.e = []; return s; });
@@ -281,7 +307,7 @@ OBR.onReady(async () => {
     clearTimeout(tm);
     tm = setTimeout(() => {
       const ids = new Set(items.map(i => i.id));
-      for (const [id, r] of rendered) if (!r.pt && !ids.has(r.tok)) { stopAura(r); rendered.delete(id); }
+      for (const [id, r] of rendered) if (r.tok && !ids.has(r.tok)) { stopAura(r); rendered.delete(id); }   // ауры и прикреплённые зоны
       sync();
     }, 400);
   });

@@ -47,7 +47,7 @@ function draw() {
     const el = slotEl(A, s), R = slotR(A, s), E = el && ELEMENTS[el], c = E ? E.c1 : "#b48cff", tw = two(A);
     const v1 = A.attack ? "попадание" : "провал спаса", v2 = A.attack ? "промах" : "спасбросок пройден";
     const how = tw ? `ЛКМ — ${b.alt ? v2 : v1}, ПКМ — ${b.alt ? v1 : v2}` : A.self ? "ЛКМ — применить на себя" : A.area ? "ЛКМ — прицелиться областью" : "ЛКМ — выбрать цель на карте";
-    const tip = `${A.name}${E ? " (" + E.name + ")" : ""}\n${how}${A.elements ? "\nКружок слева или колесо мыши — сменить вид" : ""}${R ? "\nКружок с числом: ЛКМ / ПКМ или колесо мыши — радиус" : ""}\nПКМ во время наведения — отмена`;
+    const tip = `${A.name}${E ? " (" + E.name + ")" : ""}\n${how}${A.elements ? "\nКружок слева или колесо мыши — сменить вид" : ""}${R ? "\nКружок с числом: ЛКМ / ПКМ или колесо мыши — радиус" : ""}${A.zone && A.attachable && s.att !== false ? "\nКлик по токену — прикрепить к нему, Alt+клик — в точку" : ""}\nПКМ во время наведения — отмена`;
     const pk = pick === i && A.elements ? `<div class="pk">${A.elements.map(k => {
       const X = ELEMENTS[k] || {};
       return `<b data-pe="${esc(k)}" class="${k === el ? "on" : ""}" style="--e:${esc(X.c1 || "#b48cff")}" title="${esc(X.name || k)}">${EMO[k] || "●"}</b>`;
@@ -87,7 +87,7 @@ function cycle(i, d) {
 async function cast(i, rmb) {
   const s = b.slots[i], A = s && ABIL[s.a]; if (!A) return;
   const second = two(A) && (!!b.alt !== !!rmb);
-  const msg = { op: rmb ? "rmb" : "cast", a: A.id, v: second ? "save" : undefined, el: slotEl(A, s), rad: slotR(A, s), dur: s.dur || null };
+  const msg = { op: rmb ? "rmb" : "cast", a: A.id, v: second ? "save" : undefined, el: slotEl(A, s), rad: slotR(A, s), dur: s.dur || null, att: s.att };
   if (!canUse(A.id)) {
     if (!rmb) return OBR.notification.show("🔒 Мастер закрыл эту способность").catch(() => {});
     msg.a = "";   // закрытую способность ПКМ не применит, но наведение отменит

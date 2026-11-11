@@ -990,29 +990,31 @@ export async function startAura(parts, tok) {
   return { tok, a };
 }
 // Зона в точке (Тьма): висит, пока её не снимут. Rc — радиус в клетках; quick — без «разливания» (смена радиуса)
-export async function startZone(p, pt, Rc, quick) {
+// tok — id токена: зона прикрепляется к нему и двигается вместе с ним (pt — его текущий центр)
+export async function startZone(p, pt, Rc, quick, tok) {
   await grid();
   const R = Rc * DPI, col = p.color || "#05030a", col2 = p.color2 || "#140b28", edge = p.edge || "#3b2466", glow = p.glow || "#8a5cff";
   const op = p.opacity ?? 1, L = p.layer || "ATTACHMENT", z = Date.now() + 5, tIn = quick ? 350 : (p.grow || 900), FADE = p.fade || 1400;
-  const c = { x: +pt.x, y: +pt.y }, items = [], big = Math.max(1, Rc / 3);
+  const c = { x: +pt.x, y: +pt.y }, items = [], big = Math.max(1, Rc / 3), at = tok || undefined;
   const disks = [[1.1, 0.14], [1.0, 0.22], [0.9, 0.3], [0.74, 0.36], [0.52, 0.4]].map(([k, a], i) => {
-    const it = circle({ x: c.x, y: c.y, r: R * k, fill: i < 2 ? col2 : col, fo: 0, n: 56, s: 0.01, layer: L, z: z + i });
+    const it = circle({ x: c.x, y: c.y, r: R * k, fill: i < 2 ? col2 : col, fo: 0, n: 56, s: 0.01, layer: L, z: z + i, attach: at });
     items.push(it); return { it, a: a * op, ph: Math.random() * TAU };
   });
   const nt = p.tendrils ?? Math.min(24, Math.round(10 * big)), tend = [];
   for (let k = 0; k < nt; k++) {
-    const it = poly({ x: c.x, y: c.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: k % 2 ? col : col2, sw: DPI * (0.06 + Math.random() * 0.06), closed: false, tension: 0.5, layer: L, z: z + 6 });
+    const it = poly({ x: c.x, y: c.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: k % 2 ? col : col2, sw: DPI * (0.06 + Math.random() * 0.06), closed: false, tension: 0.5, layer: L, z: z + 6, attach: at });
     items.push(it);
     tend.push({ it, a0: k / nt * TAU + Math.random() * 0.4, len: DPI * Math.min(3, Rc) * (0.2 + Math.random() * 0.3), ph: Math.random() * TAU, sp: 0.6 + Math.random() * 0.7, dir: Math.random() < 0.5 ? -1 : 1 });
   }
-  const rims = [0, 1].map(k => { const it = circle({ x: c.x, y: c.y, r: R * (1 - k * 0.05), fill: edge, stroke: k ? glow : edge, sw: DPI * (k ? 0.022 : 0.05), dash: k ? [DPI * 0.06, DPI * 0.22] : [DPI * 0.32, DPI * 0.16], n: 72, s: 0.01, layer: L, z: z + 10 + k }); items.push(it); return it; });
-  const rush = quick ? null : circle({ x: c.x, y: c.y, r: R * 1.6, fill: glow, stroke: glow, sw: DPI * 0.04, n: 56, layer: L, z: z + 12 });
-  const core = quick ? null : circle({ x: c.x, y: c.y, r: DPI * 0.4, fill: glow, fo: 0, n: 24, layer: L, z: z + 13 });
+  const rims = [0, 1].map(k => { const it = circle({ x: c.x, y: c.y, r: R * (1 - k * 0.05), fill: edge, stroke: k ? glow : edge, sw: DPI * (k ? 0.022 : 0.05), dash: k ? [DPI * 0.06, DPI * 0.22] : [DPI * 0.32, DPI * 0.16], n: 72, s: 0.01, layer: L, z: z + 10 + k, attach: at }); items.push(it); return it; });
+  const rush = quick ? null : circle({ x: c.x, y: c.y, r: R * 1.6, fill: glow, stroke: glow, sw: DPI * 0.04, n: 56, layer: L, z: z + 12, attach: at });
+  const core = quick ? null : circle({ x: c.x, y: c.y, r: DPI * 0.4, fill: glow, fo: 0, n: 24, layer: L, z: z + 13, attach: at });
   if (rush) items.push(rush, core);
   const nm = p.motes ?? Math.min(40, Math.round(18 * big)), motes = [];
   for (let k = 0; k < nm; k++) {
-    const it = circle({ x: c.x, y: c.y, r: DPI * (0.025 + Math.random() * 0.03), fill: k % 3 ? (p.mote || "#cbb8ff") : "#ffffff", fo: 0, n: 8, layer: L, z: z + 14 + k });
-    items.push(it); motes.push({ it, a: Math.random() * TAU, per: (1.3 + Math.random() * 1.3) * Math.sqrt(big), off: Math.random(), d: R * (1.1 + Math.random() * 0.5), sw: Math.random() < 0.5 ? -1 : 1 });
+    const mr = DPI * (0.025 + Math.random() * 0.03);
+    const it = circle({ x: c.x, y: c.y, r: mr, fill: k % 3 ? (p.mote || "#cbb8ff") : "#ffffff", fo: 0, n: 8, layer: L, z: z + 14 + k, attach: at });
+    items.push(it); motes.push({ it, mr, a: Math.random() * TAU, per: (1.3 + Math.random() * 1.3) * Math.sqrt(big), off: Math.random(), d: R * (1.1 + Math.random() * 0.5), sw: Math.random() < 0.5 ? -1 : 1 });
   }
   await OBR.scene.local.addItems(items);
   const a = { ids: items.map(i => i.id), loop: true, t0: now(), stop: 0 };
@@ -1039,11 +1041,14 @@ export async function startZone(p, pt, Rc, quick) {
     }
     for (const m of motes) {
       const k = (sec / m.per + m.off) % 1, d = m.d * (1 - k * k * 0.85), an = m.a + m.sw * k * 2.2 + Math.floor(sec / m.per + m.off) * 1.7;
-      P.set(m.it.id, { x: c.x + Math.cos(an) * d, y: c.y + Math.sin(an) * d, fo: Math.sin(Math.PI * k) * env * c01((tm - 300) / 400) * 0.85 });
+      // искры двигаем точками относительно центра — так они едут вместе с токеном, если зона прикреплена
+      const ox = Math.cos(an) * d, oy = Math.sin(an) * d, pts = [];
+      for (let j = 0; j < 8; j++) { const b = j / 8 * TAU; pts.push({ x: ox + Math.cos(b) * m.mr, y: oy + Math.sin(b) * m.mr }); }
+      P.set(m.it.id, { pts, fo: Math.sin(Math.PI * k) * env * c01((tm - 300) / 400) * 0.85 });
     }
   };
   anims.add(a); kick();
-  return { tok: null, pt: c, a, fade: FADE };
+  return { tok: tok || null, pt: c, a, fade: FADE };
 }
 export function stopAura(r, del = true) {
   if (!r) return;

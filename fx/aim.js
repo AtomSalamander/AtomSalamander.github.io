@@ -40,6 +40,13 @@ function shape(p) {
     });
     return { ang, o: { x: ox, y: oy }, pt: { x: ox + Math.cos(ang) * S.L * 0.6, y: oy + Math.sin(ang) * S.L * 0.6 }, inside };
   }
+  if (S.attach && !S.free) {   // прикрепляемая зона: курсор над токеном — сфера «прилипает» к нему
+    const t = tokAt(p);
+    if (t && (!S.range || Math.hypot(t.x - C.x, t.y - C.y) <= S.range + (t.r || S.DPI / 2))) {
+      const inside = S.toks.filter(o => Math.hypot(o.x - t.x, o.y - t.y) <= S.R + (o.r || S.DPI / 2) * 0.5);
+      return { pt: { x: t.x, y: t.y }, inside, tok: t };
+    }
+  }
   let q = { x: p.x, y: p.y };
   const dx = p.x - C.x, dy = p.y - C.y, d = Math.hypot(dx, dy);
   if (S.range && d > S.range) q = { x: C.x + dx / d * S.range, y: C.y + dy / d * S.range };   // дальше дальности — прижимаем к краю
@@ -83,6 +90,10 @@ async function draw(p) {
       if (d.id === s.ui.wedge) { d.position = g.o; d.points = wedge(g.ang, s.L); }
       else if (d.id === s.ui.area || d.id === s.ui.dot) d.position = { x: g.pt.x, y: g.pt.y };
       else if (d.id === s.ui.line) d.points = [{ x: 0, y: 0 }, { x: g.pt.x - s.C.x, y: g.pt.y - s.C.y }];
+      else if (d.id === s.ui.pin) {   // золотое кольцо вокруг токена, к которому прикрепится зона
+        if (g.tok) { const k = (g.tok.r || s.DPI / 2) / (s.DPI / 2); d.position = { x: g.tok.x, y: g.tok.y }; d.scale = { x: k, y: k }; }
+        d.style.strokeOpacity = g.tok ? 0.95 : 0; d.style.fillOpacity = g.tok ? 0.15 : 0;
+      }
     }
   });
 }
@@ -137,7 +148,7 @@ async function fire(p) {
   if (!S) return;
   const g = shape(p || (S.last && S.last.pt) || S.C);
   const s = await cleanup();
-  if (s) try { await s.onFire({ pt: { x: g.pt.x, y: g.pt.y }, targets: g.inside.map(t => ({ id: t.id, name: t.name })) }); } catch (e) { console.warn("[fx] aim fire", e); }
+  if (s) try { await s.onFire({ pt: { x: g.pt.x, y: g.pt.y }, targets: g.inside.map(t => ({ id: t.id, name: t.name })), tok: g.tok ? { id: g.tok.id, name: g.tok.name } : null }); } catch (e) { console.warn("[fx] aim fire", e); }
 }
 
 async function firePick(p, ev, enter) {
@@ -177,10 +188,11 @@ async function arm(s, items, label, first) {
     id: MODE,
     icons: [{ icon: ICON, label: "Прицел", filter: { activeTools: [TOOL] } }],
     cursors: [{ cursor: "crosshair" }],
-    onToolMove: (_, ev) => { move(ev.pointerPosition); },
+    onToolMove: (_, ev) => { s.free = !!(ev && ev.altKey); move(ev.pointerPosition); },   // Alt — не прилипать к токенам
     onToolDown: (_, ev) => { if (isRight(ev)) { cancelAim(); return false; } },   // ПКМ по карте — отмена
     onToolClick: (_, ev) => {
       if (isRight(ev)) { cancelAim(); return false; }
+      if (s.kind !== "pick") s.free = !!(ev && ev.altKey);
       s.kind === "pick" ? firePick(ev.pointerPosition, ev) : fire(ev.pointerPosition); return false;
     },
     onKeyDown: (_, ev) => {
@@ -204,15 +216,16 @@ function ringsFor(s, toks, color, z, skip) {
   return items;
 }
 
-// A — способность с A.area; cId — токен «Кто»; color — цвет превью; onFire({pt, targets})
-export async function startAim({ A, cId, color = "#ff7a1a", isGM = false, onFire }) {
+// A — способность с A.area; cId — токен «Кто»; color — цвет превью; onFire({pt, targets, tok})
+// attach — клик по токену прикрепляет зону к нему (tok = {id, name}), Alt+клик — в точку
+export async function startAim({ A, cId, color = "#ff7a1a", isGM = false, attach = false, onFire }) {
   if (S) await cleanup();
   const DPI = await grid(), fpc = await feetPerCell(), cfg = A.area || {};
   const C = (await tokens([cId]))[cId];
   if (!C) throw new Error("caster not found");
   const toks = await sceneTokens(isGM);
   const s = {
-    kind: "area", A, cfg, DPI, onFire, toks, C: { ...C, id: cId },
+    kind: "area", A, cfg, DPI, onFire, toks, C: { ...C, id: cId }, attach: !!attach && cfg.shape !== "cone", free: false,
     L: (cfg.length || 15) / fpc * DPI, half: (cfg.angle ?? 53) / 2 * Math.PI / 180,
     R: (cfg.radius || 20) / fpc * DPI, range: cfg.range ? cfg.range / fpc * DPI : 0,
     ui: {}, rings: new Map(), ringTok: new Map(), lit: new Set(), shapeIds: [], allIds: [],
@@ -227,10 +240,14 @@ export async function startAim({ A, cId, color = "#ff7a1a", isGM = false, onFire
     const ar = prim.circle({ x: C.x, y: C.y, r: s.R, fill: color, fo: 0.16, stroke: color, so: 0.9, sw: DPI * 0.04, dash: [DPI * 0.15, DPI * 0.08], n: 72, z });
     const dt = prim.circle({ x: C.x, y: C.y, r: DPI * 0.08, fill: color, fo: 0.9, n: 12, z: z + 1 });
     s.ui.line = ln.id; s.ui.area = ar.id; s.ui.dot = dt.id; items.push(ln, ar, dt);
+    if (s.attach) {
+      const pin = prim.circle({ x: C.x, y: C.y, r: DPI * 0.5 * 1.3, fill: "#f3d58a", fo: 0, stroke: "#f3d58a", so: 0, sw: DPI * 0.06, dash: [DPI * 0.14, DPI * 0.08], n: 40, z: z + 2 });
+      s.ui.pin = pin.id; items.push(pin);
+    }
   }
-  s.shapeIds = items.filter(i => [s.ui.wedge, s.ui.line, s.ui.area, s.ui.dot].includes(i.id)).map(i => i.id);
+  s.shapeIds = items.filter(i => [s.ui.wedge, s.ui.line, s.ui.area, s.ui.dot, s.ui.pin].includes(i.id)).map(i => i.id);
   items.push(...ringsFor(s, toks, "#ff5a5a", z, cfg.shape === "cone" ? cId : null));
-  await arm(s, items, "Прицел заклинания (ПКМ / Esc — отмена)",
+  await arm(s, items, s.attach ? "Прицел: клик по токену — прикрепить, Alt+клик — в точку (ПКМ / Esc — отмена)" : "Прицел заклинания (ПКМ / Esc — отмена)",
     { x: C.x + (cfg.shape === "cone" ? s.L : 0), y: C.y - (cfg.shape === "cone" ? 0 : DPI * 2) });
 }
 
