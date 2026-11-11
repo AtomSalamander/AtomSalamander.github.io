@@ -7,6 +7,36 @@
 // until — сколько держится по умолчанию: {who:"target"|"caster", when:"s"(начало)|"e"(конец)|"x"(вручную), n:какой ход}
 //         n: 1 = следующий ход, 0 (только для "e") = конец текущего, 10 = «1 минута»
 // В панели мастер всё равно может поменять длительность перед применением.
+//
+// area     — заклинание по области (как в BG3): нужен только «Кто», точку выбирают кликом по карте.
+//            {shape:"sphere", radius: футы, range: футы} или {shape:"cone", length: футы}
+// elements — список стихий из ELEMENTS; в шагах можно писать цвета "$c1" "$c2" "$c3" "$d",
+//            шаг с el:"fire" (или [..]) играет только для этой стихии, per:{lightning:{...}} — доп. опции шага.
+
+// Палитры стихий: c1 — основной, c2 — светлый, c3 — ядро/вспышка, d — дым/тёмный
+export const ELEMENTS = {
+  fire:      { name: "🔥 Огонь",         c1: "#ff5a10", c2: "#ffb347", c3: "#fff1b0", d: "#3a2a22" },
+  cold:      { name: "❄️ Холод",         c1: "#3fa9ff", c2: "#a8e4ff", c3: "#ffffff", d: "#5d7f99" },
+  acid:      { name: "🧪 Кислота",       c1: "#6fd62a", c2: "#c6ff6a", c3: "#f2ffd8", d: "#3c5a14" },
+  lightning: { name: "⚡ Электричество", c1: "#4f7dff", c2: "#ffe45c", c3: "#ffffff", d: "#2c3466" },
+  poison:    { name: "☠️ Яд",            c1: "#2fae4a", c2: "#9be36b", c3: "#e4ffd6", d: "#24502a" },
+  thunder:   { name: "🔊 Звук",          c1: "#9d8cff", c2: "#d9d1ff", c3: "#ffffff", d: "#3a3366" },
+  psychic:   { name: "🧠 Психическая",   c1: "#ff4fc4", c2: "#ffb0ea", c3: "#ffffff", d: "#4a1442" },
+};
+export const elOf = (A, el) => A && Array.isArray(A.elements) && A.elements.length ? (A.elements.includes(el) ? el : A.elements[0]) : null;
+
+// Перекрасить способность под стихию (возвращает копию; без elements — как есть)
+export function paint(A, el) {
+  const key = elOf(A, el); if (!key) return A;
+  const pal = ELEMENTS[key] || {};
+  const sub = v => typeof v === "string" ? (v[0] === "$" && pal[v.slice(1)] ? pal[v.slice(1)] : v)
+    : Array.isArray(v) ? v.map(sub)
+    : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, sub(x)])) : v;
+  const steps = list => Array.isArray(list) ? list
+    .filter(s => !s.el || [].concat(s.el).includes(key))
+    .map(s => { const { per, ...r } = s; return sub(per && per[key] ? { ...r, ...per[key] } : r); }) : list;
+  return { ...A, cast: steps(A.cast), castSave: steps(A.castSave), aura: steps(A.aura) };
+}
 
 export const ABILITIES = [
   // ─── Арка 7 · Шариты ───
@@ -84,9 +114,10 @@ export const ABILITIES = [
   },
   {
     id: "fireball", name: "Огненный шар", icon: "☄️", group: "Примеры",
-    desc: "Бусина огня летит по дуге и взрывается сферой 20 фт: вспышка, волны, обломки, угли и густой дым.",
+    desc: "Сфера 20 фт, дальность 150 фт. Выбери только «Кто», нажми «Прицелиться» и кликни на карте — как в BG3. Спасбросок Ловкости.",
+    save: "Лов", area: { shape: "sphere", radius: 20, range: 150 },
     cast: [
-      { fx: "projectile", color: "#ff8a1a", core: "#fff1b0", size: 0.22, speed: 9, arc: 1, trail: 10, embers: 14 },
+      { fx: "projectile", to: "point", color: "#ff8a1a", core: "#fff1b0", size: 0.22, speed: 9, arc: 1, trail: 10, embers: 14 },
       { fx: "burst", at: "center", after: "hit", color: "#ffd36b", core: "#ffffff", radius: 2.2, sparks: 0, duration: 450 },
       { fx: "area", at: "center", after: "hit", color: "#ff4a0a", edge: "#ffb347", radius: 4, opacity: 0.45, duration: 1800 },
       { fx: "area", at: "center", after: "hit", color: "#ffd36b", edge: "#fff1b0", radius: 2.4, opacity: 0.4, duration: 900 },
@@ -191,6 +222,63 @@ export const ABILITIES = [
       { fx: "burst", at: "miss", after: "hit", color: "#c9b8ff", core: "#ffffff", radius: 0.5, sparks: 6, flash: 0.3 },
       { fx: "shock", at: "miss", after: "hit", color: "#b7a6ff", radius: 0.8, rings: 1, duration: 450 },
     ],
+  },
+  {
+    id: "sorcerous-burst", name: "Чародейский выброс", icon: "💥", group: "Заклинания",
+    desc: "Заговор, 120 фт. Дальнобойная атака заклинанием: 1к8 выбранного типа. Каждая «8» — ещё 1к8 (до мод. заклинательной хар-ки). 2к8/3к8/4к8 на 5/11/17 ур.",
+    attack: true,
+    elements: ["fire", "cold", "acid", "lightning", "poison", "thunder", "psychic"],
+    cast: [
+      { fx: "burst", at: "caster", color: "$c1", core: "$c3", radius: 0.55, sparks: 6, flash: 0.35, duration: 380 },
+      { fx: "projectile", delay: 120, color: "$c1", core: "$c3", size: 0.26, speed: 15, arc: 0.35, trail: 8, embers: 10 },
+      { fx: "projectile", delay: 190, color: "$c2", core: "$c3", size: 0.16, speed: 15, arc: -0.35, trail: 6, embers: 4 },
+      { fx: "burst", at: "targets", after: "hit", color: "$c1", core: "$c3", radius: 0.85, sparks: 10 },
+      { fx: "shock", at: "targets", after: "hit", color: "$c2", radius: 1.15, rings: 2, duration: 550 },
+      { fx: "burst", at: "targets", after: "hit", delay: 260, color: "$c2", core: "$c3", radius: 0.55, sparks: 6, flash: 0.3, duration: 420 },   // «взрывающаяся» восьмёрка
+      { fx: "embers", at: "targets", after: "hit", delay: 120, color: "$c2", color2: "$c1", core: "$c3", count: 10, height: 0.8, duration: 1200 },
+      { fx: "smoke", el: ["fire", "acid", "poison"], at: "targets", after: "hit", delay: 200, color: "$d", color2: "$c1", radius: 0.6, count: 5, size: 0.24, rise: 0.3, opacity: 0.4, duration: 1300 },
+      { fx: "debris", el: "cold", at: "targets", after: "hit", color: "#bfe9ff", color2: "#ffffff", hot: "#7fd6ff", radius: 1, count: 9, size: 0.08 },
+      { fx: "bolt", el: "lightning", from: "sky", after: "hit", delay: 80, color: "$c2", core: "#ffffff", width: 0.05, jag: 0.35, duration: 380, grow: 0.12, height: 1.6 },
+      { fx: "shock", el: "thunder", at: "targets", after: "hit", delay: 150, color: "$c3", radius: 1.8, rings: 3, width: 0.05, duration: 700 },
+      { fx: "spiral", el: "psychic", at: "targets", after: "hit", color: "$c1", color2: "$c2", radius: 0.9, duration: 1000 },
+    ],
+    castSave: [   // промах
+      { fx: "burst", at: "caster", color: "$c1", core: "$c3", radius: 0.55, sparks: 6, flash: 0.35, duration: 380 },
+      { fx: "projectile", miss: true, delay: 120, overshoot: 1.5, color: "$c1", core: "$c3", size: 0.26, speed: 15, arc: 0.35, trail: 8, embers: 8 },
+      { fx: "burst", at: "miss", after: "hit", color: "$c1", core: "$c3", radius: 0.5, sparks: 6, flash: 0.3 },
+      { fx: "shock", at: "miss", after: "hit", color: "$c2", radius: 0.8, rings: 1, duration: 450 },
+    ],
+  },
+  {
+    id: "dragons-breath", name: "Дыхание дракона", icon: "🐉", group: "Заклинания",
+    desc: "Конус 15 фт от «Кто» — нажми «Прицелиться» и кликни на карте (как в BG3). Спасбросок Ловкости: 3к6, половина при успехе (+1к6 за ур. ячейки выше 2-го).",
+    save: "Лов", area: { shape: "cone", length: 15 },
+    elements: ["fire", "cold", "acid", "lightning", "poison"],
+    cast: [
+      { fx: "burst", at: "caster", color: "$c1", core: "$c3", radius: 0.6, sparks: 0, flash: 0.45, duration: 350 },
+      { fx: "cone", delay: 120, color: "$c1", color2: "$c2", core: "$c3", length: 3, count: 42, duration: 1700,
+        per: { lightning: { bolts: 6 }, cold: { count: 50, size: 0.18 }, poison: { size: 0.3, duration: 2100 } } },
+      { fx: "burst", at: "targets", after: "hit", stagger: 70, color: "$c1", core: "$c3", radius: 0.7, sparks: 6 },
+      { fx: "embers", el: ["fire", "lightning"], at: "targets", after: "hit", color: "$c2", color2: "$c1", core: "$c3", count: 8, height: 0.8, duration: 1200 },
+      { fx: "debris", el: "cold", at: "targets", after: "hit", color: "#bfe9ff", color2: "#ffffff", hot: "#7fd6ff", radius: 0.9, count: 8, size: 0.08 },
+      { fx: "smoke", at: "point", after: "hit", delay: 450, color: "$d", color2: "$c1", radius: 1.3, count: 9, size: 0.45, rise: 0.4, opacity: 0.35, duration: 2300 },
+    ],
+  },
+  {
+    id: "dragons-breath-buff", name: "Дыхание дракона — наделение", icon: "🐲", group: "Заклинания",
+    desc: "2 ур., касание, концентрация до 1 мин. Цель (или сам заклинатель) получает стихийное дыхание — потом применяй «Дыхание дракона» от неё.",
+    elements: ["fire", "cold", "acid", "lightning", "poison"],
+    cast: [
+      { fx: "sigil", at: "targets", color: "$c1", rune: "$c3", radius: 0.9, points: 6, runes: 5, duration: 1400, spin: 60, fill: 0.1 },
+      { fx: "rise", at: "targets", delay: 150, color: "$c2", core: "$c3", count: 14, height: 1.3, duration: 1400 },
+      { fx: "burst", at: "targets", delay: 250, color: "$c1", core: "$c3", radius: 0.8, sparks: 0, flash: 0.4 },
+    ],
+    aura: [
+      { fx: "glow", color: "$c1", size: 1.25, opacity: 0.28, flicker: 0.3 },
+      { fx: "wisps", color: "$c1", color2: "$c2", count: 4, size: 0.18, radius: 0.85, speed: 35, opacity: 0.45 },
+    ],
+    auraDelay: 300,
+    until: { who: "caster", when: "x", n: 10 },
   },
   {
     id: "bow-shot", name: "Выстрел из лука", icon: "🏹", group: "Оружие",

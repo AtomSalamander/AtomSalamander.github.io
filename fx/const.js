@@ -10,3 +10,4 @@ export function normState(s) {
   if (!s || !Array.isArray(s.e)) return { v: 1, e: [], p: null };
   return JSON.parse(JSON.stringify({ v: 1, e: s.e, p: s.p || null }));
 }
+export const SEL = "dndfx_sel";                 // localStorage: выбранные «Кто» и «Цели» (общий для панели и горячих клавиш)

@@ -1,14 +1,14 @@
 // Панель: выбор заклинателя/целей, список способностей, активные эффекты.
 // Мастер видит всё и галочками «👥» разрешает способности игрокам; игроки видят только разрешённое.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import { STATE, INIT, CH, PANEL, ALLOW, normState } from "./const.js";
-import { ABILITIES, ABIL } from "./abilities.js";
-import { matchChip, untilText } from "./turns.js";
+import { STATE, INIT, CH, PANEL, ALLOW, SEL, normState } from "./const.js";
+import { ABILITIES, ABIL, ELEMENTS, elOf } from "./abilities.js";
+import { makeEffects, untilText } from "./turns.js";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pinned = new URLSearchParams(location.search).has("pin");
-const SK = "dndfx_sel", AK = "dndfx_ab";
+const SK = SEL, AK = "dndfx_ab", EK = "dndfx_el_";
 let chips = [], state = normState(null), isGM = false, allow = new Set(), roleKnown = false;
 const canUse = a => isGM || allow.has(a.id);
 let sel = load(SK) || { c: null, t: [] };
@@ -32,7 +32,7 @@ function drawSel() {
   $("cN").textContent = sel.c ? sel.c.name : "—";
   $("tN").textContent = sel.t.length ? sel.t.map(t => t.name).join(", ") : "—";
   $("tN").title = $("tN").textContent;
-  drawWho();
+  drawWho(); drawEl();
 }
 $("cSet").onclick = async () => { const s = await fromSelection(); if (s.length) { sel.c = s[0]; saveSel(); drawSel(); } };
 $("tSet").onclick = async () => { const s = await fromSelection(); if (s.length) { sel.t = s; saveSel(); drawSel(); } };
@@ -89,12 +89,28 @@ function pick(id) {
   $("uMode").value = u.when === "x" ? "x" : u.when === "e" && n === 0 ? "e0" : n === 1 ? u.when + "1" : u.when + "N";
   $("uNum").value = n > 1 ? n : 10;
   $("uWho").dataset.def = u.who === "caster" ? "@c" : "@t";
-  $("goSave").hidden = !A.save && !A.attack;
-  $("go").textContent = A.attack ? "🎯 Попадание" : A.save ? `✨ Провал (${A.save}) — эффект` : "✨ Применить";
+  $("goSave").hidden = !!A.area || (!A.save && !A.attack);
+  $("go").textContent = A.area ? "🎯 Прицелиться — клик по карте" : A.attack ? "🎯 Попадание" : A.save ? `✨ Провал (${A.save}) — эффект` : "✨ Применить";
   $("goSave").textContent = A.attack ? "💨 Промах" : `🛡️ Спасбросок пройден — без эффекта`;
-  drawWho(true);
+  drawWho(true); drawEl();
   drawList();
 }
+// выбор стихии (чародейский выброс, дыхание дракона…)
+function drawEl() {
+  const A = ABIL[cur], row = $("elRow");
+  if (!row) return;
+  if (!A || !A.elements) { row.style.display = "none"; return; }
+  row.style.display = "";
+  let v = localStorage.getItem(EK + A.id);
+  if (A.id === "dragons-breath" && sel.c) {   // стихия из «наделения» на этом токене
+    const b = state.e.find(e => e.a === "dragons-breath-buff" && e.tok === sel.c.id && e.el);
+    if (b) v = b.el;
+  }
+  const s = $("el");
+  s.innerHTML = A.elements.map(k => `<option value="${esc(k)}">${esc((ELEMENTS[k] || {}).name || k)}</option>`).join("");
+  s.value = elOf(A, v);
+}
+$("el").onchange = () => { try { localStorage.setItem(EK + cur, $("el").value); } catch (e) {} };
 function drawWho(reset) {
   const A = ABIL[cur], w = $("uWho");
   $("uRow").style.display = $("uRow2").style.display = A && A.aura ? "" : "none";
@@ -118,26 +134,21 @@ async function cast(saved = false) {
   const exist = new Set((await OBR.scene.items.getItems([sel.c && sel.c.id, ...sel.t.map(t => t.id)].filter(Boolean))).map(i => i.id));
   const c = sel.c && exist.has(sel.c.id) ? sel.c : null;
   const t = sel.t.filter(x => exist.has(x.id));
-  const needsCaster = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam" || (s.fx === "bolt" && s.from !== "sky")) || A.auraOn === "caster";
-  if (needsCaster && !c) return toast("Нужен заклинатель: выдели его и нажми «← выделение» у «Кто»");
+  const el = A.elements ? elOf(A, $("el").value) : undefined;
+  const dur = saved ? null : { mode: $("uMode").value, who: $("uWho").value, n: $("uNum").value };
+  if (A.area) {   // по области — нужен только «Кто», точку выбирают на карте
+    if (!c) return toast("Нужен заклинатель: выдели токен и нажми Alt+1");
+    await OBR.broadcast.sendMessage(CH, { op: "aim", a: A.id, c: c.id, cn: c.name, el, dur: A.aura ? dur : null }, { destination: "LOCAL" });
+    toast("🎯 Наведи на карте и кликни · Esc — отмена");
+    if (!pinned) { try { await OBR.action.close(); } catch (e) {} }
+    return;
+  }
+  const needsCaster = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam" || s.fx === "cone" || (s.fx === "bolt" && s.from !== "sky")) || A.auraOn === "caster";
+  if (needsCaster && !c) return toast("Нужен заклинатель: выдели его и нажми Alt+1 (или «← выделение» у «Кто»)");
   if (!t.length && !c) return toast("Выбери цели");
   const targets = t.length ? t : [c];
-  const e = {}, list = [], lost = [];
-  if (A.aura && !saved) {
-    const mode = $("uMode").value, who = $("uWho").value;
-    const m = mode === "x" ? "x" : mode[0];
-    const n = mode.endsWith("N") ? Math.max(1, Math.min(100, +$("uNum").value || 1)) : mode === "e0" ? 0 : 1;
-    for (const o of A.auraOn === "caster" ? [c] : targets) {
-      let w = null, mm = m;
-      if (m !== "x") {
-        w = who === "@c" ? (c && matchChip(c.name, chips)) : who === "@t" ? matchChip(o.name, chips) : who.slice(1);
-        if (!w) { mm = "x"; lost.push(who === "@c" && c ? c.name : o.name); }
-      }
-      const id = uid(); e[o.id] = id;
-      list.push({ id, a: A.id, tok: o.id, tn: o.name, w, m: mm, n, k: 0 });
-    }
-  }
-  await OBR.broadcast.sendMessage(CH, { op: "play", a: A.id, v: saved ? "save" : undefined, c: c ? c.id : null, t: targets.map(x => x.id), e }, { destination: "ALL" });
+  const { e, list, lost } = makeEffects({ A, c, targets, dur: A.aura ? dur : null, chips, uid, el });
+  await OBR.broadcast.sendMessage(CH, { op: "play", a: A.id, v: saved ? "save" : undefined, c: c ? c.id : null, t: targets.map(x => x.id), el, e }, { destination: "ALL" });
   // мастер записывает сам; игрок отправляет мастеру (он держит список активных эффектов)
   if (list.length) await OBR.broadcast.sendMessage(CH, { op: "add", list }, { destination: isGM ? "LOCAL" : "REMOTE" });
   if (lost.length) toast(`Не нашёл в инициативе: ${[...new Set(lost)].join(", ")}. Эффект будет висеть, пока не снимешь.`);
@@ -151,7 +162,7 @@ function drawActive() {
   const L = state.e;
   $("act").innerHTML = L.length ? L.map(e => {
     const A = ABIL[e.a] || { name: e.a, icon: "✨" };
-    return `<div class="fx"><div><b>${esc(A.icon || "✨")} ${esc(A.name)}</b> → ${esc(e.tn)}<small>${esc(untilText(e))}</small></div>${isGM ? `<button data-id="${esc(e.id)}" title="Снять">✕</button>` : ""}</div>`;
+    return `<div class="fx"><div><b>${esc(A.icon || "✨")} ${esc(A.name)}${e.el && ELEMENTS[e.el] ? " · " + esc(ELEMENTS[e.el].name) : ""}</b> → ${esc(e.tn)}<small>${esc(untilText(e))}</small></div>${isGM ? `<button data-id="${esc(e.id)}" title="Снять">✕</button>` : ""}</div>`;
   }).join("") : `<div class="empty">Нет активных эффектов</div>`;
   $("act").querySelectorAll("button").forEach(b => b.onclick = () => OBR.broadcast.sendMessage(CH, { op: "del", ids: [b.dataset.id] }, { destination: "LOCAL" }));
   $("clr").hidden = !isGM || L.length < 2;
@@ -164,7 +175,7 @@ function onMeta(md) {
   state = normState(md[STATE]);
   const P = md[INIT];
   chips = P && Array.isArray(P.chips) ? P.chips : [];
-  drawActive(); drawWho();
+  drawActive(); drawWho(); drawEl();
 }
 
 // ── закрепить панель сбоку (не закрывается при кликах по карте) ──

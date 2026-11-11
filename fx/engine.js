@@ -180,7 +180,7 @@ function line(o) {
   it.style = { strokeColor: o.color, strokeOpacity: o.so ?? 1, strokeWidth: o.w, strokeDash: [] };
   return base(it, o);
 }
-// Одна буква (текстовый объект). Позиция текста — его левый верхний угол, поэтому центр считаем сами (place).
+// Одна буква (текстовый объект). Позиция текста — его л���вый верхний угол, поэтому центр считаем сами (place).
 function glyph(o) {   // буква как векторная фигура (без текстовых элементов — они ненадёжны в Owlbear)
   const g = GLYPHS[o.ch] || GLYPHS["?"] || [], k = o.fs / 100, pts = [];
   for (let i = 0; i + 1 < g.length; i += 2) pts.push({ x: g[i] * k, y: g[i + 1] * k });
@@ -592,6 +592,40 @@ const FX = {
     } });
     return 0;
   },
+  // «Конус» (дыхание дракона): стихия вырывается из токена A в сторону точки B клином 15 фт.
+  // length — длина в клетках, angle — раствор в градусах (D&D-конус ≈ 53°), bolts — молнии внутри.
+  // Возвращает момент, когда фронт доходит до целей.
+  cone(A, B, o, delay) {
+    const L = (o.length || 3) * DPI, half = (o.angle ?? 53) / 2 * Math.PI / 180, dur = o.duration || 1600;
+    const ang = Math.atan2(B.y - A.y, B.x - A.x) || 0, r0 = (A.r || DPI / 2) * 0.6;
+    const ox = A.x + Math.cos(ang) * r0, oy = A.y + Math.sin(ang) * r0;
+    const col = o.color || "#ff5a10", col2 = o.color2 || "#ffb347", core = o.core || "#fff1b0", z = Date.now() + 20;
+    const wedge = len => { const pts = [{ x: 0, y: 0 }]; for (let k = 0; k <= 14; k++) { const a = ang - half + 2 * half * k / 14; pts.push({ x: Math.cos(a) * len, y: Math.sin(a) * len }); } return pts; };
+    const outer = poly({ x: ox, y: oy, pts: wedge(L * 0.02), fill: col, fo: 0, stroke: col2, so: 0, sw: DPI * 0.04, tension: 0.15, z });
+    const inner = poly({ x: ox, y: oy, pts: wedge(L * 0.01), fill: col2, fo: 0, tension: 0.15, z: z + 1 });
+    const cols = [col, col2, core], ps = [], n = o.count || 40;
+    for (let k = 0; k < n; k++) {
+      const a = ang + (Math.random() * 2 - 1) * half * 0.92;
+      ps.push({ it: circle({ x: ox, y: oy, r: DPI * (o.size || 0.22) * (0.5 + Math.random() * 0.7), fill: cols[k % 3], fo: 0, n: 14, s: 0.3, z: z + 2 + k }),
+        a, d1: L * (0.55 + Math.random() * 0.5), q0: Math.random() * 0.5, w: DPI * 0.12 * Math.random(), ph: Math.random() * TAU, g: 1 + Math.random() * 1.3 });
+    }
+    spawn(delay, [outer, inner, ...ps.map(p => p.it)], { dur, f: (p, P) => {
+      const f = out3(c01(p / 0.4)), env = p < 0.15 ? p / 0.15 : p > 0.6 ? Math.max(0, (1 - p) / 0.4) : 1;
+      P.set(outer.id, { pts: wedge(Math.max(2, L * f)), fo: 0.32 * env, so: 0.75 * env });
+      P.set(inner.id, { pts: wedge(Math.max(1, L * f * 0.62)), fo: 0.4 * env * (0.8 + 0.2 * Math.sin(p * 40)) });
+      for (const s of ps) {
+        const lp = c01((p - s.q0) / 0.5), d = s.d1 * out3(lp), wob = Math.sin(lp * 8 + s.ph) * s.w;
+        P.set(s.it.id, { x: ox + Math.cos(s.a) * d - Math.sin(s.a) * wob, y: oy + Math.sin(s.a) * d + Math.cos(s.a) * wob,
+          s: 0.3 + s.g * lp, fo: Math.sin(Math.PI * lp) * 0.9 });
+      }
+    } });
+    for (let k = 0; k < (o.bolts || 0); k++) {
+      const a = ang + (Math.random() * 2 - 1) * half * 0.8, d = L * (0.6 + Math.random() * 0.4);
+      FX.bolt({ x: ox, y: oy }, { x: ox + Math.cos(a) * d, y: oy + Math.sin(a) * d },
+        { color: o.boltColor || col2, core: "#ffffff", width: 0.04, jag: 0.3, duration: 360, grow: 0.12 }, delay + 120 + k * 150);
+    }
+    return o.hitAt ?? dur * 0.3;
+  },
   image(c, o, delay) {
     const dur = o.duration || 1500;
     const it = picture({ x: c.x, y: c.y, url: o.url, cells: o.size || 2, px: o.px, pxh: o.pxh, mime: o.mime, s: 0.01 });
@@ -601,6 +635,38 @@ const FX = {
     return 0;
   },
 };
+
+// примитивы для прицела (aim.js)
+export const prim = { circle, poly, dpi: () => DPI };
+
+// Короткая надпись над токеном (видна только тому, кто нажал): «ЗАКЛИНАТЕЛЬ», «ЦЕЛЬ»…
+export async function label(ids, text, o = {}) {
+  await grid();
+  const info = await tokens(ids);
+  const word = [...String(text).toUpperCase()].map(ch => ch === "Й" ? "И" : ch).filter(ch => GLYPHS[ch] || ch === " ");
+  const fs = Math.round((o.size || 0.28) * DPI), gap = fs * 0.74, col = o.color || "#f3d58a", dark = o.stroke || "#1d1038";
+  const dur = o.duration || 1400, z = Date.now() + 500;
+  for (const id of ids) {
+    const T = info[id]; if (!T) continue;
+    const by = T.y - (T.r || DPI / 2) - fs * 0.75, n = word.length, L = [];
+    word.forEach((ch, k) => {
+      if (ch === " ") return;
+      const x = T.x + (k - (n - 1) / 2) * gap;
+      L.push({ k, x, sh: glyph({ ch, fs, x, y: by, color: dark, z: z + k * 2 }), g: glyph({ ch, fs, x, y: by, color: col, z: z + k * 2 + 1 }) });
+    });
+    const ring = circle({ x: T.x, y: T.y, r: (T.r || DPI / 2) * 1.05, fill: col, stroke: col, sw: DPI * 0.04, n: 36, s: 0.8, z: z - 1 });
+    spawn(0, [ring, ...L.flatMap(l => [l.sh, l.g])], { dur, f: (p, P) => {
+      const tm = p * dur;
+      P.set(ring.id, { s: 0.8 + 0.35 * out3(p), so: 0.9 * (1 - p) });
+      for (const l of L) {
+        const q = c01((tm - l.k * 25) / 220), e = 1 + 0.25 * Math.sin(Math.PI * q) * (1 - q);
+        const fo = p > 0.7 ? (1 - p) / 0.3 : q, y = by - (1 - out3(q)) * fs * 0.6 - p * fs * 0.4;
+        P.set(l.g.id, { x: l.x, y, s: e, fo });
+        P.set(l.sh.id, { x: l.x + fs * 0.05, y: y + fs * 0.06, s: e * 1.04, fo: fo * 0.85 });
+      }
+    } });
+  }
+}
 
 // центр и радиус токенов
 export async function tokens(ids) {
@@ -616,18 +682,33 @@ export async function tokens(ids) {
 }
 
 // Проиграть способность. Возвращает {idЦели: мс до попадания}
-export async function play(A, cId, tIds = []) {
+// opt.pt — точка прицела для заклинаний по области (центр сферы / направление конуса)
+export async function play(A, cId, tIds = [], opt = {}) {
   const hits = {}, ret = {}, mp = {};   // ret — когда «обратный» снаряд долетел до заклинателя; mp — точки промаха
   if (!A) return hits;
   await grid();
   const info = await tokens([...new Set([cId, ...tIds].filter(Boolean))]);
   const C = cId && info[cId] ? { id: cId, ...info[cId] } : null;
   let T = tIds.filter(id => info[id]).map(id => ({ id, ...info[id] }));
-  if (!T.length && C) T = [C];
-  if (!T.length) return hits;
+  const PT = opt.pt && isFinite(opt.pt.x) && isFinite(opt.pt.y) ? { id: "@pt", x: +opt.pt.x, y: +opt.pt.y, r: DPI / 2 } : null;
+  if (!T.length && C && !PT) T = [C];
+  if (!T.length && !PT) return hits;
+  // точка области: прицел, а без него — центр целей (кроме заклинателя)
+  const pointOf = () => {
+    if (PT) return PT;
+    const L = T.filter(t => !C || t.id !== C.id), S = L.length ? L : T;
+    return { id: "@pt", x: S.reduce((s, t) => s + t.x, 0) / S.length, y: S.reduce((s, t) => s + t.y, 0) / S.length, r: S[0].r };
+  };
   for (const st of A.cast || []) {
     const fn = FX[st.fx]; if (!fn) { console.warn("[fx] неизвестный эффект", st.fx); continue; }
     const d0 = st.delay || 0, stag = st.stagger || 0;
+    if (st.fx === "cone" || (st.to === "point" && (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt"))) {
+      if (!C) continue;   // один снаряд / один конус в точку области; цели «загораются» в момент попадания
+      const h = d0 + fn(C, pointOf(), st, d0);
+      hits["@pt"] = Math.max(hits["@pt"] || 0, h);
+      T.forEach(t => { hits[t.id] = Math.max(hits[t.id] || 0, h); });
+      continue;
+    }
     if (st.fx === "letters") {   // всегда летят от цели к заклинателю
       if (!C) continue;
       T.forEach((t, k) => {
@@ -671,6 +752,7 @@ export async function play(A, cId, tIds = []) {
     let at = st.at || "targets", list;
     if (at === "caster") list = C ? [C] : [];
     else if (at === "miss") list = T.filter(t => mp[t.id]).map(t => mp[t.id]);
+    else if (at === "point" || (at === "center" && PT)) list = [{ ...pointOf(), hit: hits["@pt"] ?? Math.max(0, ...T.map(t => hits[t.id] || 0)) }];
     else if (at === "center") {
       const x = T.reduce((s, t) => s + t.x, 0) / T.length, y = T.reduce((s, t) => s + t.y, 0) / T.length;
       list = [{ id: "@center", x, y, r: T[0].r, hit: Math.max(0, ...T.map(t => hits[t.id] || 0)) }];

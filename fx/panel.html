@@ -44,11 +44,12 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
 <div id="gm" hidden>
   <div class="slot"><span>🪄 Кто</span><b id="cN">—</b><button class="alt sm" id="cSet">← выделение</button><button class="alt sm" id="cClr">✕</button></div>
   <div class="slot"><span>🎯 Цели</span><b id="tN">—</b><button class="alt sm" id="tSet">← выделение</button><button class="alt sm" id="tClr">✕</button></div>
-  <div class="hint" id="selH">Выдели токены на карте (Shift — несколько) и нажми «← выделение».</div>
+  <div class="hint" id="selH">Выдели токены на карте (Shift — несколько) и нажми <b>Alt+1</b> — «Кто», <b>Alt+2</b> — «Цели» (или «← выделение»). Для заклинаний по области цели не нужны.</div>
   <input id="q" placeholder="🔎 Поиск способности…">
   <div class="hint" id="glH" hidden>Галочка 👥 справа — способность могут применять игроки.</div>
   <div id="list"></div>
   <div id="opts" hidden>
+    <div class="row" id="elRow" style="display:none"><span style="color:#9a9cc0;font-size:12px">стихия:</span><select id="el"></select></div>
     <div class="row" id="uRow">
       <select id="uMode">
         <option value="s1">до начала следующего хода</option>

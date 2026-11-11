@@ -66,3 +66,25 @@ export function untilText(e) {
   const left = n > 1 ? ` (прошло ${Math.min(e.k || 0, n)}/${n})` : "";
   return `до ${e.m === "s" ? "начала" : "конца"} ${which} хода: ${w}${left}`;
 }
+
+// Собрать висящие эффекты для применения способности (общая логика панели и прицела).
+// A — способность; c — {id,name} заклинатель; targets — [{id,name}]; dur — {mode, who, n} из панели;
+// возвращает e (токен → id эффекта), list (для записи в состояние), lost (кого не нашли в инициативе)
+export function makeEffects({ A, c, targets, dur, chips, uid, el }) {
+  const e = {}, list = [], lost = [];
+  if (!A || !A.aura || !dur) return { e, list, lost };
+  const mode = dur.mode || "x", who = dur.who || "@t";
+  const m = mode === "x" ? "x" : mode[0];
+  const n = mode.endsWith("N") ? Math.max(1, Math.min(100, +dur.n || 1)) : mode === "e0" ? 0 : 1;
+  for (const o of A.auraOn === "caster" ? [c] : targets) {
+    if (!o) continue;
+    let w = null, mm = m;
+    if (m !== "x") {
+      w = who === "@c" ? (c && matchChip(c.name, chips)) : who === "@t" ? matchChip(o.name, chips) : who.slice(1);
+      if (!w) { mm = "x"; lost.push(who === "@c" && c ? c.name : o.name); }
+    }
+    const id = uid(); e[o.id] = id;
+    list.push({ id, a: A.id, tok: o.id, tn: o.name, w, m: mm, n, k: 0, ...(el ? { el } : {}) });
+  }
+  return { e, list, lost };
+}
