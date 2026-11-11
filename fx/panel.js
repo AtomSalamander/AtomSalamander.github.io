@@ -2,14 +2,14 @@
 // Мастер видит всё и галочками «👥» разрешает способности игрокам; игроки видят только разрешённое.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { STATE, INIT, CH, PANEL, ALLOW, SEL, normState } from "./const.js";
-import { ABILITIES, ABIL, ELEMENTS, elOf, aimKind } from "./abilities.js";
+import { ABILITIES, ABIL, ELEMENTS, elOf, aimKind, radOf } from "./abilities.js";
 import { untilText } from "./turns.js";
 import { addSlot, openBar, closeBar, loadBar } from "./barctl.js";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pinned = new URLSearchParams(location.search).has("pin");
-const SK = SEL, AK = "dndfx_ab", EK = "dndfx_el_";
+const SK = SEL, AK = "dndfx_ab", EK = "dndfx_el_", RK = "dndfx_r_";
 let chips = [], state = normState(null), isGM = false, allow = new Set(), roleKnown = false;
 const canUse = a => isGM || allow.has(a.id);
 let sel = load(SK) || { c: null, t: [] };
@@ -104,7 +104,7 @@ function pick(id) {
   $("go").textContent = k === "area" ? "🎯 Прицелиться — клик по карте" : k === "self" ? "✨ Применить на себя" : A.attack ? "🎯 Попадание" + pickT : A.save ? `✨ Провал (${A.save})` + pickT : "✨ Применить" + pickT;
   $("goSave").textContent = A.attack ? "💨 Промах" + pickT : "🛡️ Спасбросок пройден" + pickT;
   drawGoSel();
-  drawWho(true); drawEl();
+  drawWho(true); drawEl(); drawRad();
   drawList();
 }
 // выбор стихии (чародейский выброс, дыхание дракона…)
@@ -123,6 +123,26 @@ function drawEl() {
   s.value = elOf(A, v);
 }
 $("el").onchange = () => { try { localStorage.setItem(EK + cur, $("el").value); } catch (e) {} };
+// радиус регулируемой области (Тьма)
+function drawRad() {
+  const A = ABIL[cur], row = $("rRow");
+  if (!row) return;
+  if (!A || !A.area || !A.area.adjust) { row.style.display = "none"; return; }
+  row.style.display = "";
+  const [lo, hi, st] = A.area.adjust, i = $("rad");
+  i.min = lo; i.max = hi; i.step = st;
+  i.value = radOf(A, localStorage.getItem(RK + A.id));
+}
+function setRad(v) {
+  const A = ABIL[cur]; if (!A || !A.area || !A.area.adjust) return;
+  const r = radOf(A, v); $("rad").value = r;
+  try { localStorage.setItem(RK + A.id, r); } catch (e) {}
+}
+const radStep = () => ((ABIL[cur] && ABIL[cur].area && ABIL[cur].area.adjust) || [0, 0, 5])[2];
+$("rad").onchange = () => setRad($("rad").value);
+$("rDn").onclick = () => setRad(+$("rad").value - radStep());
+$("rUp").onclick = () => setRad(+$("rad").value + radStep());
+$("rad").onwheel = ev => { ev.preventDefault(); setRad(+$("rad").value + (ev.deltaY > 0 ? -1 : 1) * radStep()); };
 function drawWho(reset) {
   const A = ABIL[cur], w = $("uWho");
   $("uRow").style.display = $("uRow2").style.display = A && A.aura ? "" : "none";
@@ -140,11 +160,12 @@ $("uMode").onchange = () => drawWho();
 
 // ── применение: фон включает прицел (область / клик по цели или месту) ──
 const curEl = A => A.elements ? elOf(A, $("el").value) : undefined;
+const curRad = A => A.area && A.area.adjust ? radOf(A, $("rad").value) : undefined;
 const curDur = A => A.aura ? { mode: $("uMode").value, who: $("uWho").value, n: $("uNum").value } : null;
 async function cast(saved = false, use) {
   const A = ABIL[cur]; if (!A) return;
   if (!canUse(A)) return toast("🔒 Мастер закрыл эту способность");
-  await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), use }, { destination: "LOCAL" });
+  await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), rad: curRad(A), use }, { destination: "LOCAL" });
   const k = aimKind(A);
   if (use === "sel" || k === "self") return toast(`${A.icon || "✨"} ${A.name}`);
   toast(k === "area" ? "🎯 Наведи на карте и кликни · Esc — отмена" : `🎯 Кликни по ${k === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
@@ -155,19 +176,24 @@ $("goSave").onclick = () => cast(true);
 $("goSel").onclick = () => cast(false, "sel");
 $("fav").onclick = async () => {
   const A = ABIL[cur]; if (!A) return;
-  const added = await addSlot({ a: A.id, el: curEl(A), dur: curDur(A) });
+  const added = await addSlot({ a: A.id, el: curEl(A), dur: curDur(A), rad: curRad(A) });
   toast(added ? `⭐ ${A.name} — в панели быстрого доступа` : `⭐ ${A.name}: настройки обновлены`);
 };
 $("barBtn").onclick = async () => { if (loadBar().open) await closeBar(); else await openBar(); };
 
 // ── активные эффекты ──
+const rdBtns = (e, A) => {
+  const st = ((A.area && A.area.adjust) || [0, 0, 5])[2];
+  return `<button class="rd" data-rd="${esc(e.id)}" data-d="${-st}" title="Радиус −${st} фт">−</button><button class="rd" data-rd="${esc(e.id)}" data-d="${st}" title="Радиус +${st} фт">+</button>`;
+};
 function drawActive() {
   const L = state.e;
   $("act").innerHTML = L.length ? L.map(e => {
     const A = ABIL[e.a] || { name: e.a, icon: "✨" };
-    return `<div class="fx"><div><b>${esc(A.icon || "✨")} ${esc(A.name)}${e.el && ELEMENTS[e.el] ? " · " + esc(ELEMENTS[e.el].name) : ""}</b> → ${esc(e.tn)}<small>${esc(untilText(e))}</small></div>${isGM ? `<button data-id="${esc(e.id)}" title="Снять">✕</button>` : ""}</div>`;
+    return `<div class="fx"><div><b>${esc(A.icon || "✨")} ${esc(A.name)}${e.el && ELEMENTS[e.el] ? " · " + esc(ELEMENTS[e.el].name) : ""}</b> → ${e.pt ? "📍 сфера " + esc(e.rr) + " фт" : esc(e.tn)}<small>${esc(untilText(e))}</small></div>${isGM && e.pt ? rdBtns(e, A) : ""}${isGM ? `<button data-id="${esc(e.id)}" title="Снять">✕</button>` : ""}</div>`;
   }).join("") : `<div class="empty">Нет активных эффектов</div>`;
-  $("act").querySelectorAll("button").forEach(b => b.onclick = () => OBR.broadcast.sendMessage(CH, { op: "del", ids: [b.dataset.id] }, { destination: "LOCAL" }));
+  $("act").querySelectorAll("button[data-rd]").forEach(b => b.onclick = () => OBR.broadcast.sendMessage(CH, { op: "rad", id: b.dataset.rd, d: +b.dataset.d }, { destination: "LOCAL" }));
+  $("act").querySelectorAll("button[data-id]").forEach(b => b.onclick = () => OBR.broadcast.sendMessage(CH, { op: "del", ids: [b.dataset.id] }, { destination: "LOCAL" }));
   $("clr").hidden = !isGM || L.length < 2;
 }
 $("clr").onclick = () => { if (confirm("Снять все эффекты?")) OBR.broadcast.sendMessage(CH, { op: "clear" }, { destination: "LOCAL" }); };

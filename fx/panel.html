@@ -35,6 +35,7 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
 .fx b{font-weight:600}
 .fx small{display:block;color:#9a9cc0;font-size:11px}
 .fx button{background:none;color:#ff9a94;padding:2px 6px}
+.fx button.rd{color:#c9b8ff;font-size:15px;padding:2px 5px}
 .empty{color:#7d80a8;font-size:12px}
 #toast{position:fixed;left:12px;right:12px;bottom:12px;padding:8px 10px;border-radius:10px;background:#2a2d52;box-shadow:0 4px 16px #0008;font-size:12px;opacity:0;transition:opacity .2s;pointer-events:none}
 #toast.on{opacity:1}
@@ -50,6 +51,7 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
   <div id="list"></div>
   <div id="opts" hidden>
     <div class="row" id="elRow" style="display:none"><span style="color:#9a9cc0;font-size:12px">стихия:</span><select id="el"></select></div>
+    <div class="row" id="rRow" style="display:none"><span style="color:#9a9cc0;font-size:12px">радиус, фт:</span><button class="alt sm" id="rDn" title="Меньше">−</button><input id="rad" type="number" style="width:64px" title="Радиус сферы, фт (колесо мыши — тоже)"><button class="alt sm" id="rUp" title="Больше">+</button></div>
     <div class="row" id="uRow">
       <select id="uMode">
         <option value="s1">до начала следующего хода</option>

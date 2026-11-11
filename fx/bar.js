@@ -2,9 +2,10 @@
 // Двигается за «⠿», сворачивается «▾», «✎» — порядок и удаление.
 // 🎯 / 💨 — какой вариант по ЛКМ: попадание / провал спаса или промах / спасбросок пройден (ПКМ — наоборот).
 // У заклинаний с видами (чародейский выброс, дыхание дракона…) одна плитка: кружок слева сверху или колесо мыши — сменить вид.
+// У областей с регулируемым радиусом (Тьма) — кружок с числом: ЛКМ +шаг, ПКМ −шаг, колесо мыши.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { CH, ALLOW, SEL } from "./const.js";
-import { ABIL, ELEMENTS } from "./abilities.js";
+import { ABIL, ELEMENTS, radOf } from "./abilities.js";
 import { label } from "./engine.js";
 import { BK, loadBar, saveBar, openBar, closeBar, barSize } from "./barctl.js";
 
@@ -15,6 +16,7 @@ const EMO = { fire: "🔥", cold: "❄️", acid: "🧪", lightning: "⚡", pois
 let b = loadBar(), edit = false, isGM = false, allow = new Set(), ready = false, pick = null;
 const canUse = a => isGM || allow.has(a);
 const two = A => !A.area && !A.self && (A.attack || A.save);   // есть два варианта
+const slotR = (A, s) => A.area && A.area.adjust ? radOf(A, s.rad) : undefined;
 const slotEl = (A, s) => A.elements ? (A.elements.includes(s.el) ? s.el : A.elements[0]) : undefined;
 function loadSel() { try { const s = JSON.parse(localStorage.getItem(SEL)); return s && typeof s === "object" ? s : {}; } catch (e) { return {}; } }
 
@@ -42,18 +44,19 @@ function draw() {
   drawWho();
   const S = b.slots.map((s, i) => ({ s, i, A: ABIL[s.a] })).filter(x => x.A);
   $("grid").innerHTML = S.length ? S.map(({ s, i, A }) => {
-    const el = slotEl(A, s), E = el && ELEMENTS[el], c = E ? E.c1 : "#b48cff", tw = two(A);
+    const el = slotEl(A, s), R = slotR(A, s), E = el && ELEMENTS[el], c = E ? E.c1 : "#b48cff", tw = two(A);
     const v1 = A.attack ? "попадание" : "провал спаса", v2 = A.attack ? "промах" : "спасбросок пройден";
     const how = tw ? `ЛКМ — ${b.alt ? v2 : v1}, ПКМ — ${b.alt ? v1 : v2}` : A.self ? "ЛКМ — применить на себя" : A.area ? "ЛКМ — прицелиться областью" : "ЛКМ — выбрать цель на карте";
-    const tip = `${A.name}${E ? " (" + E.name + ")" : ""}\n${how}${A.elements ? "\nКружок слева или колесо мыши — сменить вид" : ""}\nПКМ во время наведения — отмена`;
+    const tip = `${A.name}${E ? " (" + E.name + ")" : ""}\n${how}${A.elements ? "\nКружок слева или колесо мыши — сменить вид" : ""}${R ? "\nКружок с числом: ЛКМ / ПКМ или колесо мыши — радиус" : ""}\nПКМ во время наведения — отмена`;
     const pk = pick === i && A.elements ? `<div class="pk">${A.elements.map(k => {
       const X = ELEMENTS[k] || {};
       return `<b data-pe="${esc(k)}" class="${k === el ? "on" : ""}" style="--e:${esc(X.c1 || "#b48cff")}" title="${esc(X.name || k)}">${EMO[k] || "●"}</b>`;
     }).join("")}</div>` : "";
     return `<div class="t${canUse(A.id) ? "" : " off"}${tw ? " two" : ""}" data-i="${i}" style="--c:${esc(c)}" title="${esc(tip)}" draggable="${edit}">` +
       (A.elements ? `<b class="ev" data-ev="${i}" title="Сменить вид">${EMO[el] || "●"}</b>` : "") +
+      (R ? `<b class="ev rd" data-rv="${i}" title="Радиус ${R} фт: ЛКМ +, ПКМ −, колесо">${R}</b>` : "") +
       (A.aura ? "<u>⏳</u>" : "") + (tw ? `<s>${A.attack ? "💨" : "🛡️"}</s>` : "") +
-      `<i>${esc(A.icon || "✨")}</i><span>${esc(short(A, el))}</span>` +
+      `<i>${esc(A.icon || "✨")}</i><span>${esc(short(A, el) + (R ? " · " + R + " фт" : ""))}</span>` +
       `<button class="x" data-x="${i}" title="Убрать">✕</button>${pk}</div>`;
   }).join("") : `<div class="empty" style="grid-column:1/-1">Пока пусто.<br>Выбери заклинание в панели ✨ Эффекты и нажми ⭐</div>`;
   $("foot").hidden = !S.length;
@@ -67,6 +70,12 @@ function setEl(i, k) {
   b.slots[i] = { ...s, el: k };
   saveBar(b); draw();
 }
+function stepR(i, d, wrap) {
+  const s = b.slots[i], A = s && ABIL[s.a], R = A && slotR(A, s); if (!R) return;
+  const [lo, hi, st] = A.area.adjust; let v = R + d * st;
+  if (wrap && v > hi) v = lo;
+  b.slots[i] = { ...s, rad: radOf(A, v) }; saveBar(b); draw();
+}
 let wheelT = 0;
 function cycle(i, d) {
   const s = b.slots[i], A = s && ABIL[s.a]; if (!A || !A.elements) return;
@@ -78,7 +87,7 @@ function cycle(i, d) {
 async function cast(i, rmb) {
   const s = b.slots[i], A = s && ABIL[s.a]; if (!A) return;
   const second = two(A) && (!!b.alt !== !!rmb);
-  const msg = { op: rmb ? "rmb" : "cast", a: A.id, v: second ? "save" : undefined, el: slotEl(A, s), dur: s.dur || null };
+  const msg = { op: rmb ? "rmb" : "cast", a: A.id, v: second ? "save" : undefined, el: slotEl(A, s), rad: slotR(A, s), dur: s.dur || null };
   if (!canUse(A.id)) {
     if (!rmb) return OBR.notification.show("🔒 Мастер закрыл эту способность").catch(() => {});
     msg.a = "";   // закрытую способность ПКМ не применит, но наведение отменит
@@ -97,6 +106,7 @@ function wire() {
       const pe = ev.target.closest("[data-pe]");
       if (pe) { ev.stopPropagation(); pick = null; return setEl(i, pe.dataset.pe); }
       if (ev.target.closest(".pk")) return;
+      if (ev.target.closest("[data-rv]")) { ev.stopPropagation(); return stepR(i, 1, true); }
       if (ev.target.closest("[data-ev]")) { ev.stopPropagation(); pick = pick === i ? null : i; return draw(); }
       if (pick !== null) { pick = null; draw(); }
       cast(i, false);
@@ -104,14 +114,15 @@ function wire() {
     t.oncontextmenu = ev => {
       ev.preventDefault();
       if (pick !== null) { pick = null; return draw(); }
+      if (!edit && ev.target.closest("[data-rv]")) return stepR(i, -1);
       if (!edit) cast(i, true);
     };
     t.onwheel = ev => {
       const s = b.slots[i], A = s && ABIL[s.a];
-      if (!A || !A.elements || edit) return;
+      if (!A || edit || (!A.elements && !slotR(A, s))) return;
       ev.preventDefault();
       const n = Date.now(); if (n - wheelT < 140) return; wheelT = n;
-      cycle(i, ev.deltaY > 0 ? 1 : -1);
+      if (A.elements) cycle(i, ev.deltaY > 0 ? 1 : -1); else stepR(i, ev.deltaY > 0 ? -1 : 1);
     };
     t.ondragstart = ev => { if (!edit) return ev.preventDefault(); dragI = i; ev.dataTransfer.effectAllowed = "move"; };
     t.ondragover = ev => { if (dragI === null) return; ev.preventDefault(); t.classList.add("over"); };

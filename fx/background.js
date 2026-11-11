@@ -6,10 +6,10 @@
 //  • у мастера — следит за трекером инициативы и снимает эффекты, когда наступает нужный ход.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { NS, STATE, INIT, CH, ALLOW, SEL, normState } from "./const.js";
-import { ABIL, paint, aimKind } from "./abilities.js";
-import { play, startAura, stopAura, stopAll, label } from "./engine.js";
+import { ABIL, paint, aimKind, radOf, sized } from "./abilities.js";
+import { play, startAura, startZone, stopAura, stopAll, label } from "./engine.js";
 import { turnEvents, applyEvents, samePos, makeEffects } from "./turns.js";
-import { startAim, startPick, cancelAim, aiming } from "./aim.js";
+import { startAim, startPick, cancelAim, aiming, feetPerCell } from "./aim.js";
 import { loadBar, openBar } from "./barctl.js";
 
 // Горячие клавиши (формат Owlbear: "Alt+1", "Shift+C", "Ctrl+Alt+2"…). На Mac Alt = Option.
@@ -38,8 +38,23 @@ async function sync() {
 async function doSync() {
   if (!ready) { rendered.clear(); stopAll(); return; }
   const want = new Map(state.e.map(e => [e.id, e]));
-  for (const [id, r] of rendered) if (!want.has(id) || want.get(id).tok !== r.tok) { stopAura(r); rendered.delete(id); }
-  const need = state.e.filter(e => !rendered.has(e.id) && ABIL[e.a] && ABIL[e.a].aura);
+  const quick = new Set();
+  for (const [id, r] of rendered) {
+    const w = want.get(id);
+    if (!w || w.tok !== r.tok || (r.pt && w.rr !== r.rr)) { if (w && r.pt) quick.add(id); stopAura(r); rendered.delete(id); }
+  }
+  // зоны в точке (Тьма) — без токена, висят до снятия
+  for (const e of state.e) {
+    if (!e.pt || rendered.has(e.id) || !ABIL[e.a] || !ABIL[e.a].zone) continue;
+    const h = hold.get(e.id);
+    if (h && h > Date.now()) { setTimeout(sync, h - Date.now() + 20); continue; }
+    hold.delete(e.id);
+    try {
+      const r = await startZone(ABIL[e.a].zone, e.pt, (+e.rr || 15) / (await feetPerCell()), quick.has(e.id));
+      r.rr = e.rr; rendered.set(e.id, r);
+    } catch (err) { console.warn("[fx] zone", err); }
+  }
+  const need = state.e.filter(e => !e.pt && !rendered.has(e.id) && ABIL[e.a] && ABIL[e.a].aura);
   if (!need.length) return;
   const have = new Set((await OBR.scene.items.getItems(need.map(e => e.tok))).map(i => i.id));
   for (const e of need) {
@@ -87,14 +102,15 @@ function onMeta(md) {
 
 // ── проиграть анимацию (сообщение op:"play") ──
 async function onPlay(m) {
-  const ids = Object.values(m.e || {});
+  const ids = [...Object.values(m.e || {}), ...(m.z ? [m.z] : [])];
   ids.forEach(id => hold.set(id, Date.now() + 8000));          // пока не знаем время попадания
   let hits = {};
-  const A = ABIL[m.a] ? paint(ABIL[m.a], m.el) : null;
+  const A = ABIL[m.a] ? sized(paint(ABIL[m.a], m.el), m.rad) : null;
   if (ready && A) { try {
     hits = await play(m.v === "save" && A.castSave ? { ...A, cast: A.castSave } : A, m.c, m.t || [], { pt: m.pt, asTarget: !!m.pa });
   } catch (e) { console.warn("[fx] play", e); } }
   for (const [tid, eid] of Object.entries(m.e || {})) hold.set(eid, Date.now() + (hits[tid] || 0) + ((A && A.auraDelay) || 0) + 150);
+  if (m.z) hold.set(m.z, Date.now() + ((A && A.zoneDelay) || 0));
   sync();
 }
 
@@ -142,7 +158,13 @@ async function onCast(m) {
 
   const fireWith = async ({ pt, targets, asPoint }) => {
     const { e, list, lost } = makeEffects({ A, c, targets, dur: save ? null : m.dur, chips, uid, el: m.el });
-    const msg = { op: "play", a: A.id, v: m.v, c: c ? c.id : null, t: targets.map(t => t.id), pt: pt || undefined, pa: asPoint ? 1 : undefined, el: m.el, e };
+    const rad = radOf(A, m.rad);
+    let z;
+    if (A.zone && pt) {   // Тьма: зона в точке, висит до снятия
+      z = uid();
+      list.push({ id: z, a: A.id, tok: null, pt: { x: pt.x, y: pt.y }, rr: rad || A.area.radius, tn: "точка", w: null, m: "x", n: 1, k: 0 });
+    }
+    const msg = { op: "play", a: A.id, v: m.v, c: c ? c.id : null, t: targets.map(t => t.id), pt: pt || undefined, pa: asPoint ? 1 : undefined, el: m.el, e, rad: rad || undefined, z };
     await OBR.broadcast.sendMessage(CH, msg, { destination: "REMOTE" });
     onPlay(msg);
     if (list.length) {
@@ -159,7 +181,7 @@ async function onCast(m) {
     }
     if (kind === "area") {
       if (!c) return note(`Сначала выбери заклинателя: выдели свой токен и нажми ${KEY_CASTER}`);
-      await startAim({ A, cId: c.id, color, isGM, onFire: ({ pt, targets }) => fireWith({ pt, targets }) });
+      await startAim({ A: sized(A, m.rad), cId: c.id, color, isGM, onFire: ({ pt, targets }) => fireWith({ pt, targets }) });
       return;
     }
     if (m.use === "sel") {
@@ -217,7 +239,7 @@ OBR.onReady(async () => {
 
   OBR.broadcast.onMessage(CH, async ev => {
     const m = ev.data || {};
-    if (fromPlayer(ev) && (m.op === "del" || m.op === "clear")) return;                 // снимает только мастер
+    if (fromPlayer(ev) && (m.op === "del" || m.op === "clear" || m.op === "rad")) return;                 // снимает только мастер
     if (fromPlayer(ev) && m.op === "play" && !allow.has(m.a)) return;                  // игрокам — только разрешённое
     if (m.op === "play") onPlay(m);
     else if (m.op === "cast") { if (!ev.connectionId || !myConn || ev.connectionId === myConn) onCast(m); }   // только свой прицел
@@ -227,6 +249,13 @@ OBR.onReady(async () => {
       if (list.length) mutate(s => { s.e.push(...list); return s; });
     } else if (isGM && m.op === "del" && Array.isArray(m.ids)) {
       mutate(s => { s.e = s.e.filter(e => !m.ids.includes(e.id)); return s; });
+    } else if (isGM && m.op === "rad" && m.id) {   // изменить радиус зоны (Тьма)
+      mutate(s => {
+        const e = s.e.find(x => x.id === m.id); if (!e || !e.pt) return null;
+        const v = radOf(ABIL[e.a], (+e.rr || 15) + (+m.d || 0));
+        if (!v || v === e.rr) return null;
+        e.rr = v; return s;
+      });
     } else if (isGM && m.op === "clear") {
       mutate(s => { s.e = []; return s; });
     }
@@ -252,7 +281,7 @@ OBR.onReady(async () => {
     clearTimeout(tm);
     tm = setTimeout(() => {
       const ids = new Set(items.map(i => i.id));
-      for (const [id, r] of rendered) if (!ids.has(r.tok)) { stopAura(r); rendered.delete(id); }
+      for (const [id, r] of rendered) if (!r.pt && !ids.has(r.tok)) { stopAura(r); rendered.delete(id); }
       sync();
     }, 400);
   });

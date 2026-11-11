@@ -303,15 +303,15 @@ export const ABILITIES = [
   },
   {
     id: "darkness", name: "Тьма", icon: "🌑", group: "Заклинания",
-    desc: "2 круг, воплощение, концентрация до 10 минут. В выбранной точке схлопывается свет, и сфера магической тьмы радиусом 15 фт разливается вокруг: клубится по краям, тянет щупальца теней и глотает искры света. Тёмное зрение сквозь неё не видит.",
-    area: { shape: "sphere", radius: 15, range: 60 },
+    desc: "2 круг, воплощение, концентрация до 10 минут. В выбранной точке схлопывается свет, и сфера магической тьмы разливается вокруг: клубится по краям, тянет щупальца теней и глотает искры света. Тёмное зрение сквозь неё не видит. Висит, пока её не снимут (✕ в «Активных эффектах»); радиус 5–60 фт, меняется до и после сотворения.",
+    area: { shape: "sphere", radius: 15, range: 60, adjust: [5, 60, 5] },
+    zone: { fx: "gloom" },
+    zoneDelay: 550,
     cast: [
       { fx: "implode", at: "center", color: "#8a5cff", core: "#e9ddff", fill: "#05030a", radius: 1.6, sparks: 22, duration: 700 },
-      { fx: "gloom", at: "center", delay: 550, radius: 3, hold: 6000 },
       { fx: "shock", at: "center", delay: 600, color: "#6d46c9", radius: 3.4, rings: 3, width: 0.06, opacity: 0.7, duration: 900 },
-      { fx: "smoke", at: "center", delay: 650, color: "#0b0714", color2: "#1d1233", radius: 2.6, count: 14, size: 0.7, rise: 0.15, opacity: 0.55, duration: 3200, zo: 30 },
-      { fx: "smoke", at: "center", delay: 3500, color: "#0b0714", color2: "#241640", radius: 2.8, count: 10, size: 0.65, rise: 0.2, opacity: 0.45, duration: 3200, zo: 30 },
-      { fx: "smoke", at: "center", delay: 6700, color: "#0b0714", color2: "#241640", radius: 3.4, count: 12, size: 0.6, rise: 0.4, opacity: 0.4, duration: 2200, zo: 30 },
+      { fx: "smoke", at: "center", delay: 650, color: "#0b0714", color2: "#1d1233", radius: 2.6, count: 14, size: 0.7, rise: 0.15, opacity: 0.4, duration: 3200, zo: 30 },
+      { fx: "smoke", at: "center", delay: 2600, color: "#0b0714", color2: "#241640", radius: 2.8, count: 10, size: 0.65, rise: 0.2, opacity: 0.3, duration: 3000, zo: 30 },
     ],
   },
   {
@@ -374,6 +374,18 @@ export const ABIL = Object.fromEntries(ABILITIES.map(a => [a.id, a]));
 
 // Как целиться: "area" — область (нужен только заклинатель);
 // "dir" — направленное от заклинателя: клик по токену ИЛИ по месту; "tok" — клик только по токену.
+// Радиус регулируемой области (A.area.adjust = [мин, макс, шаг], в футах)
+export function radOf(A, r) {
+  const ar = A && A.area; if (!ar || !ar.adjust) return null;
+  const [lo, hi, st] = ar.adjust, v = Math.round((+r || ar.radius) / st) * st;
+  return Math.max(lo, Math.min(hi, v));
+}
+// Способность с другим радиусом: превью прицела и все шаги «в центре» масштабируются
+export function sized(A, r) {
+  const v = radOf(A, r); if (!v || v === A.area.radius) return A;
+  const k = v / A.area.radius, f = L => (L || []).map(s => s.at === "center" && s.radius ? { ...s, radius: s.radius * k } : s);
+  return { ...A, area: { ...A.area, radius: v }, cast: f(A.cast), ...(A.castSave ? { castSave: f(A.castSave) } : {}) };
+}
 export function aimKind(A) {
   if (!A) return null;
   if (A.self) return "self";   // на себя — без прицела

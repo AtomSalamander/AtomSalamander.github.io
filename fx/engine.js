@@ -293,7 +293,7 @@ const FX = {
     const R = (o.radius || 3) * DPI, col = o.color || "#05030a", col2 = o.color2 || "#140b28", edge = o.edge || "#3b2466", glow = o.glow || "#8a5cff";
     const hold = o.hold ?? 5000, tIn = o.grow || 900, tOut = o.fade || 1500, dur = tIn + hold + tOut, z = Date.now() + 5, L = o.layer || "ATTACHMENT";
     const items = [];
-    const disks = [[1.1, 0.2], [1.0, 0.34], [0.9, 0.5], [0.74, 0.62], [0.52, 0.72]].map(([k, a], i) => {
+    const disks = [[1.1, 0.14], [1.0, 0.22], [0.9, 0.3], [0.74, 0.36], [0.52, 0.4]].map(([k, a], i) => {
       const it = circle({ x: c.x, y: c.y, r: R * k, fill: i < 2 ? col2 : col, fo: 0, n: 48, s: 0.01, layer: L, z: z + i });
       items.push(it); return { it, a, ph: Math.random() * TAU };
     });
@@ -989,8 +989,69 @@ export async function startAura(parts, tok) {
   anims.add(a); kick();
   return { tok, a };
 }
+// Зона в точке (Тьма): висит, пока её не снимут. Rc — радиус в клетках; quick — без «разливания» (смена радиуса)
+export async function startZone(p, pt, Rc, quick) {
+  await grid();
+  const R = Rc * DPI, col = p.color || "#05030a", col2 = p.color2 || "#140b28", edge = p.edge || "#3b2466", glow = p.glow || "#8a5cff";
+  const op = p.opacity ?? 1, L = p.layer || "ATTACHMENT", z = Date.now() + 5, tIn = quick ? 350 : (p.grow || 900), FADE = p.fade || 1400;
+  const c = { x: +pt.x, y: +pt.y }, items = [], big = Math.max(1, Rc / 3);
+  const disks = [[1.1, 0.14], [1.0, 0.22], [0.9, 0.3], [0.74, 0.36], [0.52, 0.4]].map(([k, a], i) => {
+    const it = circle({ x: c.x, y: c.y, r: R * k, fill: i < 2 ? col2 : col, fo: 0, n: 56, s: 0.01, layer: L, z: z + i });
+    items.push(it); return { it, a: a * op, ph: Math.random() * TAU };
+  });
+  const nt = p.tendrils ?? Math.min(24, Math.round(10 * big)), tend = [];
+  for (let k = 0; k < nt; k++) {
+    const it = poly({ x: c.x, y: c.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: k % 2 ? col : col2, sw: DPI * (0.06 + Math.random() * 0.06), closed: false, tension: 0.5, layer: L, z: z + 6 });
+    items.push(it);
+    tend.push({ it, a0: k / nt * TAU + Math.random() * 0.4, len: DPI * Math.min(3, Rc) * (0.2 + Math.random() * 0.3), ph: Math.random() * TAU, sp: 0.6 + Math.random() * 0.7, dir: Math.random() < 0.5 ? -1 : 1 });
+  }
+  const rims = [0, 1].map(k => { const it = circle({ x: c.x, y: c.y, r: R * (1 - k * 0.05), fill: edge, stroke: k ? glow : edge, sw: DPI * (k ? 0.022 : 0.05), dash: k ? [DPI * 0.06, DPI * 0.22] : [DPI * 0.32, DPI * 0.16], n: 72, s: 0.01, layer: L, z: z + 10 + k }); items.push(it); return it; });
+  const rush = quick ? null : circle({ x: c.x, y: c.y, r: R * 1.6, fill: glow, stroke: glow, sw: DPI * 0.04, n: 56, layer: L, z: z + 12 });
+  const core = quick ? null : circle({ x: c.x, y: c.y, r: DPI * 0.4, fill: glow, fo: 0, n: 24, layer: L, z: z + 13 });
+  if (rush) items.push(rush, core);
+  const nm = p.motes ?? Math.min(40, Math.round(18 * big)), motes = [];
+  for (let k = 0; k < nm; k++) {
+    const it = circle({ x: c.x, y: c.y, r: DPI * (0.025 + Math.random() * 0.03), fill: k % 3 ? (p.mote || "#cbb8ff") : "#ffffff", fo: 0, n: 8, layer: L, z: z + 14 + k });
+    items.push(it); motes.push({ it, a: Math.random() * TAU, per: (1.3 + Math.random() * 1.3) * Math.sqrt(big), off: Math.random(), d: R * (1.1 + Math.random() * 0.5), sw: Math.random() < 0.5 ? -1 : 1 });
+  }
+  await OBR.scene.local.addItems(items);
+  const a = { ids: items.map(i => i.id), loop: true, t0: now(), stop: 0 };
+  a.f = (t, P) => {
+    const tm = t * 1000, sec = t, q = c01(tm / tIn), g = Math.max(0.01, q < 1 ? (quick ? out3(q) : backOut(q)) : 1);
+    const out = a.stop ? c01((now() - a.stop) / FADE) : 0;
+    const env = (q < 1 ? c01(tm / (tIn * 0.5)) : 1) * (1 - out), spread = 1 + 0.12 * out;   // снятая тьма расплывается и тает
+    disks.forEach(d => P.set(d.it.id, { s: g * spread * (1 + 0.025 * Math.sin(sec * 1.3 + d.ph)), fo: d.a * env }));
+    P.set(rims[0].id, { s: g * spread, r: sec * 7 / big, so: 0.5 * env });
+    P.set(rims[1].id, { s: g * spread, r: -sec * 13 / big, so: 0.4 * env * (0.7 + 0.3 * Math.sin(sec * 2.1)) });
+    if (rush) {
+      P.set(rush.id, { s: 1 - 0.375 * out3(q), so: q < 1 ? 0.85 * Math.sin(Math.PI * q) : 0 });
+      const cq = c01(tm / 550);
+      P.set(core.id, { s: 0.4 + 2.2 * cq, fo: cq < 1 ? 0.55 * Math.sin(Math.PI * cq) : 0 });
+    }
+    for (const T of tend) {
+      const pts = [], an = T.a0 + 0.18 * Math.sin(sec * T.sp * 0.7 + T.ph);
+      for (let j = 0; j <= 6; j++) {
+        const f = j / 6, rr = R * g * spread * 0.85 + T.len * f * (0.7 + 0.3 * Math.sin(sec * T.sp + T.ph)) * env;
+        const aa = an + T.dir * f * f * 0.8 / big * Math.sin(sec * T.sp * 1.3 + T.ph + f * 2);
+        pts.push({ x: Math.cos(aa) * rr, y: Math.sin(aa) * rr });
+      }
+      P.set(T.it.id, { pts, so: 0.6 * env * c01((tm - tIn * 0.4) / 400) });
+    }
+    for (const m of motes) {
+      const k = (sec / m.per + m.off) % 1, d = m.d * (1 - k * k * 0.85), an = m.a + m.sw * k * 2.2 + Math.floor(sec / m.per + m.off) * 1.7;
+      P.set(m.it.id, { x: c.x + Math.cos(an) * d, y: c.y + Math.sin(an) * d, fo: Math.sin(Math.PI * k) * env * c01((tm - 300) / 400) * 0.85 });
+    }
+  };
+  anims.add(a); kick();
+  return { tok: null, pt: c, a, fade: FADE };
+}
 export function stopAura(r, del = true) {
   if (!r) return;
+  if (del && r.fade) {   // зона тает, потом удаляется
+    r.a.stop = now();
+    setTimeout(() => { anims.delete(r.a); OBR.scene.local.deleteItems(r.a.ids).catch(() => {}); }, r.fade + 60);
+    return;
+  }
   anims.delete(r.a);
   if (del) OBR.scene.local.deleteItems(r.a.ids).catch(() => {});
 }
