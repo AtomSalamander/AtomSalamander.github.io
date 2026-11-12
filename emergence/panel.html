@@ -1,0 +1,90 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box}
+body{margin:0;padding:12px;font:13px/1.4 system-ui,sans-serif;background:#081a33;color:#E9FDFF}
+header{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+header img{width:28px;height:28px}
+h1{flex:1;font:800 16px system-ui;margin:0;color:#4DF3FF;letter-spacing:.04em;text-shadow:0 0 8px #00D4FF88}
+h2{font:700 11px system-ui;margin:14px 0 6px;color:#7fa6c4;text-transform:uppercase;letter-spacing:.08em;display:flex;align-items:center;gap:6px}
+h2:after{content:"";flex:1;height:1px;background:linear-gradient(90deg,#00D4FF55,transparent)}
+button{padding:6px 9px;border:0;border-radius:8px;background:#00B4DD;color:#04121f;font:700 12px system-ui;cursor:pointer;transition:filter .15s}
+button:hover{filter:brightness(1.15)}
+button.alt{background:#163454;color:#E9FDFF;font-weight:600}
+button.bad{background:#FF6B6B;color:#1d0606}
+button.ok{background:#4fd18b;color:#04170c}
+button.on{box-shadow:0 0 0 2px #4DF3FF inset}
+button:disabled{opacity:.4;cursor:default;filter:none}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:4px 0}
+.row>.lbl{flex:1 1 100%;font-weight:700;font-size:12px;color:#bfe9ff}
+.card{background:#0d2442;border:1px solid #1f4670;border-radius:10px;padding:7px 8px;margin-bottom:6px}
+.slot{display:flex;align-items:center;gap:6px;background:#0d2442;border-radius:10px;padding:6px 8px;margin-bottom:6px}
+.slot span{color:#7fa6c4;font-size:12px;width:64px}
+.slot b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proto{border-left:4px solid var(--c)}
+.proto.act{box-shadow:0 0 12px -2px var(--c);background:#10294b}
+.proto .t{display:flex;align-items:center;gap:6px;font-weight:700}
+.proto .t i{font-style:normal;flex:1}
+.proto .k{font-size:11px;color:#9cc0db}
+.tag{font-size:10px;font-weight:800;padding:1px 6px;border-radius:6px;background:var(--c);color:#04121f;animation:bl 1.4s ease-in-out infinite}
+@keyframes bl{50%{opacity:.4}}
+.hint{font-size:11px;color:#7fa6c4;margin:2px 0 6px}
+#sel{font-size:12px;color:#bfe9ff}
+.chip{display:inline-flex;gap:4px;align-items:center;padding:2px 7px;border-radius:7px;background:#163454;font-size:12px;cursor:pointer;margin:2px}
+.chip.f{background:#5a1d26}.chip.s{background:#164a33}
+input,select{background:#04121f;color:#E9FDFF;border:1px solid #1f4670;border-radius:7px;padding:4px 6px;font:12px system-ui}
+input[type=number]{width:54px}
+.eff{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:8px;background:#0d2442;margin-bottom:4px;font-size:12px}
+.eff b{flex:1;font-weight:600}
+.eff small{color:#7fa6c4}
+.eff button{padding:2px 7px}
+#toast{position:sticky;bottom:0;margin-top:10px;min-height:18px;font-size:12px;color:#4DF3FF;background:#081a33ee;padding:4px 0}
+#gmOnly{display:none;padding:30px 10px;text-align:center;color:#7fa6c4}
+</style></head><body>
+<header><img src="./icon.svg" alt=""><h1>ЭМЕРДЖЕНТНОСТЬ</h1></header>
+<div id="gmOnly">👁️ Панель только для мастера.<br>Эффекты и сигналы тревоги ты увидишь на карте.</div>
+<main id="ui">
+  <div class="slot"><span>Босс</span><b id="boss">—</b><button class="alt" data-c="boss">← выделение</button></div>
+  <div class="slot"><span>Выделено</span><div id="sel" style="flex:1">—</div></div>
+  <div class="hint">Клик по имени цели переключает «провал/успех» для Волны Порядка.</div>
+
+  <h2>Протоколы</h2>
+  <div id="protos"></div>
+  <div class="row" id="pctl"></div>
+
+  <h2>Действия</h2>
+  <div class="card">
+    <div class="row"><span class="lbl">✋ Касание Системы</span><button class="bad" data-c="touch" data-v="fail">Попал · спас провал</button><button data-c="touch" data-v="ok">Попал · спас успех</button><button class="alt" data-c="touch" data-v="miss">Промах</button></div>
+    <div class="row"><span class="lbl">🧶 Плетение</span><button class="bad" data-c="weave" data-hit="1">Попадание</button><button class="alt" data-c="weave">Промах</button></div>
+    <div class="row"><span class="lbl">🌊 Волна Порядка (выдели цели или кликни направление)</span><button data-c="wave">Выпустить волну</button></div>
+    <div class="row"><span class="lbl">🛡 Призыв стражей (выдели скрытые токены или кликни 2 точки)</span><button data-c="summon">Призвать</button></div>
+  </div>
+  <div class="card">
+    <div class="row"><span class="lbl">🎯 Стирание</span><button data-c="charge">Зарядка на цель</button></div>
+    <div class="row">Провалов из 6: <input type="number" id="fails" min="0" max="6" value="3"><label><input type="checkbox" id="erased"> HP до 0</label><button class="bad" data-c="strike">Удар</button></div>
+  </div>
+  <h2>Легендарные действия</h2>
+  <div class="card">
+    <div class="row"><span class="lbl">🐙 Сфера</span><button class="bad" data-c="sphere" data-fail="1">Провал · схвачен</button><button class="alt" data-c="sphere">Успех</button></div>
+    <div class="row"><span class="lbl">✨ Сдвиг</span><button class="bad" data-c="shift" data-fail="1">Провал · выбрать точку</button><button class="alt" data-c="shift">Успех</button></div>
+    <div class="row"><span class="lbl">👁 Присвоение</span><button class="bad" data-c="appro" data-fail="1">Провал</button><button class="alt" data-c="appro">Успех</button></div>
+    <div class="row"><span class="lbl">↪ Перенаправление атаки (клики по карте)</span><button class="bad" data-c="redirect" data-fail="1">Перенаправить</button><button class="alt" data-c="redirect">Сорвалось</button></div>
+  </div>
+  <h2>Босс и Линза</h2>
+  <div class="card">
+    <div class="row"><span class="lbl">🔶 Рубиновая Линза (выдели держащего)</span><button class="bad" data-c="lens" data-fail="1">Босс провалил · оглушена</button><button class="alt" data-c="lens">Босс успешен</button></div>
+    <div class="row"><span class="lbl">🧬 Перекалибровка</span><select id="dmg"></select><button data-c="recal">Перекалибровать</button></div>
+    <div class="row"><span class="lbl">💠 Финал</span><button data-c="core">Обнажить ядро</button></div>
+  </div>
+  <h2>Ключи Порога</h2>
+  <div class="card">
+    <div class="row"><button class="alt" data-c="keyHit">Удар по Ключу</button><button class="alt" data-c="veinFlare">Вспышка вен</button><button class="bad" data-c="keyBreak">Разрушить Ключ</button></div>
+    <div class="row"><button class="alt" id="veinsBtn" data-c="veins">Вены Барьера</button></div>
+    <div class="hint">Выдели токен Ключа. Разрушенный Ключ скрывается, его Протокол становится недоступен.</div>
+  </div>
+  <h2>Активные эффекты</h2>
+  <div id="effs"></div>
+  <div class="row"><button class="alt" data-c="clearEff">Снять все эффекты</button><button class="alt" data-c="reset">Сброс боя</button></div>
+  <div id="toast"></div>
+</main>
+<script type="module" src="./panel.js"></script>
+</body></html>
