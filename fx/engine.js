@@ -1179,41 +1179,67 @@ export async function startAura(parts, tok) {
         }
       });
     } else if (p.fx === "wings") {
-      // Крылья из тени и кости: перья-лезвия веером, костяной «каркас» по переднему краю, голубая кромка; медленно взмахивают
-      const F = p.feathers || 7, o = op ?? 1, S = T.r * (p.size || 1), W = [];
-      const dark = col, edge = p.edge || "#38c8ff", bone = p.bone || "#d8d0bf", L = p.layer || "MOUNT";
-      const feather = (ox, oy, ang, len, wid) => {
-        const c = Math.cos(ang), s = Math.sin(ang), px = -s, py = c;
-        return [{ x: ox, y: oy }, { x: ox + c * len * 0.45 + px * wid, y: oy + s * len * 0.45 + py * wid },
-          { x: ox + c * len, y: oy + s * len }, { x: ox + c * len * 0.5 - px * wid * 0.5, y: oy + s * len * 0.5 - py * wid * 0.5 }];
-      };
+      // Крылья из тени и кости (наполовину вороньи): костяной каркас плечо→локоть→запястье→коготь,
+      // с него свисают перья-лезвия (маховые длиннее к концу), между ними — теневая перепонка и костяные спицы.
+      // Раскрываются из сложенного положения, потом медленно взмахивают; по кромкам перьев бегут голубые блики
+      const F = p.feathers || 11, o = op ?? 1, S = T.r * (p.size || 1), WL = [], L = p.layer || "MOUNT";
+      const dark = col, edge = p.edge || "#38c8ff", bone = p.bone || "#d8d0bf", shade = p.shade || "#1a1f2e";
+      const mk = (o2) => { const it = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }], attach: tok, layer: L, z: z + items.length, ...o2 }); items.push(it); return it; };
       for (const sd of [1, -1]) {
-        const sx = sd * T.r * 0.3, sy = -T.r * 0.1;
+        const w = { sd, mem: mk({ fill: shade, stroke: shade, sw: DPI * 0.01, tension: 0.25 }), fe: [], sp: [] };
         for (let k = 0; k < F; k++) {
-          const f = k / (F - 1), len = S * (1.3 + 0.9 * Math.sin(Math.PI * (0.25 + 0.6 * f))), it = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }],
-            fill: dark, stroke: edge, sw: DPI * 0.02, tension: 0.35, attach: tok, layer: L, z: z + items.length });
-          items.push(it); W.push({ it, sd, sx, sy, f, len, wid: S * (0.16 + 0.06 * Math.sin(Math.PI * f)), kind: "f" });
-          if (k % 2 === 0) { const rib = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: bone, sw: DPI * 0.022, closed: false, attach: tok, layer: L, z: z + items.length });
-            items.push(rib); W.push({ it: rib, sd, sx, sy, f, len: len * 0.8, kind: "r" }); }
+          const bon = k % 3 === 1;
+          w.fe.push({ k, bon, it: bon ? mk({ stroke: bone, sw: DPI * 0.03, closed: false, tension: 0.4 })
+            : mk({ fill: dark, stroke: edge, sw: DPI * 0.018, tension: 0.35 }) });
         }
-        const arm = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 2 }], stroke: bone, sw: DPI * 0.05, closed: false, tension: 0.3, attach: tok, layer: L, z: z + items.length });
-        items.push(arm); W.push({ it: arm, sd, sx, sy, kind: "a" });
+        w.arm = mk({ stroke: bone, sw: DPI * 0.06, closed: false, tension: 0.3 });
+        w.armHi = mk({ stroke: "#ffffff", sw: DPI * 0.02, closed: false, tension: 0.3 });
+        w.claw = mk({ fill: bone, stroke: bone, sw: DPI * 0.01 });
+        WL.push(w);
       }
-      const per2 = p.period || 3.2, unf = p.unfold || 0.9;
-      // угол пера: от «вверх» (сложено) до веера в сторону; для левого крыла — зеркально
-      const angOf = (sd, f, u, fl2) => { const r = -Math.PI / 2 + u * (0.25 + f * 1.55) * fl2; return sd > 0 ? r : Math.PI - r; };
+      const per2 = p.period || 3.4, unf = p.unfold || 1.1;
+      const rot = (x, y, a) => ({ x: x * Math.cos(a) - y * Math.sin(a), y: x * Math.sin(a) + y * Math.cos(a) });
+      // геометрия правого крыла в локальных координатах (x — наружу, y — назад), u — раскрытие, fa — взмах
+      const geom = (u, fa) => {
+        const sh = { x: T.r * 0.35, y: T.r * 0.15 };
+        const a1 = -0.8 * u + 1.25 * (1 - u) + fa, a2 = a1 + 0.5 + 0.35 * (1 - u), a3 = a2 + 0.45;
+        const l1 = S * 0.95, l2 = S * (0.6 + 0.4 * u), l3 = S * (0.35 + 0.25 * u);
+        const el = { x: sh.x + Math.cos(a1) * l1, y: sh.y + Math.sin(a1) * l1 };
+        const wr = { x: el.x + Math.cos(a2) * l2, y: el.y + Math.sin(a2) * l2 };
+        const tp = { x: wr.x + Math.cos(a3) * l3, y: wr.y + Math.sin(a3) * l3 };
+        const along = q => q < 0.45 ? { x: sh.x + (el.x - sh.x) * q / 0.45, y: sh.y + (el.y - sh.y) * q / 0.45, a: a1 }
+          : q < 0.85 ? { x: el.x + (wr.x - el.x) * (q - 0.45) / 0.4, y: el.y + (wr.y - el.y) * (q - 0.45) / 0.4, a: a2 }
+          : { x: wr.x + (tp.x - wr.x) * (q - 0.85) / 0.15, y: wr.y + (tp.y - wr.y) * (q - 0.85) / 0.15, a: a3 };
+        const fe = [];
+        for (let k = 0; k < F; k++) {
+          const f = k / (F - 1), b = along(0.1 + 0.9 * f);
+          const fan = (1.95 - 1.25 * f) * (0.35 + 0.65 * u);   // внутренние перья смотрят назад, маховые — наружу
+          const ang = b.a + fan, len = S * (0.7 + 0.9 * Math.pow(f, 1.2)) * (0.4 + 0.6 * u), wid = S * (0.09 + 0.05 * f);
+          fe.push({ b, ang, len, wid });
+        }
+        return { sh, el, wr, tp, fe };
+      };
+      const blade = (b, ang, len, wid) => {
+        const c = Math.cos(ang), s = Math.sin(ang), px = -s, py = c;
+        return [{ x: b.x - px * wid * 0.4, y: b.y - py * wid * 0.4 }, { x: b.x + c * len * 0.55 - px * wid, y: b.y + s * len * 0.55 - py * wid },
+          { x: b.x + c * len, y: b.y + s * len }, { x: b.x + c * len * 0.5 + px * wid * 0.55, y: b.y + s * len * 0.5 + py * wid * 0.55 }];
+      };
       fs.push((t, P) => {
-        const u = out3(c01(t / unf)), fl2 = 1 + 0.1 * Math.sin(t * TAU / per2), A = o * c01(t / 0.4) * fl(t), lift = Math.sin(t * TAU / per2) * T.r * 0.04;
-        for (const q of W) {
-          if (q.kind === "a") {
-            const a1 = angOf(q.sd, 0, u, fl2), a2 = angOf(q.sd, 0.35, u, fl2), e1 = S * 0.9, e2 = S * 1.7;
-            const ex = q.sx + Math.cos(a1) * e1, ey = q.sy + lift + Math.sin(a1) * e1;
-            P.set(q.it.id, { pts: [{ x: q.sx, y: q.sy }, { x: ex, y: ey }, { x: ex + Math.cos(a2) * (e2 - e1), y: ey + Math.sin(a2) * (e2 - e1) }], so: A * 0.95 });
-          } else {
-            const a = angOf(q.sd, q.f, u, fl2), len = q.len * (0.35 + 0.65 * u), oy = q.sy + lift;
-            if (q.kind === "f") P.set(q.it.id, { pts: feather(q.sx, oy, a, len, q.wid), fo: A * (p.fill ?? 0.82), so: A * (0.35 + 0.25 * Math.sin(t * 2 + q.f * 5)) });
-            else P.set(q.it.id, { pts: [{ x: q.sx, y: oy }, { x: q.sx + Math.cos(a) * len, y: oy + Math.sin(a) * len }], so: A * 0.7 });
+        const u = out3(c01(t / unf)), A = o * c01(t / 0.35) * fl(t), fa = 0.12 * Math.sin(t * TAU / per2) * u, lift = -Math.sin(t * TAU / per2) * T.r * 0.03;
+        const G = geom(u, fa);
+        for (const w of WL) {
+          const m = q => ({ x: q.x * w.sd, y: q.y + lift });
+          const mem = [G.sh, G.el, G.wr, G.tp, ...G.fe.slice().reverse().map(f => ({ x: f.b.x + Math.cos(f.ang) * f.len * 0.92, y: f.b.y + Math.sin(f.ang) * f.len * 0.92 }))].map(m);
+          P.set(w.mem.id, { pts: mem, fo: A * (p.membrane ?? 0.55), so: A * 0.4 });
+          for (const f of w.fe) {
+            const g = G.fe[f.k], sh2 = 0.5 + 0.5 * Math.sin(t * 2.4 - f.k * 0.6);
+            if (f.bon) P.set(f.it.id, { pts: [g.b, { x: g.b.x + Math.cos(g.ang) * g.len * 0.5, y: g.b.y + Math.sin(g.ang) * g.len * 0.5 + S * 0.02 }, { x: g.b.x + Math.cos(g.ang) * g.len * 0.85, y: g.b.y + Math.sin(g.ang) * g.len * 0.85 }].map(m), so: A * 0.85 });
+            else P.set(f.it.id, { pts: blade(g.b, g.ang, g.len, g.wid).map(m), fo: A * (p.fill ?? 0.92), so: A * (0.25 + 0.55 * Math.pow(sh2, 3)) });
           }
+          const arm = [G.sh, G.el, G.wr, G.tp].map(m);
+          P.set(w.arm.id, { pts: arm, so: A * 0.95 }); P.set(w.armHi.id, { pts: arm, so: A * 0.35 });
+          const ca = Math.atan2(G.tp.y - G.wr.y, G.tp.x - G.wr.x), cl = S * 0.22;
+          P.set(w.claw.id, { pts: [{ x: G.tp.x + Math.sin(ca) * S * 0.03, y: G.tp.y - Math.cos(ca) * S * 0.03 }, { x: G.tp.x + Math.cos(ca - 0.5) * cl, y: G.tp.y + Math.sin(ca - 0.5) * cl }, { x: G.tp.x - Math.sin(ca) * S * 0.03, y: G.tp.y + Math.cos(ca) * S * 0.03 }].map(m), fo: A, so: A });
         }
       });
     } else if (p.fx === "image") {
