@@ -218,6 +218,25 @@ function spiralPts(R, turns, a0 = 0, ox = 0, oy = 0, n = 0) {
   return pts;
 }
 
+// Сеть/паутина: n радиальных нитей и m провисающих колец (точки относительно центра)
+function webGeom(R, n, m, sag = 0.84, seed = 1) {
+  const A = [];
+  for (let k = 0; k < n; k++) A.push(k / n * TAU + (rnd(seed * 13 + k) - 0.5) * 0.35);
+  const L = A.map((a, k) => R * (0.9 + rnd(seed * 7 + k) * 0.2));
+  const spokes = A.map((a, k) => [{ x: Math.cos(a) * R * 0.05, y: Math.sin(a) * R * 0.05 }, { x: Math.cos(a) * L[k], y: Math.sin(a) * L[k] }]);
+  const rings = [];
+  for (let j = 1; j <= m; j++) {
+    const f = j / (m + 0.3), pts = [];
+    for (let k = 0; k < n; k++) {
+      const a = A[k], b = k + 1 < n ? A[k + 1] : A[0] + TAU, rr = L[k] * f, rn = L[(k + 1) % n] * f, mid = (a + b) / 2, rm = (rr + rn) / 2 * sag;
+      pts.push({ x: Math.cos(a) * rr, y: Math.sin(a) * rr }, { x: Math.cos(mid) * rm, y: Math.sin(mid) * rm });
+    }
+    rings.push(pts);
+  }
+  const knots = A.map((a, k) => ({ x: Math.cos(a) * L[k], y: Math.sin(a) * L[k] }));
+  return { spokes, rings, knots };
+}
+
 // ── эффекты применения (каждая функция возвращает «время попадания» в мс) ──
 const FX = {
   projectile(A, B, o, delay) {
@@ -677,6 +696,35 @@ const FX = {
     }
     return o.hitAt ?? dur * 0.3;
   },
+  // Сеть теней: нити раскрываются над точкой с закруткой, рывком затягиваются и гаснут.
+  // radius — в клетках (для токена масштабируется по его размеру), spokes — радиальные нити, rings — кольца,
+  // unfold — мс раскрытия, twist — закрутка (°), hold — доля времени до угасания
+  web(c, o, delay) {
+    const k0 = (c.r || DPI / 2) / (DPI / 2), R = (o.radius || 0.65) * DPI * k0, n = o.spokes || 8, m = o.rings || 4;
+    const dur = o.duration || 1600, hold = o.hold ?? 0.75, u = o.unfold || 420, tw = o.twist ?? -140;
+    const col = o.color || "#7c3aed", core = o.core || "#e9ddff", z = Date.now() + 40, G = webGeom(R, n, m, o.sag ?? 0.84, Math.random() * 100);
+    const W = [], add = (it, kind, ex = {}) => { W.push({ it, kind, ...ex }); return it; };
+    add(circle({ x: c.x, y: c.y, r: R * 1.05, fill: o.shade || "#07030f", fo: 0, n: 32, s: 0.2, layer: "MOUNT", z }), "shade");
+    G.spokes.forEach((pts, k) => add(poly({ x: c.x, y: c.y, pts, stroke: col, sw: DPI * 0.07, closed: false, s: 0.15, z: z + 1 }), "g", { j: -1, k }));
+    G.rings.forEach((pts, j) => add(poly({ x: c.x, y: c.y, pts, stroke: col, sw: DPI * 0.06, tension: 0.35, s: 0.15, z: z + 2 }), "g", { j }));
+    G.spokes.forEach((pts, k) => add(poly({ x: c.x, y: c.y, pts, stroke: core, sw: DPI * 0.02, closed: false, s: 0.15, z: z + 3 }), "t", { j: -1, k }));
+    G.rings.forEach((pts, j) => add(poly({ x: c.x, y: c.y, pts, stroke: core, sw: DPI * 0.018, tension: 0.35, s: 0.15, z: z + 4 }), "t", { j }));
+    G.knots.forEach((q, k) => add(poly({ x: c.x, y: c.y, pts: ringPts(DPI * 0.035, 8, q.x, q.y), fill: col, stroke: core, sw: DPI * 0.012, s: 0.15, z: z + 5 }), "k", { k }));
+    spawn(delay, W.map(q => q.it), { dur, f: (p, P) => {
+      const tm = p * dur, q = c01(tm / u), cq = c01((tm - u) / 260);
+      const s = Math.max(0.05, (0.15 + 0.85 * backOut(q)) * (1 - 0.06 * out3(cq) - 0.1 * Math.sin(Math.PI * cq)));
+      const r = tw * (1 - out3(q)), env = p > hold ? Math.max(0, 1 - (p - hold) / (1 - hold)) : 1, snap = 1 + 0.8 * Math.sin(Math.PI * cq);
+      for (const w of W) {
+        if (w.kind === "shade") { P.set(w.it.id, { s, fo: (o.fill ?? 0.35) * c01(q * 2) * env }); continue; }
+        const ap = w.kind === "k" || w.j < 0 ? c01(q * 3) : c01((tm - 60 - w.j * 55) / 140);
+        const sh = 0.75 + 0.25 * Math.sin(tm * 0.018 - (w.j >= 0 ? w.j * 1.3 : (w.k || 0)));
+        if (w.kind === "g") P.set(w.it.id, { s, r, so: 0.35 * ap * env * snap });
+        else if (w.kind === "t") P.set(w.it.id, { s, r, so: 0.95 * ap * env * sh });
+        else P.set(w.it.id, { s, r, fo: ap * env * sh, so: ap * env });
+      }
+    } });
+    return o.hitAt ?? u;
+  },
   image(c, o, delay) {
     const dur = o.duration || 1500;
     const it = picture({ x: c.x, y: c.y, url: o.url, cells: o.size || 2, px: o.px, pxh: o.pxh, mime: o.mime, s: 0.01 });
@@ -975,6 +1023,34 @@ export async function startAura(parts, tok) {
         for (const g of gl) {
           const q = ((t + g.off) % g.per) / 0.6, A = q < 1 ? Math.sin(Math.PI * q) : 0, on = c01((t - 0.9) / 0.3);
           P.set(g.it.id, { pts: starPts(DPI * 0.08 * (0.3 + 0.9 * A), 4, 0.28, t * 2, g.ox, g.oy), r: sp3 * t, fo: A * on, so: A * 0.8 * on });
+        }
+      });
+    } else if (p.fx === "web") {
+      // Сеть теней на токене: нити облепили цель и «дышат», по кольцам бегут блики от центра к краю,
+      // сеть периодически дёргается (цель пытается вырваться), под ней — тёмная тень
+      const R = T.r * (p.size || 1.2), n = p.spokes || 8, m = p.rings || 4, o = op ?? 0.9, c2 = p.core || "#e9ddff", L = p.layer || "ATTACHMENT";
+      const G = webGeom(R, n, m, p.sag ?? 0.84, Math.random() * 100), W = [];
+      const add = (it, kind, ex = {}) => { items.push(it); W.push({ it, kind, ...ex }); };
+      const cfg = { x: T.x, y: T.y, attach: tok, layer: L };
+      add(circle({ ...cfg, r: R * 1.04, fill: p.shade || "#07030f", n: 32, layer: "MOUNT", z: z + items.length }), "shade");
+      G.spokes.forEach((pts, k) => add(poly({ ...cfg, pts, stroke: col, sw: DPI * 0.06, closed: false, z: z + items.length }), "g", { k, j: -1 }));
+      G.rings.forEach((pts, j) => add(poly({ ...cfg, pts, stroke: col, sw: DPI * 0.05, tension: 0.35, z: z + items.length }), "g", { j }));
+      G.spokes.forEach((pts, k) => add(poly({ ...cfg, pts, stroke: c2, sw: DPI * 0.016, closed: false, z: z + items.length }), "t", { k, j: -1 }));
+      G.rings.forEach((pts, j) => add(poly({ ...cfg, pts, stroke: c2, sw: DPI * 0.015, tension: 0.35, z: z + items.length }), "t", { j }));
+      G.knots.forEach((q, k) => add(poly({ ...cfg, pts: ringPts(DPI * 0.03, 8, q.x, q.y), fill: col, stroke: c2, sw: DPI * 0.01, z: z + items.length }), "k", { k }));
+      const tug = p.tugEvery || 3.4, spn = p.spin || 0;
+      fs.push((t, P) => {
+        const ap = c01(t / 0.45), A = o * c01(ap * 1.6) * fl(t);
+        const tq = (t % tug) / 0.35, tg = tq < 1 ? Math.sin(Math.PI * tq) : 0;
+        const s = (1.25 - 0.25 * out3(ap)) * (1 + 0.015 * Math.sin(t * 1.7) - 0.05 * tg), r = 3 * Math.sin(t * 0.6) + spn * t + 2.5 * tg;
+        for (const q of W) {
+          if (q.kind === "shade") { P.set(q.it.id, { s, fo: (p.fill ?? 0.3) * A }); continue; }
+          const a = q.kind === "k" ? 0.7 + 0.3 * Math.sin(t * 3 + q.k)
+            : q.j < 0 ? 0.75 + 0.25 * Math.sin(t * 2.1 + q.k * 0.9)
+            : 0.55 + 0.45 * Math.pow(0.5 + 0.5 * Math.sin(t * 2.4 - q.j * 1.1), 2);
+          if (q.kind === "g") P.set(q.it.id, { s, r, so: A * a * 0.32 * (1 + 0.8 * tg) });
+          else if (q.kind === "t") P.set(q.it.id, { s, r, so: A * a * (1 + 0.3 * tg) });
+          else P.set(q.it.id, { s, r, fo: A * a, so: A * a });
         }
       });
     } else if (p.fx === "image") {

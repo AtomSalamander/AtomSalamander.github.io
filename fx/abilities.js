@@ -72,6 +72,55 @@ export const ABILITIES = [
     until: { who: "target", when: "e", n: 1 },
   },
 
+  // ─── Арка 7 · Тёмная юстициарша ───
+  {
+    id: "justiciar-shadow-net", name: "Сеть теней", icon: "🕸️", group: "Арка 7 · Тёмная юстициарша",
+    desc: "1/день. Дальнобойная атака оружием +5, 20 фт. Попадание: цель опутана; окончить эффект — проверка Силы СЛ 13 (тогда сними эффект ✕). Бонусным действием юстициарша может подтянуть опутанную цель на 10 фт. к себе («Подтянуть сетью»).",
+    attack: true,
+    // Попадание: тьма сгущается у юстициарши, сгусток теней с лентами летит по дуге, над целью раскрывается
+    // сеть с закруткой и рывком затягивается; к юстициарше тянется теневой поводок
+    cast: [
+      { fx: "implode", at: "caster", color: "#6d28d9", core: "#d8ccff", fill: "#07030f", radius: 0.8, sparks: 10, duration: 450 },
+      { fx: "projectile", delay: 330, size: 0.3, speed: 12, arc: 0.55, trail: 7, embers: 8, color: "#2a1250", core: "#c4b5fd",
+        glow: 0.3, glowColors: ["#4c1d95", "#2a1250", "#6d28d9"], ribbons: ["#7c3aed", "#1a0b33", "#a78bfa"], ribbonLen: 8 },
+      { fx: "web", at: "targets", after: "hit", color: "#7c3aed", core: "#ede9fe", radius: 0.7, spokes: 9, rings: 4, duration: 1500 },
+      { fx: "smoke", at: "targets", after: "hit", delay: 150, color: "#0b0616", color2: "#24123f", radius: 0.75, count: 7, size: 0.3, rise: 0.1, opacity: 0.4, duration: 1500 },
+      { fx: "shock", at: "targets", after: "hit", delay: 400, color: "#c4b5fd", radius: 0.95, rings: 2, width: 0.035, duration: 500 },
+      { fx: "burst", at: "targets", after: "hit", delay: 400, color: "#6d28d9", core: "#ede9fe", radius: 0.6, sparks: 10, flash: 0.35, duration: 550 },
+      { fx: "bolt", after: "hit", delay: 300, wave: true, color: "#2a1250", core: "#a78bfa", width: 0.03, jag: 0.12, freq: 2, grow: 0.35, duration: 1100 },
+    ],
+    // Промах: сгусток пролетает мимо, сеть раскрывается на пустом месте и рассыпается тенью
+    castSave: [
+      { fx: "implode", at: "caster", color: "#6d28d9", core: "#d8ccff", fill: "#07030f", radius: 0.8, sparks: 10, duration: 450 },
+      { fx: "projectile", delay: 330, miss: true, overshoot: 1.2, side: 0.35, size: 0.3, speed: 12, arc: 0.55, trail: 7, embers: 8, color: "#2a1250", core: "#c4b5fd",
+        glow: 0.3, glowColors: ["#4c1d95", "#2a1250", "#6d28d9"], ribbons: ["#7c3aed", "#1a0b33", "#a78bfa"], ribbonLen: 8 },
+      { fx: "web", at: "miss", after: "hit", color: "#7c3aed", core: "#ede9fe", radius: 0.55, spokes: 8, rings: 3, duration: 1100, hold: 0.45 },
+      { fx: "smoke", at: "miss", after: "hit", delay: 350, color: "#0b0616", color2: "#24123f", radius: 0.6, count: 6, size: 0.28, rise: 0.25, opacity: 0.4, duration: 1300 },
+    ],
+    // «Опутан»: на цели висит светящаяся сеть теней, под ней — тёмная лужа, вокруг клубится тьма;
+    // по нитям бегут блики, сеть время от времени дёргается
+    aura: [
+      { fx: "glow", color: "#1a0b33", size: 1.45, opacity: 0.4 },
+      { fx: "web", color: "#7c3aed", core: "#e9ddff", size: 1.2, spokes: 9, rings: 4, opacity: 0.9 },
+      { fx: "wisps", color: "#0b0616", color2: "#2a1250", count: 5, size: 0.3, radius: 0.95, speed: -12, opacity: 0.35 },
+      { fx: "orbit", color: "#c4b5fd", color2: "#7c3aed", count: 3, size: 0.035, radius: 1.15, speed: 30, opacity: 0.7, flicker: 0.6 },
+    ],
+    auraDelay: 450,
+    until: { who: "target", when: "x", n: 1 },
+  },
+  {
+    id: "justiciar-net-pull", name: "Подтянуть сетью", icon: "🪝", group: "Арка 7 · Тёмная юстициарша",
+    desc: "Бонусное действие: юстициарша дёргает опутанную Сетью теней цель на 10 фт. к себе. Из тьмы к сети тянутся два теневых жгута и рывком натягивают её (токен передвинь вручную).",
+    cast: [
+      { fx: "bolt", wave: true, color: "#2a1250", core: "#c4b5fd", width: 0.045, jag: 0.22, freq: 2.5, grow: 0.35, duration: 900 },
+      { fx: "bolt", wave: true, delay: 90, color: "#1a0b33", core: "#8b5cf6", width: 0.03, jag: 0.3, freq: 3.5, grow: 0.4, duration: 850 },
+      { fx: "web", at: "targets", after: "hit", color: "#7c3aed", core: "#ede9fe", radius: 0.6, spokes: 9, rings: 3, unfold: 160, twist: 40, duration: 700, hold: 0.4 },
+      { fx: "shock", at: "targets", after: "hit", color: "#c4b5fd", radius: 0.8, rings: 2, width: 0.04, duration: 450 },
+      { fx: "smoke", at: "targets", after: "hit", delay: 100, color: "#0b0616", color2: "#24123f", radius: 0.6, count: 5, size: 0.25, rise: 0.05, opacity: 0.35, duration: 900 },
+      { fx: "implode", at: "caster", after: "hit", delay: 150, color: "#6d28d9", core: "#d8ccff", radius: 0.7, sparks: 8, duration: 500 },
+    ],
+  },
+
   // ─── Гуур'Дэж ───
   {
     id: "guurdezh-swing-watch", name: "Качнуть часы", icon: "🕰️", group: "Гуур'Дэж",
