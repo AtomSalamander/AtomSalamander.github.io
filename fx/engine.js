@@ -580,6 +580,54 @@ const FX = {
     } });
     return o.hitAt ?? grow * dur;
   },
+  // «Шов Порога»: от A к B прорезается шов голубого света — ядро, свечение, трещащая молния,
+  // поперечные «стежки» и искры, поднимающиеся с линии; держится и медленно гаснет
+  seam(A, B, o, delay) {
+    const dur = o.duration || 2600, grow = o.grow || 280, w = (o.width || 0.08) * DPI, col = o.color || "#38c8ff", core = o.core || "#e8fbff";
+    const dx = B.x - A.x, dy = B.y - A.y, dist = Math.hypot(dx, dy) || 1, nx = -dy / dist, ny = dx / dist, ux = dx / dist, uy = dy / dist;
+    const n = Math.max(8, Math.round(dist / DPI * 3)), amp = (o.jag ?? 0.13) * DPI, z = Date.now() + 40;
+    const path = (g, seed, a) => {
+      const pts = [];
+      for (let k = 0; k <= n; k++) {
+        const q = k / n * g, env = Math.sin(Math.PI * k / n);
+        const off = k === 0 || k === n ? 0 : (rnd(seed * 17 + k) * 2 - 1) * a * env;
+        pts.push({ x: q * dx + nx * off, y: q * dy + ny * off });
+      }
+      return pts;
+    };
+    const p0 = path(0.01, 0, 0);
+    const L = [[w * 6, col, 0.16], [w * 2.6, col, 0.55], [w, core, 1]].map(([sw, c, a], i) =>
+      ({ a, it: poly({ x: A.x, y: A.y, pts: p0, stroke: c, sw, closed: false, z: z + i }) }));
+    const cr = poly({ x: A.x, y: A.y, pts: p0, stroke: o.crackle || "#9eeaff", sw: w * 0.5, closed: false, z: z + 3 });
+    const ns = Math.max(3, Math.round(dist / DPI * 1.6)), st = [];
+    for (let k = 1; k < ns; k++) {
+      const q = k / ns, h = DPI * (o.stitch ?? 0.22) * (k % 2 ? 1 : 0.7), cx = dx * q, cy = dy * q;
+      st.push({ q, it: poly({ x: A.x, y: A.y, pts: [{ x: cx - nx * h - ux * h * 0.35, y: cy - ny * h - uy * h * 0.35 }, { x: cx + nx * h + ux * h * 0.35, y: cy + ny * h + uy * h * 0.35 }],
+        stroke: core, sw: w * 0.55, closed: false, z: z + 4 }) });
+    }
+    const nm = Math.min(30, Math.round(dist / DPI * 4)), motes = [];
+    for (let k = 0; k < nm; k++) {
+      const q = Math.random();
+      motes.push({ q, ph: Math.random(), sx: (Math.random() - 0.5) * DPI * 0.4, h: DPI * (0.3 + Math.random() * 0.6),
+        it: circle({ x: A.x + dx * q, y: A.y + dy * q, r: DPI * (0.025 + Math.random() * 0.03), fill: k % 3 ? col : core, n: 8, z: z + 5 }) });
+    }
+    const flash = circle({ x: B.x, y: B.y, r: DPI * 0.6, fill: core, n: 24, z: z + 6 });
+    const all = [...L.map(l => l.it), cr, ...st.map(s => s.it), ...motes.map(m => m.it), flash], fadeMs = Math.min(900, dur * 0.4);
+    spawn(delay, all, { dur, f: (p, P) => {
+      const tm = p * dur, g = Math.max(0.01, out3(tm / grow)), env = c01(tm > dur - fadeMs ? (dur - tm) / fadeMs : 1);
+      const pulse = 0.8 + 0.2 * Math.sin(tm * 0.012), seed = Math.floor(tm / 70), bp = path(g, 0, 0);
+      L.forEach(l => P.set(l.it.id, { pts: bp, so: l.a * env * pulse }));
+      P.set(cr.id, { pts: path(g, seed + 1, amp), so: 0.8 * env * (0.4 + 0.6 * rnd(seed + 3)) });
+      for (const s of st) P.set(s.it.id, { so: c01((g - s.q) * 8) * env * (0.6 + 0.4 * Math.sin(tm * 0.008 + s.q * 9)) });
+      for (const m of motes) {
+        const k = (tm / 1000 / 1.4 + m.ph) % 1;
+        P.set(m.it.id, { x: A.x + dx * m.q + m.sx * k, y: A.y + dy * m.q - m.h * k, fo: (g >= m.q ? 1 : 0) * env * Math.sin(Math.PI * k) * 0.9 });
+      }
+      const fq = c01((tm - grow * 0.8) / 400);
+      P.set(flash.id, { s: 0.3 + 1.2 * out3(fq), fo: fq > 0 && fq < 1 ? 0.6 * (1 - fq) : 0 });
+    } });
+    return o.hitAt ?? grow;
+  },
   // Магический круг на земле: рисуется, вращается, гаснет
   sigil(c, o, delay) {
     const dur = o.duration || 1800, R = (o.radius || 1) * DPI, parts = sigilParts(c.x, c.y, R, o, { layer: o.layer || "MOUNT" });
@@ -852,7 +900,7 @@ export async function play(A, cId, tIds = [], opt = {}) {
   for (const st of A.cast || []) {
     const fn = FX[st.fx]; if (!fn) { console.warn("[fx] неизвестный эффект", st.fx); continue; }
     const d0 = st.delay || 0, stag = st.stagger || 0;
-    if (st.fx === "cone" || (st.to === "point" && (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt" || st.fx === "threads"))) {
+    if (st.fx === "cone" || (st.to === "point" && (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt" || st.fx === "threads" || st.fx === "seam"))) {
       if (!C) continue;   // один снаряд / один конус в точку области; цели «загораются» в момент попадания
       const h = d0 + fn(C, pointOf(), st, d0);
       hits["@pt"] = Math.max(hits["@pt"] || 0, h);
@@ -882,7 +930,7 @@ export async function play(A, cId, tIds = [], opt = {}) {
       });
       continue;
     }
-    if (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt" || st.fx === "threads") {
+    if (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt" || st.fx === "threads" || st.fx === "seam") {
       if (!C) continue;
       T.forEach((t, k) => {
         if (t.id === C.id) return;
@@ -1101,6 +1149,71 @@ export async function startAura(parts, tok) {
           if (q.kind === "g") P.set(q.it.id, { s, r, so: A * a * 0.32 * (1 + 0.8 * tg) });
           else if (q.kind === "t") P.set(q.it.id, { s, r, so: A * a * (1 + 0.3 * tg) });
           else P.set(q.it.id, { s, r, fo: A * a, so: A * a });
+        }
+      });
+    } else if (p.fx === "veins") {
+      // Светящиеся вены: ветвящиеся прожилки от центра наружу, по ним бегут импульсы света
+      const n = p.count || 6, o = op ?? 0.9, R = T.r * (p.size || 1.1), w = DPI * (p.width || 0.03), V = [];
+      const a0 = (p.angle ?? 0) * Math.PI / 180, spread = (p.spread ?? 360) * Math.PI / 180, full = spread >= TAU - 0.01;
+      const branch = (x, y, ang, len, depth, j) => {
+        const pts = [{ x, y }], m = 5; let cx = x, cy = y, a = ang;
+        for (let k = 1; k <= m; k++) { a += (Math.random() - 0.5) * 0.7; cx += Math.cos(a) * len / m; cy += Math.sin(a) * len / m; pts.push({ x: cx, y: cy }); }
+        const g = poly({ x: T.x, y: T.y, pts, stroke: col, sw: w * (3.2 - depth), closed: false, tension: 0.4, attach: tok, layer: p.layer, z: z + items.length });
+        const c = poly({ x: T.x, y: T.y, pts, stroke: p.core || "#e8fbff", sw: w * (1.2 - depth * 0.35), closed: false, tension: 0.4, attach: tok, layer: p.layer, z: z + items.length + 1 });
+        items.push(g, c); V.push({ g, c, j: j + depth * 0.25, d: depth });
+        if (depth < 2) {
+          const q = pts[2 + Math.floor(Math.random() * 2)];
+          branch(q.x, q.y, a + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5), len * 0.55, depth + 1, j + 0.2);
+        }
+      };
+      for (let k = 0; k < n; k++) {
+        const ang = a0 + (full ? k / n * TAU : (k / Math.max(1, n - 1) - 0.5) * spread) + (Math.random() - 0.5) * 0.3, r0 = T.r * (p.inner ?? 0.25);
+        branch(Math.cos(ang) * r0, Math.sin(ang) * r0, ang, R - r0, 0, k / n);
+      }
+      const sp2 = p.speed ?? 0.8;
+      fs.push((t, P) => {
+        const A = o * appear(t) * fl(t);
+        for (const v of V) {
+          const pl = 0.4 + 0.6 * Math.pow(0.5 + 0.5 * Math.sin((t * sp2 - v.j) * TAU), 3), k = 1 - v.d * 0.22;
+          P.set(v.g.id, { so: A * 0.32 * pl * k }); P.set(v.c.id, { so: A * (0.45 + 0.55 * pl) * k });
+        }
+      });
+    } else if (p.fx === "wings") {
+      // Крылья из тени и кости: перья-лезвия веером, костяной «каркас» по переднему краю, голубая кромка; медленно взмахивают
+      const F = p.feathers || 7, o = op ?? 1, S = T.r * (p.size || 1), W = [];
+      const dark = col, edge = p.edge || "#38c8ff", bone = p.bone || "#d8d0bf", L = p.layer || "MOUNT";
+      const feather = (ox, oy, ang, len, wid) => {
+        const c = Math.cos(ang), s = Math.sin(ang), px = -s, py = c;
+        return [{ x: ox, y: oy }, { x: ox + c * len * 0.45 + px * wid, y: oy + s * len * 0.45 + py * wid },
+          { x: ox + c * len, y: oy + s * len }, { x: ox + c * len * 0.5 - px * wid * 0.5, y: oy + s * len * 0.5 - py * wid * 0.5 }];
+      };
+      for (const sd of [1, -1]) {
+        const sx = sd * T.r * 0.3, sy = -T.r * 0.1;
+        for (let k = 0; k < F; k++) {
+          const f = k / (F - 1), len = S * (1.3 + 0.9 * Math.sin(Math.PI * (0.25 + 0.6 * f))), it = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }],
+            fill: dark, stroke: edge, sw: DPI * 0.02, tension: 0.35, attach: tok, layer: L, z: z + items.length });
+          items.push(it); W.push({ it, sd, sx, sy, f, len, wid: S * (0.16 + 0.06 * Math.sin(Math.PI * f)), kind: "f" });
+          if (k % 2 === 0) { const rib = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: bone, sw: DPI * 0.022, closed: false, attach: tok, layer: L, z: z + items.length });
+            items.push(rib); W.push({ it: rib, sd, sx, sy, f, len: len * 0.8, kind: "r" }); }
+        }
+        const arm = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 2, y: 2 }], stroke: bone, sw: DPI * 0.05, closed: false, tension: 0.3, attach: tok, layer: L, z: z + items.length });
+        items.push(arm); W.push({ it: arm, sd, sx, sy, kind: "a" });
+      }
+      const per2 = p.period || 3.2, unf = p.unfold || 0.9;
+      // угол пера: от «вверх» (сложено) до веера в сторону; для левого крыла — зеркально
+      const angOf = (sd, f, u, fl2) => { const r = -Math.PI / 2 + u * (0.25 + f * 1.55) * fl2; return sd > 0 ? r : Math.PI - r; };
+      fs.push((t, P) => {
+        const u = out3(c01(t / unf)), fl2 = 1 + 0.1 * Math.sin(t * TAU / per2), A = o * c01(t / 0.4) * fl(t), lift = Math.sin(t * TAU / per2) * T.r * 0.04;
+        for (const q of W) {
+          if (q.kind === "a") {
+            const a1 = angOf(q.sd, 0, u, fl2), a2 = angOf(q.sd, 0.35, u, fl2), e1 = S * 0.9, e2 = S * 1.7;
+            const ex = q.sx + Math.cos(a1) * e1, ey = q.sy + lift + Math.sin(a1) * e1;
+            P.set(q.it.id, { pts: [{ x: q.sx, y: q.sy }, { x: ex, y: ey }, { x: ex + Math.cos(a2) * (e2 - e1), y: ey + Math.sin(a2) * (e2 - e1) }], so: A * 0.95 });
+          } else {
+            const a = angOf(q.sd, q.f, u, fl2), len = q.len * (0.35 + 0.65 * u), oy = q.sy + lift;
+            if (q.kind === "f") P.set(q.it.id, { pts: feather(q.sx, oy, a, len, q.wid), fo: A * (p.fill ?? 0.82), so: A * (0.35 + 0.25 * Math.sin(t * 2 + q.f * 5)) });
+            else P.set(q.it.id, { pts: [{ x: q.sx, y: oy }, { x: q.sx + Math.cos(a) * len, y: oy + Math.sin(a) * len }], so: A * 0.7 });
+          }
         }
       });
     } else if (p.fx === "image") {

@@ -50,6 +50,15 @@ function shape(p) {
   let q = { x: p.x, y: p.y };
   const dx = p.x - C.x, dy = p.y - C.y, d = Math.hypot(dx, dy);
   if (S.range && d > S.range) q = { x: C.x + dx / d * S.range, y: C.y + dy / d * S.range };   // дальше дальности — прижимаем к краю
+  if (S.cfg.line) {   // линия шириной W от заклинателя до точки (Шов Порога) — заклинатель не задевается
+    const lx = q.x - C.x, ly = q.y - C.y, l2 = lx * lx + ly * ly || 1;
+    const inside = S.toks.filter(t => {
+      if (t.id === C.id) return false;
+      const k = Math.max(0, Math.min(1, ((t.x - C.x) * lx + (t.y - C.y) * ly) / l2));
+      return Math.hypot(t.x - C.x - lx * k, t.y - C.y - ly * k) <= S.W / 2 + (t.r || S.DPI / 2) * 0.5;
+    });
+    return { pt: q, inside };
+  }
   const inside = S.toks.filter(t => Math.hypot(t.x - q.x, t.y - q.y) <= S.R + (t.r || S.DPI / 2) * 0.5);
   return { pt: q, inside };
 }
@@ -227,7 +236,7 @@ export async function startAim({ A, cId, color = "#ff7a1a", isGM = false, attach
   const s = {
     kind: "area", A, cfg, DPI, onFire, toks, C: { ...C, id: cId }, attach: !!attach && cfg.shape !== "cone", free: false,
     L: (cfg.length || 15) / fpc * DPI, half: (cfg.angle ?? 53) / 2 * Math.PI / 180,
-    R: (cfg.radius || 20) / fpc * DPI, range: cfg.range ? cfg.range / fpc * DPI : 0,
+    R: (cfg.radius || 20) / fpc * DPI, range: cfg.range ? cfg.range / fpc * DPI : 0, W: (cfg.line || 0) / fpc * DPI,
     ui: {}, rings: new Map(), ringTok: new Map(), lit: new Set(), shapeIds: [], allIds: [],
   };
   const z = Date.now() + 1000, items = [];
@@ -236,7 +245,7 @@ export async function startAim({ A, cId, color = "#ff7a1a", isGM = false, attach
     s.ui.wedge = w.id; items.push(w);
   } else {
     if (s.range) items.push(prim.circle({ x: C.x, y: C.y, r: s.range, fill: color, fo: 0.025, stroke: color, so: 0.35, sw: DPI * 0.025, dash: [DPI * 0.2, DPI * 0.15], n: 96, z: z - 5 }));
-    const ln = prim.poly({ x: C.x, y: C.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: color, so: 0.55, sw: DPI * 0.025, dash: [DPI * 0.1, DPI * 0.08], closed: false, z: z - 1 });
+    const ln = prim.poly({ x: C.x, y: C.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: color, so: cfg.line ? 0.3 : 0.55, sw: cfg.line ? s.W : DPI * 0.025, dash: cfg.line ? [] : [DPI * 0.1, DPI * 0.08], closed: false, z: z - 1 });
     const ar = prim.circle({ x: C.x, y: C.y, r: s.R, fill: color, fo: 0.16, stroke: color, so: 0.9, sw: DPI * 0.04, dash: [DPI * 0.15, DPI * 0.08], n: 72, z });
     const dt = prim.circle({ x: C.x, y: C.y, r: DPI * 0.08, fill: color, fo: 0.9, n: 12, z: z + 1 });
     s.ui.line = ln.id; s.ui.area = ar.id; s.ui.dot = dt.id; items.push(ln, ar, dt);

@@ -442,6 +442,72 @@ export const ABILITIES = [
     ],
     until: { who: "caster", when: "s", n: 1 },
   },
+  // ── Ролен · Ключ Порога ──
+  {
+    id: "rolen-resonance", name: "Резонанс", icon: "💠", group: "Ролен · Ключ Порога",
+    desc: "Бонусным действием, 1 минута, без концентрации. Браслет пробуждается, вены от кисти до плеча горят голубым, тусклый свет 5 фт. Раз в ход +1к4 голубого урона (см. «Резонанс: удар»). Помеха на Скрытность; Архитекторы и Архиноиды в 120 фт чувствуют направление. 1 раз / короткий отдых.",
+    self: true, auraOn: "caster", auraDelay: 700, until: { who: "caster", when: "e", n: 10 },
+    cast: [
+      { fx: "implode", at: "caster", color: "#38c8ff", radius: 2, sparks: 16, duration: 650 },
+      { fx: "sigil", at: "caster", delay: 150, color: "#38c8ff", radius: 1.1, points: 6, runes: 8, spin: 40, duration: 1700 },
+      { fx: "burst", at: "caster", delay: 600, color: "#9eeaff", core: "#ffffff", radius: 1.3, sparks: 12, flash: 1 },
+      { fx: "shock", at: "caster", delay: 620, color: "#38c8ff", radius: 2.4, rings: 2, width: 0.05, duration: 900 },
+      { fx: "rise", at: "caster", delay: 650, color: "#9eeaff", count: 14, height: 1.2, duration: 1600 },
+    ],
+    aura: [
+      { fx: "glow", color: "#38c8ff", size: 3, opacity: 0.1, period: 3.5, pulse: 0.03 },
+      { fx: "glow", color: "#9eeaff", size: 1.35, opacity: 0.22, period: 2.2 },
+      { fx: "veins", color: "#38c8ff", core: "#e8fbff", count: 4, angle: 20, spread: 110, size: 1.05, width: 0.028, speed: 0.7 },
+      { fx: "ring", color: "#38c8ff", size: 1.12, width: 0.03, dash: true, spin: 12, opacity: 0.55 },
+      { fx: "orbit", color: "#9eeaff", color2: "#ffffff", count: 3, radius: 1.1, size: 0.045, speed: 70 },
+    ],
+  },
+  {
+    id: "rolen-resonance-hit", name: "Резонанс: удар (+1к4)", icon: "⚡", group: "Ролен · Ключ Порога",
+    desc: "Пока Резонанс активен, раз в ход: +1к4 голубого урона к одному броску урона против одной цели. От браслета к цели бьёт голубой разряд.",
+    cast: [
+      { fx: "bolt", color: "#38c8ff", core: "#e8fbff", width: 0.045, jag: 0.25, duration: 380 },
+      { fx: "burst", at: "targets", after: "hit", color: "#38c8ff", core: "#ffffff", radius: 0.7, sparks: 10, flash: 1 },
+      { fx: "shock", at: "targets", after: "hit", color: "#9eeaff", radius: 1, rings: 1, width: 0.04, duration: 500 },
+    ],
+  },
+  {
+    id: "rolen-seam", name: "Шов Порога", icon: "🐦‍⬛", group: "Ролен · Ключ Порога",
+    desc: "Телепорт (Благословение Королевы воронов при Резонансе или бонусным действием во время Пробуждения, 30 фт). За Роленом остаётся шов голубого света: все на линии шириной 5 фт — спасбросок Ловкости, 2к6 голубого урона (половина при успехе). Не больше 1 шва в ход. Нажми «Прицелиться» и кликни точку — токен перенесётся, задетые линией подсветятся.",
+    save: "Лов", area: { shape: "sphere", radius: 2.5, range: 30, line: 5 }, teleport: true, teleportDelay: 420,
+    cast: [
+      { fx: "implode", at: "caster", color: "#38c8ff", radius: 1.4, sparks: 12, duration: 420 },
+      { fx: "smoke", at: "caster", delay: 250, color: "#0b0912", color2: "#1c2a3a", radius: 1.2, count: 9, size: 0.5, rise: 0.4, opacity: 0.6, duration: 1600 },
+      { fx: "rise", at: "caster", delay: 300, color: "#0b0912", count: 8, height: 1, duration: 1300 },
+      { fx: "seam", to: "point", delay: 330, color: "#38c8ff", core: "#e8fbff", width: 0.08, duration: 2800 },
+      { fx: "burst", at: "targets", after: "hit", delay: 60, stagger: 80, color: "#38c8ff", core: "#ffffff", radius: 0.8, sparks: 10, flash: 1 },
+      { fx: "shock", at: "targets", after: "hit", delay: 60, stagger: 80, color: "#9eeaff", radius: 1.1, rings: 1, width: 0.04, duration: 600 },
+      { fx: "burst", at: "center", after: "hit", delay: 150, color: "#9eeaff", core: "#ffffff", radius: 1.2, sparks: 14 },
+      { fx: "shock", at: "center", after: "hit", delay: 170, color: "#38c8ff", radius: 1.8, rings: 2, width: 0.05, duration: 800 },
+    ],
+  },
+  {
+    id: "rolen-awakening", name: "Пробуждение Порога", icon: "🪽", group: "Ролен · Ключ Порога",
+    desc: "Высший Архиноид. Бонусным действием, 1 минута: крылья из тени и кости, полёт 30 фт и парение, Резонанс активен без траты, бонусным действием — телепорт 30 фт с Шовом Порога («Шов Порога»). В начале — временные хиты = 2 × уровень. 1 раз / долгий отдых.",
+    self: true, auraOn: "caster", auraDelay: 1000, until: { who: "caster", when: "e", n: 10 },
+    cast: [
+      { fx: "sigil", at: "caster", color: "#38c8ff", radius: 2, points: 7, runes: 12, spin: 25, duration: 2400 },
+      { fx: "implode", at: "caster", color: "#9eeaff", radius: 3.2, sparks: 26, fill: 1, duration: 950 },
+      { fx: "smoke", at: "caster", delay: 300, color: "#07060c", color2: "#1a2433", radius: 2.2, count: 14, size: 0.8, rise: 0.6, opacity: 0.65, duration: 2600 },
+      { fx: "burst", at: "caster", delay: 950, color: "#38c8ff", core: "#ffffff", radius: 2.2, sparks: 22, flash: 1, stars: 1 },
+      { fx: "shock", at: "caster", delay: 960, color: "#9eeaff", radius: 4, rings: 3, width: 0.06, duration: 1100 },
+      { fx: "rise", at: "caster", delay: 1000, color: "#0b0912", count: 18, height: 2, duration: 2200 },
+      { fx: "embers", at: "caster", delay: 1000, color: "#38c8ff", color2: "#e8fbff", spread: 2, count: 20, height: 1.6, duration: 2200 },
+    ],
+    aura: [
+      { fx: "wings", color: "#07060c", edge: "#38c8ff", bone: "#d8d0bf", size: 1, feathers: 7, period: 3.2 },
+      { fx: "glow", color: "#38c8ff", size: 3, opacity: 0.12, period: 3, pulse: 0.03 },
+      { fx: "wisps", color: "#0b0912", color2: "#1a2433", count: 4, size: 0.4, radius: 0.9, speed: 18, opacity: 0.3 },
+      { fx: "veins", color: "#38c8ff", core: "#e8fbff", count: 7, size: 1.05, width: 0.024, speed: 0.9 },
+      { fx: "ring", color: "#9eeaff", size: 1.14, width: 0.035, spin: -10, opacity: 0.6 },
+      { fx: "orbit", color: "#9eeaff", color2: "#ffffff", count: 4, radius: 1.15, size: 0.05, speed: 60 },
+    ],
+  },
 ];
 
 export const ABIL = Object.fromEntries(ABILITIES.map(a => [a.id, a]));
