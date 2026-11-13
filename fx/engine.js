@@ -696,6 +696,56 @@ const FX = {
     }
     return o.hitAt ?? dur * 0.3;
   },
+  // Нити тьмы: из «пальцев» заклинателя (A) веером вылетают извивающиеся нити, долетают до цели (B),
+  // обвиваются вокруг неё и натягиваются. count — число нитей, speed — клеток/с, wrap — витков обмотки,
+  // wrapTime — мс обмотки, hold — мс натянутыми, fade — мс исчезновения, amp — размах изгибов (клетки),
+  // retract: true — в конце нити втягиваются обратно в руку (иначе отрываются от руки и тают на цели)
+  threads(A, B, o, delay) {
+    const n = o.count || 5, col = o.color || "#7c3aed", dark = o.dark || "#07030f", core = o.core || "#c4b5fd";
+    const dx = B.x - A.x, dy = B.y - A.y, dist = Math.hypot(dx, dy) || 1, ux = dx / dist, uy = dy / dist, px = -uy, py = ux;
+    const rA = A.r || DPI / 2, rB = B.r || DPI / 2, Rw = rB * (o.radius || 1.05), W = o.wrap ?? 0.9;
+    const fd = Math.max(220, dist / DPI / (o.speed || 10) * 1000), wd = o.wrapTime || 450, hold = o.hold ?? 400, fade = o.fade || 500;
+    const lagK = o.lag ?? 35, total = fd + wd + hold + fade + lagK * n, back = Math.atan2(-uy, -ux), amp = (o.amp ?? 0.16) * DPI, M = o.points || 26;
+    const z = Date.now() + 35, S = [];
+    for (let k = 0; k < n; k++) {
+      const off = n > 1 ? k / (n - 1) - 0.5 : 0, sx = A.x + ux * rA * 0.75 + px * off * rA * 0.7, sy = A.y + uy * rA * 0.75 + py * off * rA * 0.7;
+      const a0 = back + off * 1.7 + (rnd(k * 2.3 + 0.7) - 0.5) * 0.3, p0 = [{ x: sx, y: sy }, { x: sx, y: sy }];
+      const mk = (stroke, sw, zz) => poly({ x: 0, y: 0, pts: p0, stroke, sw, closed: false, tension: 0.5, z: z + zz });
+      S.push({ sx, sy, ex: B.x + Math.cos(a0) * Rw, ey: B.y + Math.sin(a0) * Rw, a0, sg: k % 2 ? 1 : -1,
+        bulge: (rnd(k * 3.7 + 1) - 0.5) * 0.5 + off * 0.8, ph: rnd(k * 9.1) * TAU, fr: 1.2 + rnd(k * 5.3) * 1.3, lag: k * lagK,
+        L: [mk(col, DPI * 0.08, 0), mk(dark, DPI * 0.032, 10), mk(core, DPI * 0.009, 20)],
+        head: circle({ x: sx, y: sy, r: DPI * 0.045, fill: core, fo: 0, n: 10, z: z + 30 }) });
+    }
+    const at = (s, u, tm, tt) => {
+      if (u <= 1) {
+        const env = Math.sin(Math.PI * u), wv = Math.sin(u * s.fr * TAU - tm * 0.012 + s.ph) * amp * (1 - tt);
+        const off = (s.bulge * dist * 0.12 * (1 - 0.6 * tt) + wv) * env;
+        return { x: s.sx + (s.ex - s.sx) * u + px * off, y: s.sy + (s.ey - s.sy) * u + py * off };
+      }
+      const v = Math.min(u - 1, W), a = s.a0 + s.sg * v * TAU, r = Rw * (1 - 0.18 * v / Math.max(W, 0.01));
+      return { x: B.x + Math.cos(a) * r, y: B.y + Math.sin(a) * r };
+    };
+    const ops = [0.3, 0.95, 0.75];
+    spawn(delay, S.flatMap(s => [...s.L, s.head]), { dur: total, f: (p, P) => {
+      const tm = p * total;
+      for (const s of S) {
+        const tl = tm - s.lag;
+        if (tl <= 0) continue;
+        const tt = c01((tl - fd) / wd), fp = c01((tl - fd - wd - hold) / fade);
+        let hu = tl < fd ? 1 - Math.pow(1 - tl / fd, 1.6) : 1 + W * out3(tt), u0 = 0, A1;
+        if (o.retract) { hu *= 1 - out3(fp); A1 = 1 - c01((fp - 0.75) / 0.25); }
+        else { u0 = out3(fp) * (1 + W * 0.6); A1 = 1 - fp * fp; }
+        if (hu - u0 < 0.002) { s.L.forEach(it => P.set(it.id, { so: 0 })); P.set(s.head.id, { fo: 0 }); continue; }
+        const pts = [];
+        for (let i = 0; i < M; i++) pts.push(at(s, u0 + (hu - u0) * i / (M - 1), tm, tt));
+        const A0 = c01(tl / 80) * A1, sh = 0.8 + 0.2 * Math.sin(tm * 0.02 + s.ph);
+        s.L.forEach((it, k) => P.set(it.id, { pts, so: ops[k] * A0 * (k === 2 ? sh : 1) }));
+        const h = pts[pts.length - 1];
+        P.set(s.head.id, { x: h.x, y: h.y, fo: (tl < fd + wd ? 0.9 : o.retract ? 0.9 * A1 : 0) * A0 });
+      }
+    } });
+    return o.hitAt ?? fd + lagK * (n - 1) * 0.5 + wd * 0.6;
+  },
   // Сеть теней: нити раскрываются над точкой с закруткой, рывком затягиваются и гаснут.
   // radius — в клетках (для токена масштабируется по его размеру), spokes — радиальные нити, rings — кольца,
   // unfold — мс раскрытия, twist — закрутка (°), hold — доля времени до угасания
@@ -802,7 +852,7 @@ export async function play(A, cId, tIds = [], opt = {}) {
   for (const st of A.cast || []) {
     const fn = FX[st.fx]; if (!fn) { console.warn("[fx] неизвестный эффект", st.fx); continue; }
     const d0 = st.delay || 0, stag = st.stagger || 0;
-    if (st.fx === "cone" || (st.to === "point" && (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt"))) {
+    if (st.fx === "cone" || (st.to === "point" && (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt" || st.fx === "threads"))) {
       if (!C) continue;   // один снаряд / один конус в точку области; цели «загораются» в момент попадания
       const h = d0 + fn(C, pointOf(), st, d0);
       hits["@pt"] = Math.max(hits["@pt"] || 0, h);
@@ -832,7 +882,7 @@ export async function play(A, cId, tIds = [], opt = {}) {
       });
       continue;
     }
-    if (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt") {
+    if (st.fx === "projectile" || st.fx === "beam" || st.fx === "bolt" || st.fx === "threads") {
       if (!C) continue;
       T.forEach((t, k) => {
         if (t.id === C.id) return;

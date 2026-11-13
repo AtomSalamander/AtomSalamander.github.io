@@ -7,7 +7,7 @@
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { NS, STATE, INIT, CH, ALLOW, SEL, normState } from "./const.js";
 import { ABIL, paint, aimKind, radOf, sized } from "./abilities.js";
-import { play, startAura, startZone, stopAura, stopAll, label, tokens } from "./engine.js";
+import { play, startAura, startZone, stopAura, stopAll, label, tokens, grid } from "./engine.js";
 import { turnEvents, applyEvents, samePos, makeEffects } from "./turns.js";
 import { startAim, startPick, cancelAim, aiming, feetPerCell } from "./aim.js";
 import { loadBar, openBar } from "./barctl.js";
@@ -118,6 +118,50 @@ async function onPlay(m) {
   for (const [tid, eid] of Object.entries(m.e || {})) hold.set(eid, Date.now() + (hits[tid] || 0) + ((A && A.auraDelay) || 0) + 150);
   if (m.z) hold.set(m.z, Date.now() + ((A && A.zoneDelay) || 0));
   sync();
+  return hits;
+}
+
+// ── подтянуть цели к заклинателю (A.pull — футы): двигаем настоящие токены по клеткам до «вплотную» ──
+// Делает только тот, кто применил способность (нужны права на токен — у мастера есть всегда).
+async function pullTokens(cId, tIds, feet, hits, delay) {
+  const DPI = await grid(), fpc = await feetPerCell(), steps = Math.max(1, Math.round(feet / fpc));
+  let square = true;
+  try { square = (await OBR.scene.grid.getType()) === "SQUARE"; } catch (e) {}
+  const info = await tokens([cId, ...tIds]), C = info[cId];
+  if (!C) return;
+  for (const id of tIds) {
+    const T = info[id];
+    if (!T || id === cId) continue;
+    const near = Math.round((C.r + T.r) / DPI * 2) / 2;   // «вплотную», в клетках между центрами
+    let x = T.x, y = T.y;
+    for (let s = 0; s < steps; s++) {
+      const cx = (C.x - x) / DPI, cy = (C.y - y) / DPI;
+      if (square) {   // шаг на соседнюю клетку (в т.ч. по диагонали), как движение в D&D
+        const m = Math.max(Math.abs(cx), Math.abs(cy));
+        if (m - near < 0.99) break;
+        x += Math.round(cx / m) * DPI; y += Math.round(cy / m) * DPI;
+      } else {
+        const d = Math.hypot(cx, cy);
+        if (d - near < 0.99) break;
+        x += cx / d * DPI; y += cy / d * DPI;
+      }
+    }
+    const dx = x - T.x, dy = y - T.y;
+    if (Math.abs(dx) + Math.abs(dy) < 1) continue;
+    setTimeout(() => slide(id, dx, dy), Math.max(0, (hits[id] || 0) + (delay || 0)));
+  }
+}
+async function slide(id, dx, dy) {
+  let base;
+  try { const [it] = await OBR.scene.items.getItems([id]); if (!it) return; base = { x: it.position.x, y: it.position.y }; } catch (e) { return; }
+  const N = 8;
+  try {
+    for (let k = 1; k <= N; k++) {
+      const e = 1 - Math.pow(1 - k / N, 3);
+      await OBR.scene.items.updateItems([id], ds => { for (const d of ds) d.position = { x: base.x + dx * e, y: base.y + dy * e }; });
+      if (k < N) await new Promise(r => setTimeout(r, 35));
+    }
+  } catch (e) { console.warn("[fx] pull", e); note("🕸️ Не смог подтянуть токен — передвинь его вручную"); }
 }
 
 // ── заклинатель: по id, иначе по имени (другая сцена), иначе единственный свой токен игрока ──
@@ -173,7 +217,8 @@ async function onCast(m) {
     }
     const msg = { op: "play", a: A.id, v: m.v, c: c ? c.id : null, t: targets.map(t => t.id), pt: pt || undefined, pa: asPoint ? 1 : undefined, el: m.el, e, rad: rad || undefined, z };
     await OBR.broadcast.sendMessage(CH, msg, { destination: "REMOTE" });
-    onPlay(msg);
+    const played = onPlay(msg);
+    if (A.pull && c && !save) played.then(h => pullTokens(c.id, targets.map(t => t.id), A.pull, h || {}, A.pullDelay || 0)).catch(e => console.warn("[fx] pull", e));
     if (list.length) {
       if (isGM) mutate(s => { s.e.push(...list); return s; });
       else await OBR.broadcast.sendMessage(CH, { op: "add", list }, { destination: "REMOTE" });

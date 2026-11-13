@@ -77,25 +77,22 @@ export const ABILITIES = [
     id: "justiciar-shadow-net", name: "Сеть теней", icon: "🕸️", group: "Арка 7 · Тёмная юстициарша",
     desc: "1/день. Дальнобойная атака оружием +5, 20 фт. Попадание: цель опутана; окончить эффект — проверка Силы СЛ 13 (тогда сними эффект ✕). Бонусным действием юстициарша может подтянуть опутанную цель на 10 фт. к себе («Подтянуть сетью»).",
     attack: true,
-    // Попадание: тьма сгущается у юстициарши, сгусток теней с лентами летит по дуге, над целью раскрывается
-    // сеть с закруткой и рывком затягивается; к юстициарше тянется теневой поводок
+    // Попадание: у руки юстициарши сгущается тьма, из пальцев веером вылетают пять нитей чистой тьмы,
+    // извиваясь летят к цели, обвиваются вокруг неё и сплетаются в сеть; потом отрываются от руки
     cast: [
-      { fx: "implode", at: "caster", color: "#6d28d9", core: "#d8ccff", fill: "#07030f", radius: 0.8, sparks: 10, duration: 450 },
-      { fx: "projectile", delay: 330, size: 0.3, speed: 12, arc: 0.55, trail: 7, embers: 8, color: "#2a1250", core: "#c4b5fd",
-        glow: 0.3, glowColors: ["#4c1d95", "#2a1250", "#6d28d9"], ribbons: ["#7c3aed", "#1a0b33", "#a78bfa"], ribbonLen: 8 },
-      { fx: "web", at: "targets", after: "hit", color: "#7c3aed", core: "#ede9fe", radius: 0.7, spokes: 9, rings: 4, duration: 1500 },
+      { fx: "implode", at: "caster", color: "#6d28d9", core: "#d8ccff", fill: "#07030f", radius: 0.7, sparks: 8, duration: 420 },
+      { fx: "threads", delay: 260, count: 5, speed: 9, wrap: 0.9, wrapTime: 480, hold: 550, fade: 650, color: "#7c3aed", dark: "#07030f", core: "#c4b5fd" },
+      { fx: "web", at: "targets", after: "hit", color: "#7c3aed", core: "#ede9fe", radius: 0.7, spokes: 9, rings: 4, unfold: 380, twist: -160, duration: 1500 },
       { fx: "smoke", at: "targets", after: "hit", delay: 150, color: "#0b0616", color2: "#24123f", radius: 0.75, count: 7, size: 0.3, rise: 0.1, opacity: 0.4, duration: 1500 },
-      { fx: "shock", at: "targets", after: "hit", delay: 400, color: "#c4b5fd", radius: 0.95, rings: 2, width: 0.035, duration: 500 },
-      { fx: "burst", at: "targets", after: "hit", delay: 400, color: "#6d28d9", core: "#ede9fe", radius: 0.6, sparks: 10, flash: 0.35, duration: 550 },
-      { fx: "bolt", after: "hit", delay: 300, wave: true, color: "#2a1250", core: "#a78bfa", width: 0.03, jag: 0.12, freq: 2, grow: 0.35, duration: 1100 },
+      { fx: "shock", at: "targets", after: "hit", delay: 380, color: "#c4b5fd", radius: 0.95, rings: 2, width: 0.035, duration: 500 },
+      { fx: "burst", at: "targets", after: "hit", delay: 380, color: "#6d28d9", core: "#ede9fe", radius: 0.6, sparks: 10, flash: 0.35, duration: 550 },
     ],
-    // Промах: сгусток пролетает мимо, сеть раскрывается на пустом месте и рассыпается тенью
+    // Промах: нити пролетают мимо, хватают пустоту за целью и втягиваются обратно в руку; недоплетённая сеть рассыпается
     castSave: [
-      { fx: "implode", at: "caster", color: "#6d28d9", core: "#d8ccff", fill: "#07030f", radius: 0.8, sparks: 10, duration: 450 },
-      { fx: "projectile", delay: 330, miss: true, overshoot: 1.2, side: 0.35, size: 0.3, speed: 12, arc: 0.55, trail: 7, embers: 8, color: "#2a1250", core: "#c4b5fd",
-        glow: 0.3, glowColors: ["#4c1d95", "#2a1250", "#6d28d9"], ribbons: ["#7c3aed", "#1a0b33", "#a78bfa"], ribbonLen: 8 },
-      { fx: "web", at: "miss", after: "hit", color: "#7c3aed", core: "#ede9fe", radius: 0.55, spokes: 8, rings: 3, duration: 1100, hold: 0.45 },
-      { fx: "smoke", at: "miss", after: "hit", delay: 350, color: "#0b0616", color2: "#24123f", radius: 0.6, count: 6, size: 0.28, rise: 0.25, opacity: 0.4, duration: 1300 },
+      { fx: "implode", at: "caster", color: "#6d28d9", core: "#d8ccff", fill: "#07030f", radius: 0.7, sparks: 8, duration: 420 },
+      { fx: "threads", delay: 260, miss: true, overshoot: 1.2, side: 0.4, count: 5, speed: 9, wrap: 0.35, wrapTime: 300, hold: 150, fade: 700, retract: true, color: "#7c3aed", dark: "#07030f", core: "#c4b5fd" },
+      { fx: "web", at: "miss", after: "hit", color: "#7c3aed", core: "#ede9fe", radius: 0.5, spokes: 8, rings: 3, duration: 900, hold: 0.35 },
+      { fx: "smoke", at: "miss", after: "hit", delay: 250, color: "#0b0616", color2: "#24123f", radius: 0.6, count: 6, size: 0.28, rise: 0.25, opacity: 0.4, duration: 1300 },
     ],
     // «Опутан»: на цели висит светящаяся сеть теней, под ней — тёмная лужа, вокруг клубится тьма;
     // по нитям бегут блики, сеть время от времени дёргается
@@ -110,15 +107,15 @@ export const ABILITIES = [
   },
   {
     id: "justiciar-net-pull", name: "Подтянуть сетью", icon: "🪝", group: "Арка 7 · Тёмная юстициарша",
-    desc: "Бонусное действие: юстициарша дёргает опутанную Сетью теней цель на 10 фт. к себе. Из тьмы к сети тянутся два теневых жгута и рывком натягивают её (токен передвинь вручную).",
+    desc: "Бонусное действие: из пальцев юстициарши к сети выстреливают нити тьмы, цепляются и рывком тянут цель на 10 фт. к ней. Токен сдвигается сам (по клеткам, останавливается вплотную).",
     cast: [
-      { fx: "bolt", wave: true, color: "#2a1250", core: "#c4b5fd", width: 0.045, jag: 0.22, freq: 2.5, grow: 0.35, duration: 900 },
-      { fx: "bolt", wave: true, delay: 90, color: "#1a0b33", core: "#8b5cf6", width: 0.03, jag: 0.3, freq: 3.5, grow: 0.4, duration: 850 },
+      { fx: "implode", at: "caster", color: "#6d28d9", core: "#d8ccff", fill: "#07030f", radius: 0.6, sparks: 6, duration: 300 },
+      { fx: "threads", delay: 150, count: 4, speed: 18, amp: 0.1, wrap: 0.45, wrapTime: 260, hold: 180, fade: 520, lag: 25, retract: true, color: "#7c3aed", dark: "#07030f", core: "#c4b5fd" },
       { fx: "web", at: "targets", after: "hit", color: "#7c3aed", core: "#ede9fe", radius: 0.6, spokes: 9, rings: 3, unfold: 160, twist: 40, duration: 700, hold: 0.4 },
       { fx: "shock", at: "targets", after: "hit", color: "#c4b5fd", radius: 0.8, rings: 2, width: 0.04, duration: 450 },
-      { fx: "smoke", at: "targets", after: "hit", delay: 100, color: "#0b0616", color2: "#24123f", radius: 0.6, count: 5, size: 0.25, rise: 0.05, opacity: 0.35, duration: 900 },
-      { fx: "implode", at: "caster", after: "hit", delay: 150, color: "#6d28d9", core: "#d8ccff", radius: 0.7, sparks: 8, duration: 500 },
+      { fx: "implode", at: "caster", after: "hit", delay: 300, color: "#6d28d9", core: "#d8ccff", radius: 0.7, sparks: 8, duration: 500 },
     ],
+    pull: 10, pullDelay: 230,   // подтянуть цели на 10 фт к заклинателю через 230 мс после «попадания»
   },
 
   // ─── Гуур'Дэж ───
@@ -440,6 +437,6 @@ export function aimKind(A) {
   if (!A) return null;
   if (A.self) return "self";   // на себя — без прицела
   if (A.area) return "area";
-  const dir = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam" || s.fx === "letters" || (s.fx === "bolt" && s.from !== "sky"));
+  const dir = (A.cast || []).some(s => s.fx === "projectile" || s.fx === "beam" || s.fx === "letters" || s.fx === "threads" || (s.fx === "bolt" && s.from !== "sky"));
   return dir ? "dir" : "tok";
 }
