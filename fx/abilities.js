@@ -415,6 +415,33 @@ export const ABILITIES = [
     ],
     until: { who: "caster", when: "s", n: 1 },
   },
+  {
+    id: "shadow-step", name: "Шаг в тень", icon: "🐦‍⬛", group: "Шадар-кай",
+    desc: "Благословение Королевы воронов. Бонусное действие: телепорт в свободное место до 30 фт в пределах видимости (раз в день = бонус мастерства, восстанавливается после продолжительного отдыха). Наведи точку прибытия и кликни — токен растворится в тени и сам перенесётся туда. С 3-го уровня — призрачный полупрозрачный облик и сопротивление всему урону до начала следующего хода (снять раньше — ✕ в активных эффектах).",
+    area: { shape: "sphere", radius: 2.5, range: 30 },
+    teleport: true, teleportDelay: 520,
+    cast: [
+      // отправление: тень сжимается в точку, токен «тает», чёрные перья и дым
+      { fx: "implode", at: "caster", color: "#5b4a7a", core: "#cfc6e6", fill: "#07050d", radius: 1.3, sparks: 16, duration: 560 },
+      { fx: "smoke", at: "caster", color: "#0d0b14", color2: "#2a2340", radius: 0.9, count: 10, size: 0.36, opacity: 0.6, rise: 0.35, duration: 1500, delay: 120 },
+      { fx: "rise", at: "caster", color: "#15121f", core: "#6c5f8f", count: 12, height: 1.6, duration: 1300, delay: 200 },
+      { fx: "shock", at: "caster", color: "#8d7fb8", radius: 1.2, rings: 1, width: 0.04, opacity: 0.5, duration: 450, delay: 380 },
+      // прибытие: из клубов тени проступает призрачный силуэт
+      { fx: "area", at: "point", color: "#0b0912", edge: "#6c5f8f", radius: 0.75, opacity: 0.45, duration: 1200, delay: 380 },
+      { fx: "smoke", at: "point", color: "#0d0b14", color2: "#3a3158", radius: 1.1, count: 12, size: 0.38, opacity: 0.55, rise: 0.4, duration: 1700, delay: 480 },
+      { fx: "burst", at: "point", color: "#6c5f8f", core: "#e6e1f5", radius: 1.1, sparks: 12, flash: 0.35, duration: 650, delay: 560 },
+      { fx: "shock", at: "point", color: "#b9b0d8", radius: 1.5, rings: 2, width: 0.04, opacity: 0.7, duration: 600, delay: 580 },
+      { fx: "rise", at: "point", color: "#15121f", core: "#9a8fc0", count: 10, height: 1.3, duration: 1300, delay: 650 },
+    ],
+    // призрачный облик (3+ уровень): бледное свечение, дрожащий контур и клубы тени
+    auraOn: "caster", auraDelay: 650,
+    aura: [
+      { fx: "glow", color: "#d9d3f0", size: 1.25, opacity: 0.22, pulse: 0.08, period: 2.6, flicker: 0.5 },
+      { fx: "ring", color: "#cfc6e6", size: 1.08, width: 0.035, dash: true, opacity: 0.55, spin: -12, flicker: 0.6 },
+      { fx: "wisps", color: "#0d0b14", color2: "#4a4068", count: 5, radius: 0.9, size: 0.32, opacity: 0.4, speed: 18, flicker: 0.3 },
+    ],
+    until: { who: "caster", when: "s", n: 1 },
+  },
 ];
 
 export const ABIL = Object.fromEntries(ABILITIES.map(a => [a.id, a]));

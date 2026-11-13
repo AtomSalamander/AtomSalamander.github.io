@@ -164,6 +164,33 @@ async function slide(id, dx, dy) {
   } catch (e) { console.warn("[fx] pull", e); note("🕸️ Не смог подтянуть токен — передвинь его вручную"); }
 }
 
+// ── телепорт заклинателя (A.teleport): токен «тает», переносится в точку и проявляется ──
+// Делает только тот, кто применил способность. Точку прибытия прижимаем к сетке.
+async function snapFor(id, pt) {
+  try {
+    const DPI = await grid(), b = await OBR.scene.items.getItemBounds([id]);
+    const cells = Math.max(1, Math.round(Math.max(b.width, b.height) / DPI)), even = cells % 2 === 0;
+    const q = await OBR.scene.grid.snapPosition({ x: pt.x, y: pt.y }, 1, even, !even);
+    if (q && isFinite(q.x) && isFinite(q.y)) return { x: q.x, y: q.y };
+  } catch (e) {}
+  return pt;
+}
+async function teleportTo(id, pt, delay) {
+  await new Promise(r => setTimeout(r, Math.max(0, delay || 0)));
+  let it, b;
+  try { [it] = await OBR.scene.items.getItems([id]); if (!it) return; b = await OBR.scene.items.getItemBounds([id]); } catch (e) { return; }
+  const s0 = { ...it.scale }, p0 = { ...it.position }, dx = pt.x - b.center.x, dy = pt.y - b.center.y;
+  const scale = k => OBR.scene.items.updateItems([id], ds => { for (const d of ds) d.scale = { x: s0.x * k, y: s0.y * k }; });
+  const wait = ms => new Promise(r => setTimeout(r, ms));
+  try {
+    for (const k of [0.75, 0.45, 0.2, 0.05]) { await scale(k); await wait(30); }
+    await OBR.scene.items.updateItems([id], ds => { for (const d of ds) d.position = { x: p0.x + dx, y: p0.y + dy }; });
+    await wait(120);
+    for (const k of [0.3, 0.6, 0.85, 1.04]) { await scale(k); await wait(35); }
+  } catch (e) { console.warn("[fx] teleport", e); note("🐦‍⬛ Не смог перенести токен — передвинь его вручную"); }
+  finally { try { await scale(1); } catch (e) {} }
+}
+
 // ── заклинатель: по id, иначе по имени (другая сцена), иначе единственный свой токен игрока ──
 async function resolveCaster(c) {
   const sel = loadSel();
@@ -207,6 +234,7 @@ async function onCast(m) {
   const save = m.v === "save";
 
   const fireWith = async ({ pt, targets, asPoint, tok }) => {
+    if (A.teleport && pt && c && !save) pt = await snapFor(c.id, pt);
     const { e, list, lost } = makeEffects({ A, c, targets, dur: save ? null : m.dur, chips, uid, el: m.el });
     const rad = radOf(A, m.rad);
     let z;
@@ -218,6 +246,7 @@ async function onCast(m) {
     const msg = { op: "play", a: A.id, v: m.v, c: c ? c.id : null, t: targets.map(t => t.id), pt: pt || undefined, pa: asPoint ? 1 : undefined, el: m.el, e, rad: rad || undefined, z };
     await OBR.broadcast.sendMessage(CH, msg, { destination: "REMOTE" });
     const played = onPlay(msg);
+    if (A.teleport && pt && c && !save) teleportTo(c.id, pt, A.teleportDelay || 0).catch(e => console.warn("[fx] teleport", e));
     if (A.pull && c && !save) played.then(h => pullTokens(c.id, targets.map(t => t.id), A.pull, h || {}, A.pullDelay || 0)).catch(e => console.warn("[fx] pull", e));
     if (list.length) {
       if (isGM) mutate(s => { s.e.push(...list); return s; });
