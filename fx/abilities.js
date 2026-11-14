@@ -445,7 +445,7 @@ export const ABILITIES = [
   // ── Ролен · Ключ Порога ──
   {
     id: "rolen-resonance", name: "Резонанс", icon: "💠", group: "Ролен · Ключ Порога",
-    desc: "Бонусным действием, 1 минута, без концентрации. Браслет пробуждается, вены от кисти до плеча горят голубым, тусклый свет 5 фт. Раз в ход +1к4 голубого урона (см. «Резонанс: удар»). Помеха на Скрытность; Архитекторы и Архиноиды в 120 фт чувствуют направление. 1 раз / короткий отдых.",
+    desc: "Бонусным действием, 1 минута, без концентрации. Браслет пробуждается, вены от кисти до плеча горят голубым, тусклый свет 5 фт. Раз в ход +1к4 голубого урона к одному броску урона против одной цели. Помеха на Скрытность; Архитекторы и Архиноиды в 120 фт чувствуют направление. 1 раз / короткий отдых.",
     self: true, auraOn: "caster", auraDelay: 700, until: { who: "caster", when: "e", n: 10 },
     cast: [
       { fx: "implode", at: "caster", color: "#38c8ff", radius: 2, sparks: 16, duration: 650 },
@@ -463,15 +463,6 @@ export const ABILITIES = [
     ],
   },
   {
-    id: "rolen-resonance-hit", name: "Резонанс: удар (+1к4)", icon: "⚡", group: "Ролен · Ключ Порога",
-    desc: "Пока Резонанс активен, раз в ход: +1к4 голубого урона к одному броску урона против одной цели. От браслета к цели бьёт голубой разряд.",
-    cast: [
-      { fx: "bolt", color: "#38c8ff", core: "#e8fbff", width: 0.045, jag: 0.25, duration: 380 },
-      { fx: "burst", at: "targets", after: "hit", color: "#38c8ff", core: "#ffffff", radius: 0.7, sparks: 10, flash: 1 },
-      { fx: "shock", at: "targets", after: "hit", color: "#9eeaff", radius: 1, rings: 1, width: 0.04, duration: 500 },
-    ],
-  },
-  {
     id: "rolen-seam", name: "Шов Порога", icon: "🐦‍⬛", group: "Ролен · Ключ Порога",
     desc: "Телепорт (Благословение Королевы воронов при Резонансе или бонусным действием во время Пробуждения, 30 фт). За Роленом остаётся шов голубого света: все на линии шириной 5 фт — спасбросок Ловкости, 2к6 голубого урона (половина при успехе). Не больше 1 шва в ход. Нажми «Прицелиться» и кликни точку — токен перенесётся, задетые линией подсветятся.",
     save: "Лов", area: { shape: "sphere", radius: 2.5, range: 30, line: 5 }, teleport: true, teleportDelay: 420,
@@ -479,7 +470,7 @@ export const ABILITIES = [
       { fx: "implode", at: "caster", color: "#38c8ff", radius: 1.4, sparks: 12, duration: 420 },
       { fx: "smoke", at: "caster", delay: 250, color: "#0b0912", color2: "#1c2a3a", radius: 1.2, count: 9, size: 0.5, rise: 0.4, opacity: 0.6, duration: 1600 },
       { fx: "rise", at: "caster", delay: 300, color: "#0b0912", count: 8, height: 1, duration: 1300 },
-      { fx: "seam", to: "point", delay: 330, color: "#38c8ff", core: "#e8fbff", width: 0.08, duration: 2800 },
+      { fx: "seam", to: "point", delay: 330, color: "#38c8ff", core: "#e8fbff", width: 0.08, veins: 1.6, veinLen: 0.65, pulse: 1.1, duration: 3400 },
       { fx: "burst", at: "targets", after: "hit", delay: 60, stagger: 80, color: "#38c8ff", core: "#ffffff", radius: 0.8, sparks: 10, flash: 1 },
       { fx: "shock", at: "targets", after: "hit", delay: 60, stagger: 80, color: "#9eeaff", radius: 1.1, rings: 1, width: 0.04, duration: 600 },
       { fx: "burst", at: "center", after: "hit", delay: 150, color: "#9eeaff", core: "#ffffff", radius: 1.2, sparks: 14 },

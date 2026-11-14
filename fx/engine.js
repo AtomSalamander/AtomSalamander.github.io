@@ -580,12 +580,16 @@ const FX = {
     } });
     return o.hitAt ?? grow * dur;
   },
-  // «Шов Порога»: от A к B прорезается шов голубого света — ядро, свечение, трещащая молния,
-  // поперечные «стежки» и искры, поднимающиеся с линии; держится и медленно гаснет
+  // «Шов Порога»: от A к B прорезается шов голубого света — ядро, свечение, трещащая молния, поперечные «стежки».
+  // По ОБЕ стороны шва прорастают ветвящиеся вены («рыбья кость», чуть отклонены назад, к точке старта),
+  // по ним волнами бегут импульсы света от начала шва к концу; на концах вен вспыхивают узелки.
+  // По шву бегут светлые «бусины», с линии поднимаются искры; держится и медленно гаснет.
+  // Опции: width, jag, grow, duration, veins (плотность вен на клетку), veinLen (клетки), veinWidth, pulse (Гц), color, core, crackle
   seam(A, B, o, delay) {
-    const dur = o.duration || 2600, grow = o.grow || 280, w = (o.width || 0.08) * DPI, col = o.color || "#38c8ff", core = o.core || "#e8fbff";
+    const dur = o.duration || 3200, grow = o.grow || 320, w = (o.width || 0.08) * DPI, col = o.color || "#38c8ff", core = o.core || "#e8fbff", hi = o.crackle || "#9eeaff";
     const dx = B.x - A.x, dy = B.y - A.y, dist = Math.hypot(dx, dy) || 1, nx = -dy / dist, ny = dx / dist, ux = dx / dist, uy = dy / dist;
-    const n = Math.max(8, Math.round(dist / DPI * 3)), amp = (o.jag ?? 0.13) * DPI, z = Date.now() + 40;
+    const n = Math.max(8, Math.round(dist / DPI * 3)), amp = (o.jag ?? 0.13) * DPI, sp = o.pulse ?? 1.1;
+    let z = Date.now() + 40;
     const path = (g, seed, a) => {
       const pts = [];
       for (let k = 0; k <= n; k++) {
@@ -595,36 +599,105 @@ const FX = {
       }
       return pts;
     };
+    // часть ломаной (0..1) — вены «прорастают» постепенно
+    const part = (pts, f) => {
+      const m = pts.length - 1, t = c01(f) * m, i = Math.min(m - 1, Math.floor(t)), u = t - i, a = pts[i], b = pts[i + 1];
+      return [...pts.slice(0, i + 1), { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u }];
+    };
     const p0 = path(0.01, 0, 0);
-    const L = [[w * 6, col, 0.16], [w * 2.6, col, 0.55], [w, core, 1]].map(([sw, c, a], i) =>
-      ({ a, it: poly({ x: A.x, y: A.y, pts: p0, stroke: c, sw, closed: false, z: z + i }) }));
-    const cr = poly({ x: A.x, y: A.y, pts: p0, stroke: o.crackle || "#9eeaff", sw: w * 0.5, closed: false, z: z + 3 });
+
+    // ── вены по обе стороны шва (рисуются под швом) ──
+    const VC = Math.min(12, Math.max(3, Math.round(dist / DPI * (o.veins ?? 1.6)))), VL = (o.veinLen ?? 0.6) * DPI, vw = DPI * (o.veinWidth ?? 0.026);
+    const V = [], nodes = [];
+    const branch = (sx, sy, ang, len, depth, q, j) => {
+      const pts = [{ x: sx, y: sy }], m = 6; let cx = sx, cy = sy, a = ang;
+      for (let k = 1; k <= m; k++) { a += (Math.random() - 0.5) * 0.8; cx += Math.cos(a) * len / m; cy += Math.sin(a) * len / m; pts.push({ x: cx, y: cy }); }
+      const g = poly({ x: A.x, y: A.y, pts, stroke: col, sw: vw * (3.4 - depth * 1.2), closed: false, tension: 0.4, z: z++ });
+      const c = poly({ x: A.x, y: A.y, pts, stroke: core, sw: vw * (1.1 - depth * 0.35), closed: false, tension: 0.4, z: z++ });
+      const v = { g, c, pts, q, d: depth, j, t0: null, f: 0, pl: 0 };
+      V.push(v);
+      if (depth === 0) {
+        nodes.push({ v, it: circle({ x: A.x + cx, y: A.y + cy, r: vw * 2.3, fill: core, n: 10, z: z + 200 }) });
+        const b = pts[2 + Math.floor(Math.random() * 3)];
+        branch(b.x, b.y, a + (Math.random() < 0.5 ? -1 : 1) * (0.55 + Math.random() * 0.45), len * (0.45 + Math.random() * 0.2), 1, q, j + 0.12);
+        if (Math.random() < 0.45) {   // иногда — вторая веточка в другую сторону
+          const b2 = pts[3 + Math.floor(Math.random() * 2)];
+          branch(b2.x, b2.y, a + (Math.random() < 0.5 ? 1 : -1) * (0.5 + Math.random() * 0.4), len * 0.35, 1, q, j + 0.18);
+        }
+      }
+    };
+    for (let i = 0; i < VC; i++) {
+      for (const sd of [1, -1]) {
+        const q = c01((i + 0.5 + sd * 0.22 + (Math.random() - 0.5) * 0.3) / VC);
+        const t = 0.3 + Math.random() * 0.35, vx = sd * nx * Math.cos(t) - ux * Math.sin(t), vy = sd * ny * Math.cos(t) - uy * Math.sin(t);
+        const len = VL * (0.5 + 0.5 * Math.sin(Math.PI * q)) * (0.75 + Math.random() * 0.5);
+        const off = sd * w * 0.6;   // стартуют от края свечения, а не из самой оси
+        branch(dx * q + nx * off, dy * q + ny * off, Math.atan2(vy, vx), len, 0, q, q * 1.3);
+      }
+    }
+
+    // ── сам шов ──
+    z += 210;
+    const L = [[w * 7, col, 0.12], [w * 3, col, 0.5], [w * 1.1, core, 1]].map(([sw, c, a]) =>
+      ({ a, it: poly({ x: A.x, y: A.y, pts: p0, stroke: c, sw, closed: false, z: z++ }) }));
+    const cr = poly({ x: A.x, y: A.y, pts: p0, stroke: hi, sw: w * 0.5, closed: false, z: z++ });
+    const cr2 = poly({ x: A.x, y: A.y, pts: p0, stroke: core, sw: w * 0.3, closed: false, z: z++ });
     const ns = Math.max(3, Math.round(dist / DPI * 1.6)), st = [];
     for (let k = 1; k < ns; k++) {
       const q = k / ns, h = DPI * (o.stitch ?? 0.22) * (k % 2 ? 1 : 0.7), cx = dx * q, cy = dy * q;
       st.push({ q, it: poly({ x: A.x, y: A.y, pts: [{ x: cx - nx * h - ux * h * 0.35, y: cy - ny * h - uy * h * 0.35 }, { x: cx + nx * h + ux * h * 0.35, y: cy + ny * h + uy * h * 0.35 }],
-        stroke: core, sw: w * 0.55, closed: false, z: z + 4 }) });
+        stroke: core, sw: w * 0.55, closed: false, z: z++ }) });
     }
-    const nm = Math.min(30, Math.round(dist / DPI * 4)), motes = [];
+    // бусины света, бегущие по шву от начала к концу
+    const beads = [0, 1, 2].map(b => ({ b, it: circle({ x: A.x, y: A.y, r: w * 1.3, fill: core, n: 12, z: z++ }), h: circle({ x: A.x, y: A.y, r: w * 3.2, fill: col, n: 16, z: z++ }) }));
+    const nm = Math.min(34, Math.round(dist / DPI * 4)), motes = [];
     for (let k = 0; k < nm; k++) {
-      const q = Math.random();
-      motes.push({ q, ph: Math.random(), sx: (Math.random() - 0.5) * DPI * 0.4, h: DPI * (0.3 + Math.random() * 0.6),
-        it: circle({ x: A.x + dx * q, y: A.y + dy * q, r: DPI * (0.025 + Math.random() * 0.03), fill: k % 3 ? col : core, n: 8, z: z + 5 }) });
+      const q = Math.random(), sd = Math.random() < 0.5 ? -1 : 1;
+      motes.push({ q, ph: Math.random(), sx: sd * DPI * (0.1 + Math.random() * 0.3), h: DPI * (0.3 + Math.random() * 0.6),
+        it: circle({ x: A.x + dx * q, y: A.y + dy * q, r: DPI * (0.025 + Math.random() * 0.03), fill: k % 3 ? col : core, n: 8, z: z++ }) });
     }
-    const flash = circle({ x: B.x, y: B.y, r: DPI * 0.6, fill: core, n: 24, z: z + 6 });
-    const all = [...L.map(l => l.it), cr, ...st.map(s => s.it), ...motes.map(m => m.it), flash], fadeMs = Math.min(900, dur * 0.4);
+    const flashA = circle({ x: A.x, y: A.y, r: DPI * 0.45, fill: core, n: 20, z: z++ });
+    const flash = circle({ x: B.x, y: B.y, r: DPI * 0.6, fill: core, n: 24, z: z++ });
+    const ringB = circle({ x: B.x, y: B.y, r: DPI * 0.5, fill: col, stroke: col, sw: w * 0.6, n: 32, z: z++ });
+
+    const all = [...V.flatMap(v => [v.g, v.c]), ...nodes.map(d => d.it), ...L.map(l => l.it), cr, cr2, ...st.map(s => s.it),
+      ...beads.flatMap(b => [b.h, b.it]), ...motes.map(m => m.it), flashA, flash, ringB];
+    const fadeMs = Math.min(1000, dur * 0.35);
     spawn(delay, all, { dur, f: (p, P) => {
       const tm = p * dur, g = Math.max(0.01, out3(tm / grow)), env = c01(tm > dur - fadeMs ? (dur - tm) / fadeMs : 1);
-      const pulse = 0.8 + 0.2 * Math.sin(tm * 0.012), seed = Math.floor(tm / 70), bp = path(g, 0, 0);
-      L.forEach(l => P.set(l.it.id, { pts: bp, so: l.a * env * pulse }));
+      const beat = Math.pow(0.5 + 0.5 * Math.sin(tm / 1000 * sp * TAU), 3), pulse = 0.75 + 0.25 * beat, seed = Math.floor(tm / 70), bp = path(g, 0, 0);
+      L.forEach((l, i) => P.set(l.it.id, { pts: bp, so: l.a * env * (i === 0 ? 0.7 + 0.6 * beat : pulse) }));
       P.set(cr.id, { pts: path(g, seed + 1, amp), so: 0.8 * env * (0.4 + 0.6 * rnd(seed + 3)) });
+      P.set(cr2.id, { pts: path(g, seed + 5, amp * 0.7), so: 0.55 * env * rnd(seed + 9) });
       for (const s of st) P.set(s.it.id, { so: c01((g - s.q) * 8) * env * (0.6 + 0.4 * Math.sin(tm * 0.008 + s.q * 9)) });
+      // вены: прорастают, когда шов доходит до их основания, потом пульсируют волной вдоль шва
+      for (const v of V) {
+        if (v.t0 == null && g >= v.q) v.t0 = tm + v.d * 150;
+        v.f = v.t0 == null ? 0 : c01((tm - v.t0) / 340);
+        if (v.f <= 0) { P.set(v.g.id, { so: 0 }); P.set(v.c.id, { so: 0 }); continue; }
+        v.pl = 0.25 + 0.75 * Math.pow(0.5 + 0.5 * Math.sin((tm / 1000 * sp - v.j - v.d * 0.15) * TAU), 4);
+        const pts = part(v.pts, out3(v.f)), k = 1 - v.d * 0.25, flare = 1 + 0.6 * (1 - v.f);   // при прорастании ярче
+        P.set(v.g.id, { pts, so: env * (0.16 + 0.34 * v.pl) * k * flare });
+        P.set(v.c.id, { pts, so: c01(env * (0.35 + 0.65 * v.pl) * k * flare) });
+      }
+      for (const d of nodes) {
+        const on = d.v.f >= 1 ? 1 : 0;
+        P.set(d.it.id, { s: 0.5 + 0.9 * d.v.pl, fo: on * env * 0.9 * d.v.pl * d.v.pl });
+      }
+      for (const b of beads) {
+        const q = ((tm - grow) / 1000 * 0.8 + b.b / 3) % 1, a = tm > grow ? env * Math.sin(Math.PI * q) : 0;
+        const x = A.x + dx * q, y = A.y + dy * q;
+        P.set(b.it.id, { x, y, fo: a * 0.95 }); P.set(b.h.id, { x, y, fo: a * 0.25 });
+      }
       for (const m of motes) {
         const k = (tm / 1000 / 1.4 + m.ph) % 1;
         P.set(m.it.id, { x: A.x + dx * m.q + m.sx * k, y: A.y + dy * m.q - m.h * k, fo: (g >= m.q ? 1 : 0) * env * Math.sin(Math.PI * k) * 0.9 });
       }
-      const fq = c01((tm - grow * 0.8) / 400);
+      const fa = c01(tm / 300);
+      P.set(flashA.id, { s: 0.4 + 1 * out3(fa), fo: fa < 1 ? 0.55 * (1 - fa) : 0 });
+      const fq = c01((tm - grow * 0.8) / 400), rq = c01((tm - grow * 0.8) / 700);
       P.set(flash.id, { s: 0.3 + 1.2 * out3(fq), fo: fq > 0 && fq < 1 ? 0.6 * (1 - fq) : 0 });
+      P.set(ringB.id, { s: 0.4 + 2.2 * out3(rq), so: rq > 0 && rq < 1 ? 0.8 * (1 - rq) : 0, fo: rq > 0 && rq < 1 ? 0.1 * (1 - rq) : 0 });
     } });
     return o.hitAt ?? grow;
   },
