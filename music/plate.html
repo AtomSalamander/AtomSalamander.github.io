@@ -1,0 +1,160 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Cormorant+SC:wght@600;700&display=swap">
+<style>
+:root{--a:#F3D27A;--b:#C8912F;--g:#E8B44F;--ease:cubic-bezier(.2,.8,.2,1);--t:.6s}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden}
+body{font-family:"Cormorant Garamond",Georgia,"Times New Roman",serif;user-select:none;-webkit-user-select:none}
+
+/* плашка прижата к правому нижнему углу окна — так она уменьшается «в угол» */
+#plate{position:absolute;right:12px;bottom:12px;display:flex;align-items:center;cursor:pointer;overflow:hidden;opacity:0;
+  border-radius:12px;
+  background:
+    radial-gradient(120% 110% at 0% 0%, color-mix(in srgb,var(--g) 20%,transparent) 0%, transparent 55%),
+    linear-gradient(180deg,#17110cF4,#0a0706F7);
+  border:1px solid color-mix(in srgb,var(--a) 62%,transparent);
+  box-shadow:0 0 0 3px #0a0706cc,0 0 0 4px color-mix(in srgb,var(--b) 50%,transparent),0 6px 14px -8px #000;
+  transition:width var(--t) var(--ease),height var(--t) var(--ease),padding var(--t) var(--ease),gap var(--t) var(--ease),border-radius var(--t) var(--ease),box-shadow var(--t) var(--ease)}
+#plate.big{width:404px;height:116px;padding:12px 10px 12px 20px;gap:16px;
+  box-shadow:0 0 0 3px #0a0706cc,0 0 0 4px color-mix(in srgb,var(--b) 65%,transparent),0 0 14px -2px color-mix(in srgb,var(--g) 70%,transparent)}
+#plate.small{width:284px;height:44px;padding:0 4px 0 12px;gap:10px;border-radius:10px}
+#plate:before{content:"";position:absolute;inset:5px;border-radius:8px;border:1px solid color-mix(in srgb,var(--a) 22%,transparent);pointer-events:none;transition:opacity var(--t)}
+#plate.small:before{opacity:0}
+/* блик при появлении */
+#plate:after{content:"";position:absolute;top:-30%;bottom:-30%;width:26%;left:-40%;transform:skewX(-18deg);pointer-events:none;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--a) 20%,transparent),transparent)}
+
+.on #plate{opacity:1}
+.intro #plate{animation:enter .7s var(--ease) both}
+.intro #plate:after{animation:sheen 1.5s .45s ease-out 1 both}
+.quick #plate{animation:fade .2s ease-out both}
+@keyframes enter{from{opacity:0;transform:translateX(28px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes sheen{to{left:125%}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* эквалайзер */
+.eq{flex:none;display:flex;align-items:flex-end;gap:4px;height:34px;transition:height var(--t) var(--ease),gap var(--t) var(--ease)}
+.eq i{display:block;width:4px;height:100%;border-radius:2px;transform-origin:50% 100%;
+  background:linear-gradient(180deg,#FFF1C9,var(--a) 40%,var(--b));box-shadow:0 0 6px color-mix(in srgb,var(--g) 55%,transparent);
+  animation:eq 1.05s ease-in-out infinite;transition:width var(--t) var(--ease)}
+.eq i:nth-child(2){animation-duration:.82s;animation-delay:-.35s}
+.eq i:nth-child(3){animation-duration:1.2s;animation-delay:-.6s}
+.eq i:nth-child(4){animation-duration:.95s;animation-delay:-.15s}
+@keyframes eq{0%,100%{transform:scaleY(.28)}50%{transform:scaleY(1)}}
+.small .eq{height:18px;gap:2px}
+.small .eq i{width:3px}
+.paused .eq i{animation:none;transform:scaleY(.25);opacity:.55}
+
+/* текст */
+.txt{position:relative;flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;transition:padding var(--t) var(--ease)}
+.small .txt{padding-right:60px}
+.big .kicker{padding-right:60px}
+.kicker,.pl{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;transition:max-height var(--t) var(--ease),opacity .35s ease,margin var(--t) var(--ease)}
+.kicker{max-height:18px;margin-bottom:2px;font:700 13px/18px "Cormorant SC",Georgia,serif;letter-spacing:.22em;text-transform:lowercase;color:color-mix(in srgb,var(--a) 82%,#fff)}
+.pl{max-height:18px;margin-top:3px;font:600 14px/18px "Cormorant Garamond",Georgia,serif;letter-spacing:.03em;color:#BFAE92}
+.pl:empty{display:none}
+#title{font:italic 700 30px/1.15 "Cormorant Garamond",Georgia,serif;color:#FFF4DC;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:.1em;
+  text-shadow:0 0 14px color-mix(in srgb,var(--g) 55%,transparent),0 1px 0 #000;transition:font-size var(--t) var(--ease)}
+.small .kicker,.small .pl{max-height:0;opacity:0;margin:0}
+.small #title{font-size:19px !important;line-height:1.2;text-shadow:0 1px 0 #000}
+.paused #title{color:#D8CCB6}
+
+/* кнопки */
+.tools{position:absolute;top:8px;right:8px;display:flex;gap:0;transition:opacity .3s,top var(--t) var(--ease),right var(--t) var(--ease)}
+.small .tools{top:7px;right:4px}
+.tools button{width:30px;height:30px;padding:0;border:0;border-radius:8px;background:transparent;color:#A8977C;cursor:pointer;display:grid;place-items:center;transition:background .15s,color .15s}
+.tools button svg{width:16px;height:16px}
+.tools button:hover{background:#ffffff12;color:var(--a)}
+.tools button:focus-visible{outline:2px solid var(--a);outline-offset:-2px}
+#plate:not(:hover):not(:focus-within) .tools{opacity:.55}
+
+@media (prefers-reduced-motion: reduce){
+  :root{--t:0s}
+  .intro #plate{animation:fade .3s both}
+  .intro #plate:after{animation:none}
+  .eq i{animation:none;transform:scaleY(.6)}
+}
+</style></head><body>
+<div id="plate" role="status" aria-live="polite">
+  <div class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+  <div class="txt">
+    <div class="kicker" id="kicker">сейчас звучит</div>
+    <div id="title"></div>
+    <div class="pl" id="pl"></div>
+  </div>
+  <div class="tools">
+    <button id="mv" type="button" title="Переместить" aria-label="Переместить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg></button>
+    <button id="x" type="button" title="Закрыть" aria-label="Закрыть"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+</div>
+<script type="module">
+import { CH, SDK } from "./const.js";
+
+const $ = s => document.querySelector(s);
+const q = new URLSearchParams(location.search);
+const mode = q.get("mode") === "big" ? "big" : "small";
+const playing = q.get("p") !== "0";
+const title = (q.get("title") || "Без названия").slice(0, 160);
+const pl = (q.get("pl") || "").slice(0, 80);
+const bigMs = Math.max(2, Math.min(60, +q.get("big") || 6)) * 1000;
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const plate = $("#plate");
+plate.classList.add(mode);
+if (!playing) plate.classList.add("paused");
+$("#title").textContent = title;
+$("#title").title = pl ? `${title} — ${pl}` : title;
+$("#kicker").textContent = playing ? "сейчас звучит" : "пауза";
+$("#pl").textContent = pl ? `плейлист · ${pl}` : "";
+
+// связь с Owlbear (вне Owlbear страница просто показывает плашку)
+let OBR = null;
+const ready = window.parent !== window
+  ? import(SDK).then(m => { OBR = m.default; return new Promise(r => OBR.isReady ? r() : OBR.onReady(r)); }).catch(() => {})
+  : Promise.resolve();
+const send = op => ready.then(() => OBR && OBR.broadcast.sendMessage(CH, { op }, { destination: "LOCAL" })).catch(() => {});
+
+// уменьшаем шрифт длинного названия в крупном режиме
+function fit() {
+  const el = $("#title");
+  el.style.transition = "none";
+  let s = 30; el.style.fontSize = s + "px";
+  while (el.scrollWidth > el.clientWidth + 1 && s > 19) { s -= 1; el.style.fontSize = s + "px"; }
+  void el.offsetWidth;
+  el.style.transition = "";
+}
+
+let shrinking = false, timer = 0;
+function shrink() {
+  if (shrinking) return;
+  shrinking = true;
+  clearTimeout(timer);
+  plate.classList.replace("big", "small");
+  setTimeout(() => send("compact"), reduced ? 60 : 680);
+}
+
+function start() {
+  if (mode === "big") {
+    fit();
+    document.body.classList.add("on", "intro");
+    timer = setTimeout(shrink, bigMs);
+  } else {
+    document.body.classList.add("on", "quick");
+  }
+}
+const fonts = document.fonts ? document.fonts.ready : Promise.resolve();
+Promise.race([fonts, new Promise(r => setTimeout(r, 600))]).then(start);
+
+// клик по плашке: крупная → сразу уменьшить, маленькая → на пару секунд увеличить
+plate.addEventListener("click", e => {
+  if (e.target.closest("button")) return;
+  if (plate.classList.contains("big")) shrink(); else send("expand");
+});
+$("#x").addEventListener("click", () => {
+  if (OBR) send("close"); else plate.style.display = "none";
+});
+$("#mv").addEventListener("click", () => send("move"));
+</script>
+</body></html>
