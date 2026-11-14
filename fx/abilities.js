@@ -446,20 +446,19 @@ export const ABILITIES = [
   {
     id: "rolen-resonance", name: "Резонанс", icon: "💠", group: "Ролен · Ключ Порога",
     desc: "Бонусным действием, 1 минута, без концентрации. Браслет пробуждается, вены от кисти до плеча горят голубым, тусклый свет 5 фт. Раз в ход +1к4 голубого урона к одному броску урона против одной цели. Помеха на Скрытность; Архитекторы и Архиноиды в 120 фт чувствуют направление. 1 раз / короткий отдых.",
-    self: true, auraOn: "caster", auraDelay: 700, until: { who: "caster", when: "e", n: 10 },
+    self: true, auraOn: "caster", auraDelay: 450, until: { who: "caster", when: "e", n: 10 },
+    // браслет тянет свет к себе → вспышка → вены загораются от кисти к плечу (само зажигание — в ауре «arm»)
     cast: [
-      { fx: "implode", at: "caster", color: "#38c8ff", radius: 2, sparks: 16, duration: 650 },
-      { fx: "sigil", at: "caster", delay: 150, color: "#38c8ff", radius: 1.1, points: 6, runes: 8, spin: 40, duration: 1700 },
-      { fx: "burst", at: "caster", delay: 600, color: "#9eeaff", core: "#ffffff", radius: 1.3, sparks: 12, flash: 1 },
-      { fx: "shock", at: "caster", delay: 620, color: "#38c8ff", radius: 2.4, rings: 2, width: 0.05, duration: 900 },
-      { fx: "rise", at: "caster", delay: 650, color: "#9eeaff", count: 14, height: 1.2, duration: 1600 },
+      { fx: "implode", at: "caster", color: "#38c8ff", core: "#e8fbff", radius: 1.6, sparks: 14, duration: 600 },
+      { fx: "sigil", at: "caster", delay: 100, color: "#38c8ff", rune: "#e8fbff", radius: 0.95, points: 6, runes: 8, spin: 60, duration: 1300 },
+      { fx: "burst", at: "caster", delay: 420, color: "#9eeaff", core: "#ffffff", radius: 0.9, sparks: 10, flash: 0.6 },
+      { fx: "shock", at: "caster", delay: 440, color: "#38c8ff", radius: 2, rings: 2, width: 0.04, opacity: 0.8, duration: 900 },
+      { fx: "rise", at: "caster", delay: 600, color: "#9eeaff", count: 10, height: 1, duration: 1400 },
     ],
+    // angle — с какой стороны токена рука (градусы: 0 — вправо, 90 — вниз); mirror: true — зеркально (другая рука)
     aura: [
-      { fx: "glow", color: "#38c8ff", size: 3, opacity: 0.1, period: 3.5, pulse: 0.03 },
-      { fx: "glow", color: "#9eeaff", size: 1.35, opacity: 0.22, period: 2.2 },
-      { fx: "veins", color: "#38c8ff", core: "#e8fbff", count: 4, angle: 20, spread: 110, size: 1.05, width: 0.028, speed: 0.7 },
-      { fx: "ring", color: "#38c8ff", size: 1.12, width: 0.03, dash: true, spin: 12, opacity: 0.55 },
-      { fx: "orbit", color: "#9eeaff", color2: "#ffffff", count: 3, radius: 1.1, size: 0.045, speed: 70 },
+      { fx: "arm", color: "#38c8ff", core: "#e8fbff", light: "#9eeaff", angle: 35, size: 1.1, width: 0.028, count: 12, speed: 0.6, reveal: 1.3, beaconEvery: 5, lightOpacity: 0.09, flicker: 0.12 },
+      { fx: "glow", color: "#9eeaff", size: 1.15, opacity: 0.1, period: 2.6 },
     ],
   },
   {
