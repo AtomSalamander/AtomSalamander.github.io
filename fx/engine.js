@@ -1251,115 +1251,43 @@ export async function startAura(parts, tok) {
           P.set(v.g.id, { so: A * 0.32 * pl * k }); P.set(v.c.id, { so: A * (0.45 + 0.55 * pl) * k });
         }
       });
-    } else if (p.fx === "arm") {
-      // «Светящиеся вены» Резонанса (вид сверху): рука сбоку от токена, браслет на запястье.
-      // При пробуждении вены вспыхивают от браслета к плечу и ветвятся по обе стороны руки,
-      // потом по ним бегут волны и бусины света (кисть → плечо). Тусклый свет 5 фт вокруг Ролена
-      // и редкая «эхо-волна» (Архитекторы и Архиноиды чувствуют, где он)
-      const S = T.r * (p.size || 1), o = op ?? 1, w = DPI * (p.width || 0.026), core = p.core || "#e8fbff", hi = p.light || "#9eeaff";
-      const L = p.layer, dark = p.shadow || "#06121c", sp2 = p.speed ?? 0.6, rev = p.reveal ?? 1.3, every = p.beaconEvery ?? 5;
-      const an = (p.angle ?? 35) * Math.PI / 180, mir = p.mirror ? -1 : 1, ca = Math.cos(an), sa = Math.sin(an);
-      const W = (u, v) => ({ x: (u * ca - v * mir * sa) * S, y: (u * sa + v * mir * ca) * S });
-      const cfg = { attach: tok, layer: L };
-      const mk = o2 => { const it = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], closed: false, tension: 0.45, fo: 0, so: 0, ...cfg, z: z + items.length, ...o2 }); items.push(it); return it; };
-      const mc = (fill, n = 12, o2 = {}) => { const it = circle({ x: T.x, y: T.y, r: DPI * 0.05, fill, fo: 0, so: 0, n, ...cfg, z: z + items.length, ...o2 }); items.push(it); return it; };
-      const dot = (c, r, n = 12) => { const q = []; for (let j = 0; j < n; j++) q.push({ x: c.x + Math.cos(j / n * TAU) * r, y: c.y + Math.sin(j / n * TAU) * r }); return q; };
-      // скелет руки: кисть (f = 0) → плечо (f = 1), в долях радиуса токена
-      const K = p.path || [[1.08, 0.22], [0.88, 0.12], [0.68, 0.0], [0.5, -0.12], [0.32, -0.26], [0.14, -0.42]];
-      const along = (f, off, ph) => {
-        const x = f * (K.length - 1), i = Math.min(K.length - 2, Math.floor(x)), r = x - i;
-        const u = K[i][0] + (K[i + 1][0] - K[i][0]) * r, v = K[i][1] + (K[i + 1][1] - K[i][1]) * r;
-        return W(u, v + off + 0.02 * Math.sin(f * 11 + ph) + 0.01 * Math.sin(f * 23 + ph * 2));
-      };
-      const N = 18, mkTrunk = (off, ph) => { const q = []; for (let i = 0; i <= N; i++) q.push(along(i / N, off(i / N), ph)); return q; };
-      const T1 = mkTrunk(() => 0, 0.7), T2 = mkTrunk(f => 0.065 * Math.sin(f * 5.2 + 1.1), 2.3);
-      const at = (q, f) => { const x = c01(f) * N, i = Math.min(N - 1, Math.floor(x)), r = x - i; return { x: q[i].x + (q[i + 1].x - q[i].x) * r, y: q[i].y + (q[i + 1].y - q[i].y) * r }; };
-      const cut = (q, f) => f >= 1 ? q : [...q.slice(0, Math.max(0, Math.floor(f * N)) + 1), at(q, Math.max(f, 0.001))];
-      const tang = f => { const a1 = at(T1, f - 0.03), b1 = at(T1, f + 0.03); return Math.atan2(b1.y - a1.y, b1.x - a1.x); };
-      // свет: 5 фт вокруг Ролена + мягкое свечение вдоль руки; эхо-волна
-      const light = circle({ x: T.x, y: T.y, r: T.r + DPI * (p.lightFt ?? 5) / 5, fill: col, fo: 0, so: 0, n: 40, attach: tok, layer: p.lightLayer || "MOUNT", z: z + items.length });
-      items.push(light);
-      const armLight = mc(col, 20), mid = at(T1, 0.5);
-      const beacon = circle({ x: T.x, y: T.y, r: T.r * 1.05, fill: hi, fo: 0, stroke: hi, so: 0, sw: DPI * 0.025, n: 48, ...cfg, z: z + items.length });
-      items.push(beacon);
-      // стволы вен: тёмная подложка (чтобы читалось на светлых картах), свечение, ядро
-      const TR = [[T1, 1], [T2, 0.6]].map(([q, k]) => ({ q, k, sh: mk({ stroke: dark, sw: w * 4.2 * k }), g: mk({ stroke: col, sw: w * 3.4 * k }), c: mk({ stroke: core, sw: w * 1.15 * k }) }));
-      // ветки по обе стороны руки + прожилки к пальцам + вены, уходящие под ключицу
-      const V = [];
-      const branch = (x, y, ang, len, depth, f, fade) => {
-        const pts = [{ x, y }], m = 4; let cx = x, cy = y, a = ang;
-        for (let k = 1; k <= m; k++) { a += (Math.random() - 0.5) * 0.8; cx += Math.cos(a) * len / m; cy += Math.sin(a) * len / m; pts.push({ x: cx, y: cy }); }
-        V.push({ f: f + depth * 0.04, d: depth, fade, pts, g: mk({ pts, stroke: col, sw: w * (2.6 - depth * 0.9) }), c: mk({ pts, stroke: core, sw: w * (0.95 - depth * 0.3) }) });
-        if (depth < 1 && Math.random() < 0.75) { const q = pts[2]; branch(q.x, q.y, a + (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.4), len * 0.55, depth + 1, f + 0.03, fade); }
-      };
-      const B = p.count ?? 12;
-      for (let k = 0; k < B; k++) {
-        const f = 0.07 + 0.86 * (k + 0.2 + Math.random() * 0.6) / B, sd = k % 2 ? 1 : -1, b = at(T1, f);
-        branch(b.x, b.y, tang(f) + sd * (0.55 + Math.random() * 0.5), S * (0.13 + Math.random() * 0.13), 0, f, 1);
+    } else if (p.fx === "arcs") {
+      // Голубые молнии вокруг токена: короткие ломаные разряды вспыхивают в случайных местах —
+      // то вдоль края, то выстреливают наружу; на концах — искра
+      const n = p.count || 5, o = op ?? 1, R = T.r * (p.radius || 1.1), w = DPI * (p.width || 0.03), cr = p.core || "#e8fbff", rate = p.rate ?? 1, m = 7;
+      const Z = [];
+      for (let k = 0; k < n; k++) {
+        const mkA = (stroke, sw) => { const it = poly({ x: T.x, y: T.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke, sw, closed: false, tension: 0, attach: tok, layer: p.layer, z: z + items.length }); items.push(it); return it; };
+        const g = mkA(col, w * 3.2), c = mkA(cr, w);
+        const d = circle({ x: T.x, y: T.y, r: DPI * 0.05, fill: cr, fo: 0, n: 8, attach: tok, layer: p.layer, z: z + items.length });
+        items.push(d);
+        Z.push({ g, c, d, per: (0.7 + rnd(k * 7.3) * 0.8) / rate, off: rnd(k * 3.1), cyc: -1 });
       }
-      const w0 = at(T1, 0), t0 = tang(0.03);
-      for (let k = -1; k <= 1; k++) branch(w0.x, w0.y, t0 + Math.PI + k * 0.45, S * 0.11, 1, 0, 0.8);
-      const s0 = at(T1, 1), t1 = tang(0.97);
-      for (let k = -1; k <= 1; k++) branch(s0.x, s0.y, t1 + k * 0.6, S * 0.15, 1, 0.97, 0.55);
-      // браслет: тёмный обод, светящееся кольцо, руны вокруг, камень, вспышка пробуждения
-      const bf = 0.07, bc = at(T1, bf), bt = tang(bf), bx = Math.cos(bt), by = Math.sin(bt);
-      const ell = (th, s = 1) => ({ x: bc.x + (bx * Math.cos(th) * 0.045 - by * Math.sin(th) * 0.12) * S * s, y: bc.y + (by * Math.cos(th) * 0.045 + bx * Math.sin(th) * 0.12) * S * s });
-      const ellPts = s => { const q = []; for (let j = 0; j < 16; j++) q.push(ell(j / 16 * TAU, s)); return q; };
-      const brGlow = mc(col, 16), flare = mc(hi, 20);
-      const brBand = mk({ pts: ellPts(1), closed: true, fill: dark, stroke: dark, sw: w * 3.2 });
-      const brRing = mk({ pts: ellPts(1), closed: true, fill: col, stroke: col, sw: w * 1.8 });
-      const brCore = mk({ pts: ellPts(1), closed: true, fill: core, stroke: core, sw: w * 0.7 });
-      const runes = []; for (let k = 0; k < 5; k++) runes.push(mk({ stroke: hi, sw: w * 0.9, tension: 0 }));
-      const gem = mc(core, 10);
-      const beads = [0, 1].map(() => ({ h: mc(col, 14), d: mc(core, 10) }));
-      const motes = []; for (let k = 0; k < (p.motes ?? 6); k++) motes.push({ it: mc(k % 2 ? hi : core, 8), r: S * (0.015 + Math.random() * 0.015), sp: 0.3 + Math.random() * 0.25, off: Math.random(), ph: Math.random() * TAU, sd: Math.random() < 0.5 ? -1 : 1 });
-      const pulse = (f, t) => 0.3 + 0.7 * Math.pow(0.5 + 0.5 * Math.sin((t * sp2 - f * 1.3) * TAU), 3);
+      const bolt = s => {
+        const out = rnd(s * 1.7) < 0.35, pts = [];
+        if (out) {   // разряд наружу
+          const a = rnd(s) * TAU, r0 = R * 0.85, r1 = R * (1.35 + rnd(s * 2.3) * 0.35);
+          for (let j = 0; j <= m; j++) { const f = j / m, jt = j && j < m ? (rnd(s * 11 + j) - 0.5) * 0.28 : 0, r = r0 + (r1 - r0) * f;
+            pts.push({ x: Math.cos(a + jt * (1 - f * 0.3)) * r, y: Math.sin(a + jt * (1 - f * 0.3)) * r }); }
+        } else {     // дуга вдоль края
+          const a0 = rnd(s) * TAU, sp = (0.45 + rnd(s * 2.9) * 0.6) * (rnd(s * 5.1) < 0.5 ? -1 : 1);
+          for (let j = 0; j <= m; j++) { const f = j / m, a = a0 + sp * f, r = R * (1 + (j && j < m ? (rnd(s * 13 + j) - 0.5) * 0.22 : 0));
+            pts.push({ x: Math.cos(a) * r, y: Math.sin(a) * r }); }
+        }
+        return pts;
+      };
       fs.push((t, P) => {
-        const A = o * c01(t / 0.2) * fl(t), br = 0.85 + 0.15 * wave(t), fr = t / rev * 1.15, on = c01(fr);
-        const vis = f => c01((fr - f) / 0.12), head = f => t < rev * 1.4 ? 1.4 * Math.exp(-Math.pow((fr - f) / 0.09, 2)) : 0;
-        const boost = 1 + 0.8 * (1 - c01((t - rev) / 0.6));
-        P.set(light.id, { fo: A * (p.lightOpacity ?? 0.09) * br * c01(t / 0.8), s: 0.85 + 0.15 * out3(c01(t / 0.8)) });
-        P.set(armLight.id, { pts: dot(mid, S * 0.5, 20), fo: A * 0.1 * on * br });
-        const bt2 = t - rev;
-        if (bt2 > 0) { const rp = (bt2 % every) / 2.4; P.set(beacon.id, rp < 1 ? { s: 1 + 2.6 * out3(rp), so: A * 0.28 * Math.pow(1 - rp, 2) } : { so: 0 }); }
-        const pm = 0.6 + 0.4 * pulse(0.5, t);
-        for (const r of TR) {
-          const pts = fr < 1.05 || !r.full ? cut(r.q, fr) : null;
-          if (fr >= 1.05) r.full = true;
-          const u = pts ? { pts } : {};
-          P.set(r.sh.id, { ...u, so: A * 0.35 * r.k });
-          P.set(r.g.id, { ...u, so: Math.min(1, A * (0.25 + 0.2 * pm) * r.k * boost) });
-          P.set(r.c.id, { ...u, so: Math.min(1, A * (0.5 + 0.45 * pm) * (0.6 + 0.4 * r.k) * boost) });
-        }
-        for (const v of V) {
-          const vi = vis(v.f), pl = pulse(v.f, t), h = head(v.f), k = (1 - v.d * 0.25) * v.fade;
-          if (vi <= 0) { P.set(v.g.id, { so: 0 }); P.set(v.c.id, { so: 0 }); continue; }
-          let u = {};
-          if (vi < 1 || !v.full) {   // ветка «прорастает» из ствола
-            const g = out3(vi), p0 = v.pts[0];
-            u = { pts: v.pts.map((q, i) => i ? { x: p0.x + (q.x - p0.x) * g, y: p0.y + (q.y - p0.y) * g } : q) };
-            if (vi >= 1) v.full = true;
-          }
-          P.set(v.g.id, { ...u, so: Math.min(1, A * k * (0.3 * pl + 0.5 * h)) });
-          P.set(v.c.id, { ...u, so: Math.min(1, A * k * (0.35 + 0.65 * pl + h)) });
-        }
-        const bl = pulse(0, t), ig = c01(t / 0.35), fl0 = t < 0.9 ? Math.sin(Math.PI * c01(t / 0.9)) : 0;
-        P.set(brGlow.id, { pts: dot(bc, S * 0.2, 16), fo: A * ig * (0.2 + 0.25 * bl) });
-        P.set(flare.id, { pts: dot(bc, S * (0.25 + 0.55 * c01(t / 0.9)), 20), fo: A * 0.55 * fl0 });
-        P.set(brBand.id, { so: A * ig * 0.65 });
-        P.set(brRing.id, { so: A * ig * (0.5 + 0.4 * bl) });
-        P.set(brCore.id, { so: A * ig * (0.6 + 0.4 * bl) });
-        runes.forEach((it, k) => { const th = k / 5 * TAU + t * 0.9; P.set(it.id, { pts: [ell(th, 1.25), ell(th, 1.55)], so: A * ig * (0.35 + 0.55 * Math.pow(0.5 + 0.5 * Math.sin(t * 3 + k * 1.7), 2)) }); });
-        P.set(gem.id, { pts: dot(ell(Math.PI / 2), S * 0.032, 10), fo: A * ig * (0.7 + 0.3 * bl) });
-        const per2 = 2 / 1.3;
-        beads.forEach((b, i) => {
-          const f = ((((t * sp2 - 0.25) / 1.3 + i / 1.3) % per2) + per2) % per2, ok = f <= 1 && f <= fr && t > 0.4 ? 1 - Math.pow(f, 4) : 0, c = at(T1, Math.min(1, f));
-          P.set(b.h.id, { pts: dot(c, S * 0.085, 14), fo: A * 0.35 * ok }); P.set(b.d.id, { pts: dot(c, S * 0.03, 10), fo: A * 0.95 * ok });
+        const A = o * appear(t) * fl(t);
+        Z.forEach((q, k) => {
+          const u = t / q.per + q.off, cyc = Math.floor(u), ph = (u - cyc) * q.per;   // секунды с начала цикла
+          const life = 0.22, on = ph < life ? (1 - ph / life) * (0.55 + 0.45 * (Math.floor(ph * 40) % 2)) : 0;  // вспышка с мерцанием
+          if (cyc !== q.cyc && ph < life) { q.cyc = cyc; q.pts = bolt(k * 101 + cyc * 17.3); }
+          if (!q.pts || !on) { P.set(q.g.id, { so: 0 }); P.set(q.c.id, { so: 0 }); P.set(q.d.id, { fo: 0 }); return; }
+          const e = q.pts[q.pts.length - 1], dr = DPI * (0.04 + 0.04 * on), dp = [];
+          for (let j = 0; j < 8; j++) dp.push({ x: e.x + Math.cos(j / 8 * TAU) * dr, y: e.y + Math.sin(j / 8 * TAU) * dr });
+          P.set(q.g.id, { pts: q.pts, so: A * 0.45 * on }); P.set(q.c.id, { pts: q.pts, so: A * on });
+          P.set(q.d.id, { pts: dp, fo: A * on });
         });
-        for (const m of motes) {
-          const k = (t * m.sp + m.off) % 1, f = k * 0.95, c = at(T1, f), ta = tang(f), d = S * (0.05 + 0.1 * k) * m.sd * Math.sin(k * 5 + m.ph);
-          P.set(m.it.id, { pts: dot({ x: c.x - Math.sin(ta) * d, y: c.y + Math.cos(ta) * d }, m.r, 8), fo: A * 0.8 * Math.sin(Math.PI * k) * vis(f) });
-        }
       });
     } else if (p.fx === "wings") {
       // Крылья из тени и кости (наполовину вороньи): костяной каркас плечо→локоть→запястье→коготь,

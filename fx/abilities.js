@@ -42,7 +42,6 @@ export const ABILITIES = [
   // ─── Арка 7 · Шариты ───
   {
     id: "niala-name-theft", name: "Похищение имени", icon: "🫥", group: "Арка 7 · Мать Ниала",
-    desc: "Перезарядка 5–6, 30 фт. Мдр СЛ 14, 4к8 психического. Провал: до конца следующего хода цели союзники не могут выбрать её целью (и лечением).",
     save: "Мдр СЛ 14",
     // Провал: тёмная нить хватает цель, из неё вырываются буквы её имени, складываются в слово,
     // дрожат и по одной улетают по спирали к Ниале, которая их «втягивает»
@@ -75,7 +74,6 @@ export const ABILITIES = [
   // ─── Арка 7 · Тёмная юстициарша ───
   {
     id: "justiciar-shadow-net", name: "Сеть теней", icon: "🕸️", group: "Арка 7 · Тёмная юстициарша",
-    desc: "1/день. Дальнобойная атака оружием +5, 20 фт. Попадание: цель опутана; окончить эффект — проверка Силы СЛ 13 (тогда сними эффект ✕). Бонусным действием юстициарша может подтянуть опутанную цель на 10 фт. к себе («Подтянуть сетью»).",
     attack: true,
     // Попадание: у руки юстициарши сгущается тьма, из пальцев веером вылетают пять нитей чистой тьмы,
     // извиваясь летят к цели, обвиваются вокруг неё и сплетаются в сеть; потом отрываются от руки
@@ -107,7 +105,6 @@ export const ABILITIES = [
   },
   {
     id: "justiciar-net-pull", name: "Подтянуть сетью", icon: "🪝", group: "Арка 7 · Тёмная юстициарша",
-    desc: "Бонусное действие: из пальцев юстициарши к сети выстреливают нити тьмы, цепляются и рывком тянут цель на 10 фт. к ней. Токен сдвигается сам (по клеткам, останавливается вплотную).",
     cast: [
       { fx: "implode", at: "caster", color: "#6d28d9", core: "#d8ccff", fill: "#07030f", radius: 0.6, sparks: 6, duration: 300 },
       { fx: "threads", delay: 150, count: 4, speed: 18, amp: 0.1, wrap: 0.45, wrapTime: 260, hold: 180, fade: 520, lag: 25, retract: true, color: "#7c3aed", dark: "#07030f", core: "#c4b5fd" },
@@ -121,7 +118,6 @@ export const ABILITIES = [
   // ─── Гуур'Дэж ───
   {
     id: "guurdezh-swing-watch", name: "Качнуть часы", icon: "🕰️", group: "Гуур'Дэж",
-    desc: "Одно существо в 30 фт., которое видит часы. Мдр СЛ 15. Провал: Гипноз до конца его следующего хода. (Легендарное «Так» — 2 действия.)",
     save: "Мдр СЛ 15",
     // Провал: рядом с целью возникают иллюзорные часы на цепочке, качаются, на циферблате крутится спираль,
     // расходятся волны; затем огромная спираль закручивается вокруг цели и стягивается в неё
@@ -149,7 +145,6 @@ export const ABILITIES = [
   // ─── Примеры (можно удалить, когда появятся свои) ───
   {
     id: "firebolt", name: "Огненный снаряд", icon: "🔥", group: "Примеры",
-    desc: "Сгусток огня с искрами летит в цель: вспышка, ударное кольцо, угольки и дымок. Промах — пролетает мимо.",
     attack: true,
     cast: [
       { fx: "projectile", color: "#ff5a10", core: "#ffe08a", size: 0.34, speed: 13, trail: 7, embers: 10 },
@@ -166,7 +161,6 @@ export const ABILITIES = [
   },
   {
     id: "fireball", name: "Огненный шар", icon: "☄️", group: "Примеры",
-    desc: "Сфера 20 фт, дальность 150 фт. Выбери только «Кто», нажми «Прицелиться» и кликни на карте — как в BG3. Спасбросок Ловкости.",
     save: "Лов", area: { shape: "sphere", radius: 20, range: 150 },
     cast: [
       { fx: "projectile", to: "point", color: "#ff8a1a", core: "#fff1b0", size: 0.22, speed: 9, arc: 1, trail: 10, embers: 14 },
@@ -182,7 +176,6 @@ export const ABILITIES = [
   },
   {
     id: "heal", name: "Лечение", icon: "💚", group: "Примеры",
-    desc: "Под целью проступает зелёный круг, вверх поднимаются искры и плюсики, мягкая волна света.",
     cast: [
       { fx: "sigil", at: "targets", color: "#5ee0a0", rune: "#c9ffe4", radius: 1, points: 7, runes: 6, duration: 1700, spin: 40, fill: 0.1 },
       { fx: "burst", at: "targets", delay: 200, color: "#5ee0a0", core: "#e8fff2", radius: 0.9, sparks: 0, flash: 0.5 },
@@ -192,7 +185,6 @@ export const ABILITIES = [
   },
   {
     id: "curse", name: "Проклятие", icon: "🕯️", group: "Примеры",
-    desc: "Извивающееся щупальце порчи, под целью рисуется рунический круг, вокруг клубится тьма. До конца следующего хода заклинателя.",
     cast: [
       { fx: "bolt", wave: true, color: "#6b21a8", core: "#e9d5ff", width: 0.05, jag: 0.22, freq: 2.5, duration: 1100, grow: 0.3 },
       { fx: "sigil", at: "targets", after: "hit", color: "#a24bff", rune: "#e0c3ff", radius: 1.1, points: 5, runes: 8, duration: 1900, spin: 50 },
@@ -208,7 +200,6 @@ export const ABILITIES = [
   },
   {
     id: "stun", name: "Оглушение", icon: "💫", group: "Примеры",
-    desc: "Молния с неба, звёздная вспышка и волны; над головой кружатся звёздочки. До конца следующего хода цели.",
     cast: [
       { fx: "bolt", from: "sky", color: "#ffe066", core: "#ffffff", width: 0.07, jag: 0.35, duration: 380, grow: 0.12, height: 4 },
       { fx: "burst", at: "targets", after: "hit", color: "#ffd84a", core: "#ffffff", radius: 0.9, sparks: 10, stars: true },
@@ -219,7 +210,6 @@ export const ABILITIES = [
   },
   {
     id: "shield", name: "Щит веры", icon: "🛡️", group: "Примеры",
-    desc: "Золотые искры стягиваются к цели, и вокруг неё вырастает сияющий купол с сотами. Держится, пока не снимут (концентрация).",
     cast: [
       { fx: "rise", at: "targets", color: "#ffd36b", core: "#fffbe6", count: 12, height: 1.2, duration: 1200 },
       { fx: "implode", at: "targets", color: "#ffd36b", core: "#fffbe6", fill: "#fff4cc", radius: 1.8, sparks: 18, duration: 750 },
@@ -235,7 +225,6 @@ export const ABILITIES = [
   },
   {
     id: "boss-dusk", name: "Сумрачная кара", icon: "🌑", group: "Босс (пример)",
-    desc: "Тёмная молния, взрыв теней с осколками и дымом, метка на цели до начала следующего хода босса.",
     cast: [
       { fx: "bolt", color: "#3a1060", core: "#ff7ad9", width: 0.08, jag: 0.4, segments: 11, duration: 900, grow: 0.15, flick: 60 },
       { fx: "area", at: "targets", after: "hit", color: "#2a0a45", edge: "#ff7ad9", radius: 1.5, opacity: 0.45, duration: 1200 },
@@ -253,7 +242,6 @@ export const ABILITIES = [
   },
   {
     id: "chromatic-spear", name: "Стихийное копьё", icon: "🔱", group: "Заклинания",
-    desc: "1 ур., 90 фт. Дальнобойная атака заклинанием. Попадание: по 1к4 огнём, холодом, кислотой, электричеством и звуком (+2к4 за уровень ячейки выше 1-го).",
     attack: true,
     cast: [
       { fx: "projectile", shape: "spear", color: "#c9b8ff", core: "#ffffff", color2: "#ffe08a", length: 1.1, size: 0.3, speed: 10, trail: 0,
@@ -277,7 +265,6 @@ export const ABILITIES = [
   },
   {
     id: "sorcerous-burst", name: "Чародейский выброс", icon: "💥", group: "Заклинания",
-    desc: "Заговор, 120 фт. Дальнобойная атака заклинанием: 1к8 выбранного типа. Каждая «8» — ещё 1к8 (до мод. заклинательной хар-ки). 2к8/3к8/4к8 на 5/11/17 ур.",
     attack: true,
     elements: ["fire", "cold", "acid", "lightning", "poison", "thunder", "psychic"],
     cast: [
@@ -303,7 +290,6 @@ export const ABILITIES = [
   },
   {
     id: "dragons-breath", name: "Дыхание дракона", icon: "🐉", group: "Заклинания",
-    desc: "Конус 15 фт от «Кто» — нажми «Прицелиться» и кликни на карте (как в BG3). Спасбросок Ловкости: 3к6, половина при успехе (+1к6 за ур. ячейки выше 2-го).",
     save: "Лов", area: { shape: "cone", length: 15 },
     elements: ["fire", "cold", "acid", "lightning", "poison"],
     cast: [
@@ -318,7 +304,6 @@ export const ABILITIES = [
   },
   {
     id: "dragons-breath-buff", name: "Дыхание дракона — наделение", icon: "🐲", group: "Заклинания",
-    desc: "2 ур., касание, концентрация до 1 мин. Цель (или сам заклинатель) получает стихийное дыхание — потом применяй «Дыхание дракона» от неё.",
     elements: ["fire", "cold", "acid", "lightning", "poison"],
     cast: [
       { fx: "sigil", at: "targets", color: "$c1", rune: "$c3", radius: 0.9, points: 6, runes: 5, duration: 1400, spin: 60, fill: 0.1 },
@@ -334,7 +319,6 @@ export const ABILITIES = [
   },
   {
     id: "bow-shot", name: "Выстрел из лука", icon: "🏹", group: "Оружие",
-    desc: "Стрела летит по лёгкой дуге и втыкается в цель. Промах — пролетает мимо и втыкается в землю.",
     attack: true,
     cast: [
       { fx: "projectile", shape: "arrow", length: 0.85, size: 0.12, speed: 26, arc: 0.3, trail: 4, color: "#e8e2d0", core: "#ffffff", stick: 1300 },
@@ -349,7 +333,6 @@ export const ABILITIES = [
   },
   {
     id: "darkness", name: "Тьма", icon: "🌑", group: "Заклинания",
-    desc: "2 круг, воплощение, концентрация до 10 минут. В выбранной точке схлопывается свет, и сфера магической тьмы разливается вокруг: клубится по краям, тянет щупальца теней и глотает искры света. Тёмное зрение сквозь неё не видит. Висит, пока её не снимут (✕ в «Активных эффектах»); радиус 5–60 фт, меняется до и после сотворения. Клик по токену при наведении — тьма прикрепляется к нему (предмету) и двигается вместе с ним; Alt+клик — просто в точку.",
     area: { shape: "sphere", radius: 15, range: 60, adjust: [5, 60, 5] },
     zone: { fx: "gloom" },
     attachable: true,   // можно прикрепить к токену (предмету) — зона ездит вместе с ним
@@ -363,7 +346,6 @@ export const ABILITIES = [
   },
   {
     id: "mage-armor", name: "Доспехи мага", icon: "🔮", group: "Заклинания",
-    desc: "1 круг, ограждение, касание, 8 часов. Под целью вспыхивает рунный круг, вокруг неё сворачивается спираль силы, и цель окутывает мерцающее защитное поле (КД = 13 + Ловкость). Держится, пока не снимут.",
     cast: [
       { fx: "sigil", at: "targets", color: "#5b8cff", rune: "#d6e4ff", radius: 1.15, points: 6, runes: 10, spin: 60, fill: 0.08, duration: 1900 },
       { fx: "rise", at: "targets", delay: 200, color: "#8fb4ff", core: "#ffffff", count: 16, height: 1.3, duration: 1500 },
@@ -383,7 +365,6 @@ export const ABILITIES = [
   },
   {
     id: "armor-of-richter", name: "Доспех Рихтера", icon: "🪨", group: "Заклинания",
-    desc: "1 круг, преобразование, касание, 1 час. Под целью проступают земляные руны, камни и пыль стягиваются к ней, и тело покрывается каменной облицовкой с кварцевыми прожилками (+2 к КД). Держится, пока не снимут.",
     cast: [
       { fx: "sigil", at: "targets", color: "#a08a5c", rune: "#efe2c4", radius: 1.1, points: 4, runes: 6, spin: 30, fill: 0.1, duration: 1500 },
       { fx: "implode", at: "targets", delay: 100, color: "#8c7f6b", core: "#e8f4ff", fill: "#2a241c", radius: 1.7, sparks: 20, duration: 850 },
@@ -401,7 +382,6 @@ export const ABILITIES = [
   },
   {
     id: "shield-spell", name: "Щит", icon: "🔰", group: "Заклинания",
-    desc: "1 круг, реакция, на себя. Мгновенный хлопок силы — вокруг заклинателя вспыхивает прозрачный барьер (+5 к КД) до начала его следующего хода. Цель выбирать не нужно.",
     self: true,
     cast: [
       { fx: "shock", at: "targets", color: "#bfe3ff", radius: 1.7, rings: 3, width: 0.05, duration: 500 },
@@ -417,7 +397,6 @@ export const ABILITIES = [
   },
   {
     id: "shadow-step", name: "Шаг в тень", icon: "🐦‍⬛", group: "Шадар-кай",
-    desc: "Благословение Королевы воронов. Бонусное действие: телепорт в свободное место до 30 фт в пределах видимости (раз в день = бонус мастерства, восстанавливается после продолжительного отдыха). Наведи точку прибытия и кликни — токен растворится в тени и сам перенесётся туда. С 3-го уровня — призрачный полупрозрачный облик и сопротивление всему урону до начала следующего хода (снять раньше — ✕ в активных эффектах).",
     area: { shape: "sphere", radius: 2.5, range: 30 },
     teleport: true, teleportDelay: 520,
     cast: [
@@ -445,7 +424,6 @@ export const ABILITIES = [
   // ── Ролен · Ключ Порога ──
   {
     id: "rolen-resonance", name: "Резонанс", icon: "💠", group: "Ролен · Ключ Порога",
-    desc: "Бонусным действием, 1 минута, без концентрации. Браслет пробуждается, вены от кисти до плеча горят голубым, тусклый свет 5 фт. Раз в ход +1к4 голубого урона к одному броску урона против одной цели. Помеха на Скрытность; Архитекторы и Архиноиды в 120 фт чувствуют направление. 1 раз / короткий отдых.",
     self: true, auraOn: "caster", auraDelay: 450, until: { who: "caster", when: "e", n: 10 },
     // браслет тянет свет к себе → вспышка → вены загораются от кисти к плечу (само зажигание — в ауре «arm»)
     cast: [
@@ -455,15 +433,16 @@ export const ABILITIES = [
       { fx: "shock", at: "caster", delay: 440, color: "#38c8ff", radius: 2, rings: 2, width: 0.04, opacity: 0.8, duration: 900 },
       { fx: "rise", at: "caster", delay: 600, color: "#9eeaff", count: 10, height: 1, duration: 1400 },
     ],
-    // angle — с какой стороны токена рука (градусы: 0 — вправо, 90 — вниз); mirror: true — зеркально (другая рука)
     aura: [
-      { fx: "arm", color: "#38c8ff", core: "#e8fbff", light: "#9eeaff", angle: 35, size: 1.1, width: 0.028, count: 12, speed: 0.6, reveal: 1.3, beaconEvery: 5, lightOpacity: 0.09, flicker: 0.12 },
-      { fx: "glow", color: "#9eeaff", size: 1.15, opacity: 0.1, period: 2.6 },
+      { fx: "glow", color: "#38c8ff", size: 3, opacity: 0.09, period: 3.5, pulse: 0.03 },
+      { fx: "glow", color: "#9eeaff", size: 1.3, opacity: 0.2, period: 2.2, flicker: 0.2 },
+      { fx: "arcs", color: "#38c8ff", core: "#e8fbff", count: 6, radius: 1.08, width: 0.028, rate: 1.4 },
+      { fx: "ring", color: "#38c8ff", size: 1.1, width: 0.025, dash: true, spin: 18, opacity: 0.4, flicker: 0.25 },
+      { fx: "orbit", color: "#9eeaff", color2: "#ffffff", count: 3, radius: 1.12, size: 0.04, speed: 80 },
     ],
   },
   {
     id: "rolen-seam", name: "Шов Порога", icon: "🐦‍⬛", group: "Ролен · Ключ Порога",
-    desc: "Телепорт (Благословение Королевы воронов при Резонансе или бонусным действием во время Пробуждения, 30 фт). За Роленом остаётся шов голубого света: все на линии шириной 5 фт — спасбросок Ловкости, 2к6 голубого урона (половина при успехе). Не больше 1 шва в ход. Нажми «Прицелиться» и кликни точку — токен перенесётся, задетые линией подсветятся.",
     save: "Лов", area: { shape: "sphere", radius: 2.5, range: 30, line: 5 }, teleport: true, teleportDelay: 420,
     cast: [
       { fx: "implode", at: "caster", color: "#38c8ff", radius: 1.4, sparks: 12, duration: 420 },
@@ -478,7 +457,6 @@ export const ABILITIES = [
   },
   {
     id: "rolen-awakening", name: "Пробуждение Порога", icon: "🪽", group: "Ролен · Ключ Порога",
-    desc: "Высший Архиноид. Бонусным действием, 1 минута: крылья из тени и кости, полёт 30 фт и парение, Резонанс активен без траты, бонусным действием — телепорт 30 фт с Шовом Порога («Шов Порога»). В начале — временные хиты = 2 × уровень. 1 раз / долгий отдых.",
     self: true, auraOn: "caster", auraDelay: 1000, until: { who: "caster", when: "e", n: 10 },
     // рунный круг Ключа, тени и свет стягиваются к Ролену → вспышка, разлетаются чёрные перья и костяная крошка, раскрываются крылья
     cast: [
@@ -496,7 +474,7 @@ export const ABILITIES = [
       { fx: "wings", color: "#0a0910", edge: "#38c8ff", bone: "#d8d0bf", shade: "#121826", size: 1.25, feathers: 11, period: 3.4 },
       { fx: "glow", color: "#38c8ff", size: 1.5, opacity: 0.18, period: 3 },
       { fx: "wisps", color: "#0b0912", color2: "#1a2433", count: 4, size: 0.4, radius: 0.9, speed: 18, opacity: 0.3 },
-      { fx: "veins", color: "#38c8ff", core: "#e8fbff", count: 7, size: 1.05, width: 0.024, speed: 0.9 },
+      { fx: "arcs", color: "#38c8ff", core: "#e8fbff", count: 6, radius: 1.12, width: 0.03, rate: 1.2 },
       { fx: "ring", color: "#9eeaff", size: 1.14, width: 0.035, spin: -10, opacity: 0.6 },
       { fx: "orbit", color: "#9eeaff", color2: "#ffffff", count: 4, radius: 1.15, size: 0.05, speed: 60 },
     ],
