@@ -11,11 +11,11 @@ body{display:flex;align-items:center;justify-content:center;font-family:"Cormora
 #stage{position:relative;width:calc(100% - 24px);height:calc(100% - 24px);display:flex;align-items:center;justify-content:center;opacity:0}
 .go #stage{animation:life var(--dur) cubic-bezier(.2,.7,.2,1) forwards}
 @keyframes life{
-  0%{opacity:0;transform:scale(.86);filter:blur(6px)}
-  9%{opacity:1;transform:scale(1.025);filter:blur(0)}
-  15%{transform:scale(1)}
-  88%{opacity:1;transform:scale(1)}
-  100%{opacity:0;transform:scale(1.03);filter:blur(3px)}
+  0%{opacity:0;transform:scale(.86)}
+  9%{opacity:1;transform:scale(1.025)}
+  15%{opacity:1;transform:none}
+  88%{opacity:1;transform:none}
+  100%{opacity:0;transform:scale(1.03)}
 }
 
 /* табличка */
