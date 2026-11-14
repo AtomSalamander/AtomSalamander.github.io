@@ -1,10 +1,16 @@
-// Мост для Kenku FM: нужен, только если панель пишет «Нет связи», а Kenku точно запущен с включённым Remote.
-// Пересылает запросы с 127.0.0.1:3334 в Kenku (127.0.0.1:3333) и добавляет заголовки, которые просит браузер.
-// Запуск: node kenku-bridge.mjs   (нужен Node.js 18+). В панели укажи адрес http://127.0.0.1:3334
+// Мост Kenku FM → Owlbear Rodeo.
+// Нужен, если панель расширения пишет «Нет связи», хотя Kenku запущен и Remote включён.
+// Принимает запросы на 127.0.0.1:3334, пересылает их в Kenku (127.0.0.1:3333)
+// и добавляет заголовки, без которых браузер не пускает сайт к программе на компьютере.
+// Запуск: двойной клик по start-bridge.bat (Windows) или `node kenku-bridge.mjs`.
+// В панели расширения укажи адрес http://127.0.0.1:3334
 import http from "node:http";
 
 const TARGET = (process.env.KENKU || "http://127.0.0.1:3333").replace(/\/+$/, "");
 const PORT = +process.env.PORT || 3334;
+
+let last = "";
+const note = m => { if (m !== last) { last = m; console.log(new Date().toLocaleTimeString(), m); } };
 
 http.createServer(async (req, res) => {
   const h = {
@@ -21,8 +27,16 @@ http.createServer(async (req, res) => {
     const body = Buffer.from(await r.arrayBuffer());
     res.writeHead(r.status, { ...h, "Content-Type": r.headers.get("content-type") || "application/json" });
     res.end(body);
+    note(r.ok ? "Owlbear подключился, Kenku отвечает — всё работает." : "Kenku ответил ошибкой " + r.status);
   } catch (e) {
     res.writeHead(502, { ...h, "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Kenku FM не отвечает: " + e.message }));
+    note("Owlbear подключился, но Kenku FM не отвечает. Проверь в Kenku: Settings → Remote.");
   }
-}).listen(PORT, "127.0.0.1", () => console.log(`Мост запущен: http://127.0.0.1:${PORT} → ${TARGET}. Не закрывай это окно.`));
+}).on("error", e => {
+  console.log(e.code === "EADDRINUSE" ? `Порт ${PORT} занят — наверное, мост уже запущен в другом окне.` : e.message);
+}).listen(PORT, "127.0.0.1", () => {
+  console.log(`Мост запущен: http://127.0.0.1:${PORT} → Kenku ${TARGET}`);
+  console.log("Не закрывай это окно, пока играете. Можно свернуть.");
+  console.log("Жду, когда подключится Owlbear…");
+});
