@@ -1,0 +1,16 @@
+{
+  "name": "Легендарные действия",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "description": "Эффектная надпись на экране у всех игроков: «Босс» использует легендарное действие «Способность».",
+  "author": "DM",
+  "icon": "/legendary/icon.svg",
+  "background_url": "/legendary/background.html",
+  "action": {
+    "title": "Легендарные действия",
+    "icon": "/legendary/icon.svg",
+    "popover": "/legendary/panel.html",
+    "width": 360,
+    "height": 600
+  }
+}
