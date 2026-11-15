@@ -1,8 +1,8 @@
 {
-  "name": "Музыка (Kenku FM)",
-  "version": "1.0.0",
+  "name": "Музыка",
+  "version": "2.0.0",
   "manifest_version": 1,
-  "description": "Название трека, который сейчас играет в Kenku FM, — аккуратной плашкой у всех игроков.",
+  "description": "Мастер вписывает название трека — у всех игроков появляется аккуратная плашка «сейчас звучит».",
   "author": "DM",
   "icon": "/music/icon.svg",
   "background_url": "/music/background.html",

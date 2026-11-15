@@ -1,90 +1,96 @@
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import { META, CH, LS_CFG, LS_STATUS, DEF_CFG, BIG_CHOICES } from "./const.js";
-import { readKenku, explain } from "./kenku.js";
+import { META, CH, LS_CFG, LS_HIST, DEF_CFG, BIG_CHOICES, HIST_MAX } from "./const.js";
 
 const $ = s => document.querySelector(s);
 const ls = {
   get(k, d = null) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
 };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 let cfg = { ...DEF_CFG, ...(ls.get(LS_CFG, {}) || {}) };
 const saveCfg = () => ls.set(LS_CFG, cfg);
+let now = null;   // то, что сейчас в комнате
+let ready = false;
 
-function toast(t) { const el = $("#toast"); el.textContent = t; clearTimeout(toast.t); toast.t = setTimeout(() => el.textContent = "", 4000); }
-const local = op => OBR.broadcast.sendMessage(CH, { op }, { destination: "LOCAL" }).catch(() => {});
+function toast(t) { const el = $("#toast"); el.textContent = t; clearTimeout(toast.t); toast.t = setTimeout(() => el.textContent = "", 3500); }
+const local = op => ready && OBR.broadcast.sendMessage(CH, { op }, { destination: "LOCAL" }).catch(() => {});
+const setNow = v => OBR.room.setMetadata({ [META]: v });
 
-// ---------- настройки мастера ----------
+// ---------- недавние треки ----------
+const hist = () => (ls.get(LS_HIST, []) || []).filter(h => h && h.title);
+function remember(title, sub) {
+  const list = hist().filter(h => h.title.toLowerCase() !== title.toLowerCase());
+  list.unshift({ title, sub });
+  ls.set(LS_HIST, list.slice(0, HIST_MAX));
+  drawHist();
+}
+function drawHist() {
+  $("#hist").innerHTML = hist().map((h, i) =>
+    `<div class="h${now && now.title === h.title ? " cur" : ""}" data-i="${i}" title="Включить"><span>${esc(h.title)}${h.sub ? ` <small style="color:#8d7c63;font-style:normal">· ${esc(h.sub)}</small>` : ""}</span><button type="button" data-del="${i}" title="Убрать из списка">✕</button></div>`).join("");
+}
+$("#hist").onclick = e => {
+  const d = e.target.closest("[data-del]");
+  if (d) { const l = hist(); l.splice(+d.dataset.del, 1); ls.set(LS_HIST, l); drawHist(); return; }
+  const r = e.target.closest(".h");
+  if (r) { const h = hist()[+r.dataset.i]; if (h) play(h.title, h.sub || ""); }
+};
+
+// ---------- включить / пауза / убрать ----------
+async function play(title, sub) {
+  title = String(title || "").trim().slice(0, 160); sub = String(sub || "").trim().slice(0, 80);
+  if (!title) { toast("Впиши название трека"); $("#title").focus(); return; }
+  if (!ready) return toast("Owlbear ещё загружается…");
+  try {
+    await setNow({ id: "t:" + Date.now().toString(36), title, playlist: sub, playing: true, big: cfg.big, t: Date.now() });
+    remember(title, sub);
+    $("#title").value = ""; $("#sub").value = "";
+    toast(`▶ Включено у всех: «${title}»`);
+  } catch (e) { toast("Не удалось отправить"); }
+}
+$("#play").onclick = () => play($("#title").value, $("#sub").value);
+for (const id of ["#title", "#sub"]) $(id).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#play").click(); } });
+
+$("#pause").onclick = () => {
+  if (!now) return;
+  setNow({ ...now, playing: now.playing === false, t: Date.now() }).catch(() => toast("Не удалось"));
+};
+$("#clear").onclick = () => setNow(null).then(() => toast("Плашка убрана у всех")).catch(() => toast("Не удалось"));
+
 function drawSeg(box, items, cur, onPick) {
   box.innerHTML = items.map(([v, l]) => `<button type="button" data-v="${v}" class="${String(v) === String(cur) ? "on" : ""}">${l}</button>`).join("");
   box.onclick = e => { const b = e.target.closest("button"); if (b) onPick(b.dataset.v); };
 }
-function drawCfg() {
-  drawSeg($("#on"), [["1", "Вкл"], ["0", "Выкл"]], cfg.on ? "1" : "0", v => {
-    cfg.on = v === "1"; saveCfg(); drawCfg(); local("poll");
-    toast(cfg.on ? "Трансляция из Kenku включена" : "Трансляция выключена, плашка убрана");
-  });
-  drawSeg($("#big"), BIG_CHOICES.map(s => [s, s + "с"]), cfg.big, v => { cfg.big = +v; saveCfg(); drawCfg(); });
-}
-
-function drawStatus() {
-  const s = ls.get(LS_STATUS, null);
-  const box = $("#status");
-  box.className = "";
-  if (!s) { $("#stText").textContent = "Проверяю связь…"; return; }
-  const stale = Date.now() - (s.at || 0) > 10000;
-  if (s.state === "off") { $("#stText").textContent = "Трансляция из Kenku выключена"; return; }
-  if (stale) { $("#stText").textContent = "Нет свежих данных — перезагрузи страницу Owlbear"; return; }
-  if (s.state === "ok") { box.className = "ok"; $("#stText").textContent = "Kenku FM подключён"; }
-  else { box.className = "err"; $("#stText").textContent = s.err || "Нет связи с Kenku"; }
-}
+function drawCfg() { drawSeg($("#big"), BIG_CHOICES.map(s => [s, s + " с"]), cfg.big, v => { cfg.big = +v; saveCfg(); drawCfg(); }); }
 
 function drawNow(m) {
-  const ok = m && m.id && m.title;
-  $("#now").classList.toggle("empty", !ok);
-  $("#nowK").textContent = ok && m.playing === false ? "Пауза" : "Сейчас звучит";
-  $("#nowT").textContent = ok ? m.title : "Ничего не играет";
-  $("#nowT").title = ok ? m.title : "";
-  $("#nowP").textContent = ok && m.playlist ? "Плейлист: " + m.playlist : "";
+  now = m && m.id && m.title ? m : null;
+  $("#now").classList.toggle("empty", !now);
+  $("#nowK").textContent = now && now.playing === false ? "Пауза" : "Сейчас звучит";
+  $("#nowT").textContent = now ? now.title : "Ничего не играет";
+  $("#nowT").title = now ? now.title : "";
+  $("#nowP").textContent = now && now.playlist ? now.playlist : "";
+  $("#pause").disabled = $("#clear").disabled = !now;
+  $("#pause").textContent = now && now.playing === false ? "▶ Продолжить" : "⏸ Пауза";
+  drawHist();
 }
 
-// ---------- события ----------
-$("#url").value = cfg.url;
-$("#url").addEventListener("change", e => { cfg.url = e.target.value.trim() || DEF_CFG.url; e.target.value = cfg.url; saveCfg(); local("poll"); });
-$("#test").onclick = async () => {
-  cfg.url = $("#url").value.trim() || DEF_CFG.url; saveCfg();
-  toast("Проверяю…");
-  try {
-    const t = await readKenku(cfg.url);
-    ls.set(LS_STATUS, { state: "ok", at: Date.now(), track: t });
-    toast(t ? `Связь есть. Сейчас: «${t.title}»` : "Связь есть, но в плейлисте ничего не выбрано");
-  } catch (e) {
-    ls.set(LS_STATUS, { state: "err", at: Date.now(), err: explain(e) });
-    toast(explain(e));
-  }
-  drawStatus(); local("poll");
-};
-$("#sendManual").onclick = async () => {
-  const title = $("#manual").value.trim();
-  if (!title) { toast("Впиши название"); $("#manual").focus(); return; }
-  try {
-    await OBR.room.setMetadata({ [META]: { id: "manual:" + Date.now(), title: title.slice(0, 160), playlist: "", playing: true, big: cfg.big, manual: true, t: Date.now() } });
-    toast(`Показано всем: «${title}»`);
-  } catch (e) { toast("Не удалось отправить"); }
-};
-$("#manual").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#sendManual").click(); } });
-$("#clear").onclick = () => OBR.room.setMetadata({ [META]: null }).then(() => toast("Плашка убрана у всех")).catch(() => toast("Не удалось"));
+// ---------- плашка у меня ----------
 $("#reshow").onclick = () => { local("reshow"); toast("Плашка снова показана"); };
 $("#move").onclick = () => local("move");
 $("#resetPos").onclick = () => { local("resetPos"); toast("Плашка возвращена к правому нижнему углу"); };
-addEventListener("storage", e => { if (e.key === LS_STATUS) drawStatus(); });
 
 drawCfg();
-drawStatus();
-setInterval(drawStatus, 3000);
+drawHist();
 
 OBR.onReady(async () => {
-  try { if ((await OBR.player.getRole()) === "GM") document.body.classList.add("isgm"); } catch (e) {}
-  try { drawNow((await OBR.room.getMetadata())[META]); } catch (e) {}
-  OBR.room.onMetadataChange(md => drawNow(md[META]));
+  ready = true;
+  const role = r => document.body.classList.toggle("isgm", r === "GM");
+  try { role(await OBR.player.getRole()); } catch (e) {}
+  OBR.player.onChange(p => role(p.role));
+  let last = "";
+  const onMeta = md => { const m = md[META] || null, raw = JSON.stringify(m); if (raw !== last) { last = raw; drawNow(m); } };
+  try { onMeta(await OBR.room.getMetadata()); } catch (e) {}
+  OBR.room.onMetadataChange(onMeta);
+  if (document.body.classList.contains("isgm")) $("#title").focus();
 });

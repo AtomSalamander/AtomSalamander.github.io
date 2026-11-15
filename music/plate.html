@@ -1,7 +1,7 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Cormorant+SC:wght@600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;0,700;1,600;1,700&family=Cormorant+SC:wght@600;700&display=swap" media="print" onload="this.media='all'">
 <style>
 :root{--a:#F3D27A;--b:#C8912F;--g:#E8B44F;--ease:cubic-bezier(.2,.8,.2,1);--t:.6s}
 *{box-sizing:border-box}
@@ -95,19 +95,21 @@ import { CH, SDK } from "./const.js";
 const $ = s => document.querySelector(s);
 const q = new URLSearchParams(location.search);
 const mode = q.get("mode") === "big" ? "big" : "small";
-const playing = q.get("p") !== "0";
-const title = (q.get("title") || "Без названия").slice(0, 160);
-const pl = (q.get("pl") || "").slice(0, 80);
+const id = q.get("id") || "";
 const bigMs = Math.max(2, Math.min(60, +q.get("big") || 6)) * 1000;
 const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const plate = $("#plate");
 plate.classList.add(mode);
-if (!playing) plate.classList.add("paused");
-$("#title").textContent = title;
-$("#title").title = pl ? `${title} — ${pl}` : title;
-$("#kicker").textContent = playing ? "сейчас звучит" : "пауза";
-$("#pl").textContent = pl ? `плейлист · ${pl}` : "";
+function setText(title, pl, playing) {
+  title = String(title || "Без названия").slice(0, 160); pl = String(pl || "").slice(0, 80);
+  plate.classList.toggle("paused", !playing);
+  $("#title").textContent = title;
+  $("#title").title = pl ? `${title} — ${pl}` : title;
+  $("#kicker").textContent = playing ? "сейчас звучит" : "пауза";
+  $("#pl").textContent = pl;
+}
+setText(q.get("title"), q.get("pl"), q.get("p") !== "0");
 
 // связь с Owlbear (вне Owlbear страница просто показывает плашку)
 let OBR = null;
@@ -115,6 +117,11 @@ const ready = window.parent !== window
   ? import(SDK).then(m => { OBR = m.default; return new Promise(r => OBR.isReady ? r() : OBR.onReady(r)); }).catch(() => {})
   : Promise.resolve();
 const send = op => ready.then(() => OBR && OBR.broadcast.sendMessage(CH, { op }, { destination: "LOCAL" })).catch(() => {});
+// пауза / продолжить того же трека приходит сообщением — окно не перезагружается
+ready.then(() => OBR && OBR.broadcast.onMessage(CH, ev => {
+  const m = ev.data || {};
+  if (m.op === "plateSet" && m.id === id) { setText(m.title, m.pl, m.p !== false); if (plate.classList.contains("big")) fit(); }
+}));
 
 // уменьшаем шрифт длинного названия в крупном режиме
 function fit() {
@@ -145,7 +152,8 @@ function start() {
   }
 }
 const fonts = document.fonts ? document.fonts.ready : Promise.resolve();
-Promise.race([fonts, new Promise(r => setTimeout(r, 600))]).then(start);
+if (mode === "big") Promise.race([fonts, new Promise(r => setTimeout(r, 250))]).then(start); else start();
+if (mode === "big" && document.fonts) document.fonts.ready.then(() => { if (plate.classList.contains("big")) fit(); });
 
 // клик по плашке: крупная → сразу уменьшить, маленькая → на пару секунд увеличить
 plate.addEventListener("click", e => {

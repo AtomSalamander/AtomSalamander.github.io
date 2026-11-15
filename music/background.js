@@ -1,11 +1,7 @@
-// Фон: работает у каждого игрока.
-// У мастера дополнительно опрашивает Kenku FM и записывает текущий трек в метаданные комнаты.
+// Фон: работает у каждого игрока. Следит за треком в метаданных комнаты и показывает плашку.
+// Трек включает мастер из панели (просто вписывает название) — никаких внешних программ и опросов.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import {
-  META, CH, POP, POP_MOVE, LS_CFG, LS_POS, LS_STATUS, LS_SEEN, LS_HIDDEN,
-  DEF_CFG, DEF_POS, SIZE, POLL_MS,
-} from "./const.js";
-import { readKenku, explain } from "./kenku.js";
+import { META, CH, POP, POP_MOVE, LS_POS, LS_SEEN, LS_HIDDEN, DEF_POS, SIZE } from "./const.js";
 
 const ls = {
   get(k, d = null) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -13,17 +9,20 @@ const ls = {
   del(k) { try { localStorage.removeItem(k); } catch (e) {} },
 };
 
-// Все операции с окнами выполняем по очереди, чтобы они не перебивали друг друга.
+// Все операции с окнами — по очереди, чтобы они не перебивали друг друга.
 let queue = Promise.resolve();
 const run = fn => (queue = queue.then(fn).catch(e => console.warn("[music]", e)));
 
 let cur = null;        // текущий трек из комнаты
 let shown = null;      // "big" | "small" | null — что сейчас открыто
+let lastRaw = "";      // чтобы не разбирать одно и то же при каждом изменении метаданных комнаты
 
+let vp = null;         // размер экрана, кэшируем на пару секунд
 async function viewport() {
+  if (vp && Date.now() - vp.at < 2000) return vp;
   let w = 1280, h = 800;
-  try { w = await OBR.viewport.getWidth(); h = await OBR.viewport.getHeight(); } catch (e) {}
-  return { w, h };
+  try { [w, h] = await Promise.all([OBR.viewport.getWidth(), OBR.viewport.getHeight()]); } catch (e) {}
+  return (vp = { w, h, at: Date.now() });
 }
 
 function position(size, w, h) {
@@ -35,6 +34,7 @@ function position(size, w, h) {
 }
 
 const hidden = () => cur && ls.get(LS_HIDDEN) === cur.id;
+const local = msg => OBR.broadcast.sendMessage(CH, msg, { destination: "LOCAL" }).catch(() => {});
 
 async function openPlate(mode) {
   if (!cur || hidden()) return closePlate();
@@ -43,10 +43,10 @@ async function openPlate(mode) {
   const pos = position(size, w, h);
   const q = new URLSearchParams({
     mode, title: cur.title, pl: cur.playlist, p: cur.playing ? "1" : "0",
-    big: String(cur.big), n: String(Date.now()),
+    big: String(cur.big), id: cur.id,
   });
+  if (shown) await OBR.popover.close(POP).catch(() => {});
   shown = mode;
-  await OBR.popover.close(POP).catch(() => {});
   await OBR.popover.open({
     id: POP,
     url: `/music/plate.html?${q}`,
@@ -58,15 +58,17 @@ async function openPlate(mode) {
     anchorReference: "POSITION",
     anchorPosition: { left: w - pos.right, top: h - pos.bottom },
     transformOrigin: { horizontal: "RIGHT", vertical: "BOTTOM" },
-  }).catch(e => console.warn("[music] popover", e));
+  }).catch(e => { shown = null; console.warn("[music] popover", e); });
 }
 
 async function closePlate() {
+  if (!shown) return;
   shown = null;
   await OBR.popover.close(POP).catch(() => {});
 }
 
 async function openMove() {
+  vp = null;
   const { w, h } = await viewport();
   const pos = position(SIZE.small, w, h);
   await closePlate();
@@ -104,50 +106,24 @@ async function onTrack(m) {
     big: Math.max(2, Math.min(60, +m.big || 6)),
   };
   if (prev && ["id", "title", "playlist", "playing", "big"].every(k => prev[k] === cur[k])) return;
-  if (!prev || prev.id !== cur.id) { if (ls.get(LS_HIDDEN) && ls.get(LS_HIDDEN) !== cur.id) ls.del(LS_HIDDEN); }
-  if (hidden()) { if (shown) await closePlate(); return; }
+  const newTrack = !prev || prev.id !== cur.id;
+  if (newTrack && ls.get(LS_HIDDEN) && ls.get(LS_HIDDEN) !== cur.id) ls.del(LS_HIDDEN);
+  if (hidden()) return closePlate();
+
+  // тот же трек (пауза / продолжить) — не переоткрываем окно, просто обновляем плашку
+  if (!newTrack && shown) return local({ op: "plateSet", id: cur.id, title: cur.title, pl: cur.playlist, p: cur.playing });
 
   const fresh = ls.get(LS_SEEN) !== cur.id;
   ls.set(LS_SEEN, cur.id);
   await openPlate(fresh && cur.playing ? "big" : "small");
 }
 
-// ---------- опрос Kenku (только у мастера) ----------
-let isGM = false, timer = 0, lastKey;
-
-async function publish(track) {
-  await OBR.room.setMetadata({ [META]: track ? { ...track, t: Date.now() } : null });
-}
-
-async function poll() {
-  clearTimeout(timer);
-  if (!isGM) return;
-  const cfg = { ...DEF_CFG, ...(ls.get(LS_CFG, {}) || {}) };
-  if (!cfg.on) {
-    ls.set(LS_STATUS, { state: "off", at: Date.now() });
-    if (lastKey !== "off") { lastKey = "off"; await publish(null).catch(() => {}); }
-  } else {
-    try {
-      const t = await readKenku(cfg.url);
-      ls.set(LS_STATUS, { state: "ok", at: Date.now(), track: t });
-      const key = t ? `${t.id}|${t.playing}|${t.title}` : "none";
-      if (key !== lastKey) {
-        await publish(t ? { ...t, big: cfg.big } : null);
-        lastKey = key;
-      }
-    } catch (e) {
-      ls.set(LS_STATUS, { state: "err", at: Date.now(), err: explain(e) });
-    }
-  }
-  timer = setTimeout(poll, POLL_MS);
-}
-
-async function setRole(role) {
-  const gm = role === "GM";
-  if (gm === isGM) return;
-  isGM = gm;
-  lastKey = undefined;
-  if (isGM) poll(); else clearTimeout(timer);
+function onMeta(md) {
+  const m = md ? md[META] : null;
+  const raw = m ? JSON.stringify(m) : "";
+  if (raw === lastRaw) return;           // менялось что-то другое (инициатива, эффекты…) — нас не касается
+  lastRaw = raw;
+  run(() => onTrack(m));
 }
 
 // ---------- запуск ----------
@@ -155,8 +131,8 @@ OBR.onReady(async () => {
   OBR.broadcast.onMessage(CH, ev => {
     const m = ev.data || {};
     switch (m.op) {
-      case "compact": if (cur && shown) run(() => openPlate("small")); break;
-      case "expand":  if (cur) run(() => openPlate("big")); break;
+      case "compact": if (cur && shown === "big") run(() => openPlate("small")); break;
+      case "expand":  if (cur && shown !== "big") run(() => openPlate("big")); break;
       case "close":   if (cur) ls.set(LS_HIDDEN, cur.id); run(closePlate); break;
       case "move":    run(openMove); break;
       case "place":
@@ -165,13 +141,9 @@ OBR.onReady(async () => {
       case "cancelMove": run(closeMove); break;
       case "reshow":  ls.del(LS_HIDDEN); if (cur) run(() => openPlate("small")); break;
       case "resetPos": ls.del(LS_POS); if (cur && shown) run(() => openPlate(shown)); break;
-      case "poll":    if (isGM) { lastKey = undefined; poll(); } break;
     }
   });
 
-  OBR.room.onMetadataChange(md => run(() => onTrack(md[META])));
-  OBR.player.onChange(p => setRole(p.role));
-
-  try { await setRole(await OBR.player.getRole()); } catch (e) {}
-  try { const md = await OBR.room.getMetadata(); run(() => onTrack(md[META])); } catch (e) {}
+  OBR.room.onMetadataChange(onMeta);
+  try { onMeta(await OBR.room.getMetadata()); } catch (e) {}
 });

@@ -27,12 +27,6 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .actions{display:flex;gap:6px}
 .actions button{flex:1}
 
-#status{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#0f0b07;font-size:12px;color:var(--mute)}
-#status .dot{flex:none;width:8px;height:8px;margin-top:5px;border-radius:50%;background:#6f6250}
-#status.ok .dot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
-#status.err .dot{background:var(--err);box-shadow:0 0 8px var(--err)}
-#status.ok{color:#cfe8bd}
-#status.err{color:#ffc9c0}
 
 #now{margin:10px 0 0;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
 #now .k{font:700 11px system-ui;letter-spacing:.14em;text-transform:uppercase;color:var(--mute)}
@@ -45,42 +39,47 @@ button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 #toast{position:sticky;bottom:0;min-height:20px;margin-top:12px;padding:4px 0;font-size:12px;color:var(--gold);background:linear-gradient(transparent,var(--bg) 40%)}
 .gm{display:none}
 body.isgm .gm{display:block}
-</style></head><body>
-<header><img src="./icon.svg" alt=""><h1>МУЗЫКА · KENKU FM</h1></header>
 
-<div class="gm"><div id="status"><span class="dot"></span><span id="stText">Проверяю связь…</span></div></div>
+.play{background:linear-gradient(180deg,#F3D27A,#C8912F);color:#1a1006;padding:0 14px}
+#hist{display:flex;flex-direction:column;gap:4px;max-height:210px;overflow:auto}
+#hist:empty:before{content:"Здесь появятся треки, которые ты включал";font-size:12px;color:#7d6e58}
+.h{display:flex;align-items:center;gap:4px;padding:0 2px 0 10px;height:32px;border-radius:8px;border:1px solid var(--line);background:#16100b;cursor:pointer;transition:border-color .15s,background .15s}
+.h:hover{border-color:var(--gold2);background:#21180f}
+.h.cur{border-color:var(--gold);background:#2a1d0f}
+.h span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:italic 600 14px Georgia,serif;color:#F6EEDF}
+.h button{flex:none;width:28px;height:28px;padding:0;background:transparent;color:#8d7c63;font-size:14px}
+.h button:hover{color:var(--err)}
+#nowRow{display:flex;gap:6px;margin-top:8px}
+#nowRow button{flex:1}
+</style></head><body>
+<header><img src="./icon.svg" alt=""><h1>МУЗЫКА</h1></header>
 
 <div id="now" class="empty"><div class="k" id="nowK">Сейчас звучит</div><div class="t" id="nowT">Ничего не играет</div><div class="p" id="nowP"></div></div>
+
+<div class="gm">
+  <div id="nowRow"><button class="alt" id="pause" disabled>⏸ Пауза</button><button class="alt" id="clear" disabled>■ Убрать у всех</button></div>
+
+  <h2>Включить трек</h2>
+  <div class="field">
+    <div class="inrow"><input id="title" type="text" maxlength="160" placeholder="Название трека" autocomplete="off"><button class="play" id="play">▶ Включить</button></div>
+    <div class="field" style="margin:6px 0 0"><input id="sub" type="text" maxlength="80" placeholder="Подпись (необязательно): альбом, место, сцена" autocomplete="off" style="height:30px;font-size:12px"></div>
+    <div class="hint"><b>Enter</b> — включить. У всех игроков появится плашка с названием.</div>
+  </div>
+
+  <h2>Недавние</h2>
+  <div id="hist"></div>
+
+  <h2>Крупно держится</h2>
+  <div class="seg" id="big"></div>
+</div>
 
 <h2>Плашка у меня</h2>
 <div class="actions">
   <button class="alt" id="reshow">Показать снова</button>
   <button class="alt" id="move">Переместить</button>
+  <button class="alt" id="resetPos">В угол</button>
 </div>
-<div class="actions" style="margin-top:6px"><button class="alt" id="resetPos">Вернуть в угол</button></div>
 <div class="hint">Клик по маленькой плашке ненадолго увеличивает её. × скрывает плашку до следующего трека.</div>
-
-<div class="gm">
-  <h2>Трансляция игрокам</h2>
-  <div class="two">
-    <div class="field"><label>Из Kenku</label><div class="seg" id="on"></div></div>
-    <div class="field"><label>Крупно держится</label><div class="seg" id="big"></div></div>
-  </div>
-
-  <h2>Подключение</h2>
-  <div class="field">
-    <label for="url">Адрес Kenku Remote</label>
-    <div class="inrow"><input id="url" type="text" autocomplete="off" spellcheck="false"><button class="alt" id="test">Проверить</button></div>
-    <div class="hint">В Kenku FM: <b>Settings → Remote</b> — включи. Адрес и порт должны совпадать (обычно 127.0.0.1 и 3333). Kenku и Owlbear — на одном компьютере.</div>
-  </div>
-
-  <h2>Вручную</h2>
-  <div class="field">
-    <div class="inrow"><input id="manual" type="text" maxlength="160" placeholder="Например, Таверна «Сломанный клинок»" autocomplete="off"><button class="main" id="sendManual">Показать</button></div>
-    <div class="hint">Если связь с Kenku не работает, название можно вписать самому. Следующий трек из Kenku его заменит.</div>
-    <div class="actions" style="margin-top:8px"><button class="alt" id="clear">Убрать плашку у всех</button></div>
-  </div>
-</div>
 
 <div id="toast" role="status"></div>
 <script type="module" src="./panel.js"></script>
