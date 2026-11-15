@@ -237,6 +237,12 @@ function webGeom(R, n, m, sag = 0.84, seed = 1) {
   return { spokes, rings, knots };
 }
 
+// язычок пламени: капля остриём вверх (основание в 0,0), sw — покачивание кончика
+function flamePts(w, h, sw = 0) {
+  return [{ x: sw, y: -h }, { x: w * 0.55 + sw * 0.4, y: -h * 0.45 }, { x: w * 0.5, y: -h * 0.05 }, { x: 0, y: h * 0.12 },
+    { x: -w * 0.5, y: -h * 0.05 }, { x: -w * 0.55 + sw * 0.4, y: -h * 0.45 }];
+}
+
 // ── эффекты применения (каждая функция возвращает «время попадания» в мс) ──
 const FX = {
   projectile(A, B, o, delay) {
@@ -896,6 +902,69 @@ const FX = {
     } });
     return o.hitAt ?? u;
   },
+  // «Столп света»: с неба на цель опускается колонна сияния, у основания — вспышка, лужа света и волна.
+  // Опции: height, width (клетки), fall (мс падения = момент попадания), duration, hold (доля до угасания),
+  // color, color2, core, opacity, taper (ширина вверху), flames: true + tongues — язычки священного пламени,
+  // motes — искры, стекающие по столпу, rays — лучи на земле, miss: true — бьёт рядом с целью (спасбросок).
+  pillar(c, o, delay) {
+    const H = (o.height || 3.5) * DPI, W = (o.width || 0.4) * DPI, dur = o.duration || 1600, fall = o.fall || 260, tp = o.taper ?? 0.55;
+    const col = o.color || "#ffd36b", col2 = o.color2 || col, core = o.core || "#ffffff", z = Date.now() + 40, L = o.layer || "ATTACHMENT", op = o.opacity ?? 1;
+    const r0 = c.r || DPI / 2, sd = Math.random() < 0.5 ? -1 : 1;
+    const x = o.miss ? c.x + sd * (r0 + DPI * (o.side ?? 0.45)) : c.x, y = o.miss ? c.y + (Math.random() - 0.5) * DPI * 0.4 : c.y;
+    const colPts = (w, yb) => [{ x: -w * tp, y: -H }, { x: w * tp, y: -H }, { x: w, y: yb }, { x: w * 0.55, y: yb + w * 0.35 }, { x: -w * 0.55, y: yb + w * 0.35 }, { x: -w, y: yb }];
+    const lay = [[2.4, col, 0.16], [1, col2, 0.5], [0.36, core, 0.95]];
+    const items = [];
+    const pool = circle({ x, y, r: W * 1.9, fill: col, fo: 0, n: 32, s: 0.3, layer: L, z: z - 3 });
+    const pool2 = circle({ x, y, r: W, fill: core, fo: 0, n: 24, s: 0.3, layer: L, z: z - 2 });
+    const ring = circle({ x, y, r: W * 3, fill: col, stroke: col, sw: DPI * 0.05, n: 40, s: 0.2, layer: L, z: z - 1 });
+    items.push(pool, pool2, ring);
+    const nr = o.rays || 0, rays = [];
+    for (let k = 0; k < nr; k++) {
+      const a = k / nr * TAU, it = poly({ x, y, pts: [{ x: Math.cos(a) * W * 1.3, y: Math.sin(a) * W * 1.3 }, { x: Math.cos(a) * W * 3.4, y: Math.sin(a) * W * 3.4 }], stroke: k % 2 ? col : col2, sw: DPI * 0.03, closed: false, layer: L, z: z - 1 });
+      items.push(it); rays.push({ it, ph: Math.random() * TAU });
+    }
+    const cols = lay.map(([k, cl], i) => poly({ x, y, pts: colPts(W * k, -H + 1), fill: cl, fo: 0, layer: L, z: z + i }));
+    items.push(...cols);
+    const fl = [];
+    if (o.flames) {
+      const n = o.tongues ?? 9, fc = [col, col2, core];
+      for (let k = 0; k < n; k++) {
+        const a = k / n * TAU + Math.random() * 0.5, d = W * (0.25 + Math.random() * 0.95), fx = Math.cos(a) * d, fy = Math.sin(a) * d * 0.6;
+        const w = DPI * (o.flameWidth || 0.16) * (0.7 + Math.random() * 0.6), h = DPI * (o.flameHeight || 0.6) * (0.6 + Math.random() * 0.7);
+        const it = poly({ x: x + fx, y: y + fy, pts: flamePts(w, h * 0.1), fill: fc[k % 3], fo: 0, tension: 0.5, layer: L, z: z + (fy > 0 ? 10 : -0.5) + k * 0.01 });
+        items.push(it); fl.push({ it, w, h, ph: Math.random() * TAU, fr: 0.8 + Math.random() * 0.8 });
+      }
+    }
+    const ms = [];
+    for (let k = 0; k < (o.motes ?? 10); k++) {
+      const it = circle({ x, y: y - H, r: DPI * (0.022 + Math.random() * 0.03), fill: k % 2 ? col2 : core, fo: 0, n: 8, layer: L, z: z + 5 + k * 0.01 });
+      items.push(it); ms.push({ it, ox: (Math.random() - 0.5) * W * 1.5, per: 0.35 + Math.random() * 0.4, off: Math.random() });
+    }
+    const hold = dur * (o.hold ?? 0.6);
+    spawn(delay, items, { dur, f: (p, P) => {
+      const tm = p * dur, h = tm - fall, yb = -H + H * out3(c01(tm / fall)) + 1;
+      const env = tm > hold ? Math.max(0, 1 - (tm - hold) / (dur - hold)) : 1, wk = tm > hold ? 0.3 + 0.7 * env : 1;
+      const sh = 1 + 0.08 * Math.sin(tm * 0.035) + 0.05 * Math.sin(tm * 0.071);
+      cols.forEach((it, i) => P.set(it.id, { pts: colPts(W * lay[i][0] * wk * sh, yb), fo: lay[i][2] * env * c01(tm / 40) * op }));
+      const hq = c01(h / 250), rq = c01(h / 550);
+      P.set(pool.id, { s: 0.3 + 0.7 * out3(hq), fo: h > 0 ? 0.35 * env * op : 0 });
+      P.set(pool2.id, { s: 0.3 + 0.9 * out3(hq), fo: h > 0 ? (0.35 + 0.6 * (1 - c01(h / 300))) * env * op : 0 });
+      P.set(ring.id, { s: 0.2 + 0.8 * out3(rq), so: h > 0 && rq < 1 ? 0.8 * (1 - rq) : 0 });
+      for (const r of rays) P.set(r.it.id, { r: tm * 0.02, s: 0.6 + 0.4 * out3(c01(h / 400)), so: h > 0 ? 0.7 * env * (0.6 + 0.4 * Math.sin(tm * 0.01 + r.ph)) : 0 });
+      const fe = h > 0 ? c01(h / 180) * env : 0;
+      for (const f of fl) {
+        const hh = f.h * (0.75 + 0.3 * Math.sin(tm * 0.018 * f.fr + f.ph) + 0.12 * Math.sin(tm * 0.05 + f.ph)) * (0.3 + 0.7 * fe);
+        const sw = Math.sin(tm * 0.011 * f.fr + f.ph * 2) * f.w * 0.5;
+        P.set(f.it.id, { pts: flamePts(f.w * wk, Math.max(1, hh), sw), fo: 0.85 * fe * op });
+      }
+      const me = env * c01((tm - fall * 0.5) / 200);
+      for (const m of ms) {
+        const q = (tm / 1000 / m.per + m.off) % 1;
+        P.set(m.it.id, { x: x + m.ox * (0.6 + 0.4 * q) * wk, y: y - H * (1 - q), fo: Math.sin(Math.PI * q) * me * 0.9 });
+      }
+    } });
+    return o.hitAt ?? fall;
+  },
   image(c, o, delay) {
     const dur = o.duration || 1500;
     const it = picture({ x: c.x, y: c.y, url: o.url, cells: o.size || 2, px: o.px, pxh: o.pxh, mime: o.mime, s: 0.01 });
@@ -989,7 +1058,7 @@ export async function play(A, cId, tIds = [], opt = {}) {
       });
       continue;
     }
-    if (st.fx === "watch") {   // часы появляются рядом с каждой целью; их hitAt — момент попадания
+    if (st.fx === "watch" || st.fx === "pillar") {   // часы / столп света у каждой цели; их hitAt — момент попадания
       T.forEach((t, k) => {
         const d = d0 + stag * k + (st.after === "hit" ? hits[t.id] || 0 : 0);
         hits[t.id] = Math.max(hits[t.id] || 0, d + fn(t, st, d));

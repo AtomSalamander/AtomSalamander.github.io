@@ -2,6 +2,8 @@
 //  • startAim  — заклинания по области: превью сферы / конуса следует за курсором, токены внутри подсвечиваются;
 //  • startPick — направленные и «касательные» заклинания: клик по токену или по месту на карте.
 // Клик — применить, Shift+клик — добавить ещё цель, Enter — применить к отмеченным, Esc — отмена.
+//  • A.pick = {max, range} — выбор нескольких целей как в BG3 (Благословение): клик отмечает/снимает,
+//    счётчик-«пипсы» у курсора, на max целей заклинание срабатывает само, Enter — раньше, Backspace — снять последнюю.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { NS } from "./const.js";
 import { grid, prim, tokens } from "./engine.js";
@@ -116,13 +118,26 @@ async function drawPick(p, force) {
   const hovId = hov ? hov.id : null, ids = [...s.shapeIds];
   for (const [tid, rid] of s.rings) if (force || want.has(tid) !== s.lit.has(tid) || (tid === hovId) !== (tid === s.hovId)) ids.push(rid);
   s.lit = want; s.hovId = hovId;
-  const okPoint = hov || s.allowPoint;
+  const okPoint = s.multi ? !!hov && !s.far.has(hov.id) : hov || s.allowPoint;
+  const pk = [...s.picked];
   await OBR.scene.local.updateItems(ids, ds => {
     for (const d of ds) {
       if (s.ringTok.has(d.id)) {
         const t = s.ringTok.get(d.id), on = want.has(t), pk = s.picked.has(t);
         d.style.strokeOpacity = on ? 0.95 : 0; d.style.fillOpacity = pk ? 0.22 : on ? 0.1 : 0;
         d.scale = t === hovId ? { x: 1.08, y: 1.08 } : { x: 1, y: 1 };
+        continue;
+      }
+      if (s.pipIdx && s.pipIdx.has(d.id)) {   // счётчик целей: n кружков под прицелом, отмеченные — залиты
+        const k = s.pipIdx.get(d.id), n = s.multi, on = k < pk.length;
+        d.position = { x: q.x + (k - (n - 1) / 2) * s.DPI * 0.22, y: q.y + s.DPI * 0.5 };
+        d.style.fillOpacity = on ? 0.95 : 0.15; d.style.strokeOpacity = 0.95;
+        continue;
+      }
+      if (s.tethIdx && s.tethIdx.has(d.id)) {   // золотые нити от заклинателя к отмеченным целям
+        const t = s.byId.get(pk[s.tethIdx.get(d.id)]);
+        if (t) d.points = [{ x: 0, y: 0 }, { x: t.x - s.C.x, y: t.y - s.C.y }];
+        d.style.strokeOpacity = t ? 0.75 : 0;
         continue;
       }
       if (d.id === s.ui.ret || d.id === s.ui.dot) {
@@ -160,8 +175,35 @@ async function fire(p) {
   if (s) try { await s.onFire({ pt: { x: g.pt.x, y: g.pt.y }, targets: g.inside.map(t => ({ id: t.id, name: t.name })), tok: g.tok ? { id: g.tok.id, name: g.tok.name } : null }); } catch (e) { console.warn("[fx] aim fire", e); }
 }
 
+// ── выбор нескольких целей (как в BG3) ──
+function hovFrom(s, p, ev) {
+  const it = ev && ev.target;
+  if (it && s.byId.has(it.id)) return s.byId.get(it.id);
+  if (it && s.ringTok.has(it.id)) return s.byId.get(s.ringTok.get(it.id));
+  return p ? tokAt(p) : null;
+}
+async function fireMulti(s) {
+  if (S !== s || s.firing) return;
+  s.firing = true;
+  const targets = [...s.picked].map(id => s.byId.get(id)).filter(Boolean).map(t => ({ id: t.id, name: t.name }));
+  await cleanup();
+  try { await s.onFire({ pt: null, targets }); } catch (e) { console.warn("[fx] pick fire", e); }
+}
+async function pickMulti(s, p, ev, enter) {
+  if (s.firing) return;
+  if (enter) return s.picked.size ? fireMulti(s) : note(`Отметь хотя бы одну цель (до ${s.multi})`);
+  const hov = hovFrom(s, p, ev);
+  if (!hov) return;
+  if (s.far.has(hov.id)) return note(`Слишком далеко — дальность ${s.A.pick.range} фт`);
+  if (s.picked.has(hov.id)) s.picked.delete(hov.id);   // повторный клик — снять отметку
+  else if (s.picked.size < s.multi) s.picked.add(hov.id);
+  await drawPick(p || hov, true);
+  if (s.picked.size >= s.multi) setTimeout(() => fireMulti(s), 250);   // набрали все цели — применяем сами
+}
+
 async function firePick(p, ev, enter) {
   const s = S; if (!s) return;
+  if (s.multi) return pickMulti(s, p, ev, enter);
   let hov = null;
   if (!enter) {
     const it = ev && ev.target;
@@ -207,6 +249,7 @@ async function arm(s, items, label, first) {
     onKeyDown: (_, ev) => {
       if (ev.key === "Escape") cancelAim();
       else if (ev.key === "Enter" && s.kind === "pick" && S === s) firePick(s.last && s.last.p, null, true);
+      else if (ev.key === "Backspace" && s.multi && S === s && s.picked.size) { s.picked.delete([...s.picked].pop()); drawPick((s.last && s.last.p) || s.C || { x: 0, y: 0 }, true); }
     },
     onDeactivate: () => { if (S === s) cancelAim(); },   // переключили инструмент — отмена
   });
@@ -273,6 +316,12 @@ export async function startPick({ A, cId, color = "#b48cff", isGM = false, allow
     byId: new Map(toks.map(t => [t.id, t])), picked: new Set(), hovId: null,
     ui: {}, rings: new Map(), ringTok: new Map(), lit: new Set(), shapeIds: [], allIds: [],
   };
+  const pk = A && A.pick && A.pick.max > 1 ? A.pick : null;
+  if (pk) {   // BG3-выбор: до max целей, дальше дальности — нельзя
+    s.multi = pk.max; s.allowPoint = false; s.far = new Set();
+    s.range = pk.range && C ? pk.range / (await feetPerCell()) * DPI : 0;
+    if (s.range) for (const t of toks) if (Math.hypot(t.x - C.x, t.y - C.y) > s.range + (t.r || DPI / 2) * 0.5) s.far.add(t.id);
+  }
   const z = Date.now() + 1000, items = [];
   if (C) {
     const ln = prim.poly({ x: C.x, y: C.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: color, so: 0.6, sw: DPI * 0.03, dash: [DPI * 0.12, DPI * 0.08], closed: false, z: z - 1 });
@@ -281,8 +330,25 @@ export async function startPick({ A, cId, color = "#b48cff", isGM = false, allow
   const ret = prim.circle({ x: 0, y: 0, r: DPI * 0.28, fill: color, fo: 0.1, stroke: color, so: 0.9, sw: DPI * 0.035, dash: [DPI * 0.1, DPI * 0.07], n: 32, z });
   const dt = prim.circle({ x: 0, y: 0, r: DPI * 0.06, fill: color, fo: 0.9, n: 12, z: z + 1 });
   s.ui.ret = ret.id; s.ui.dot = dt.id; items.push(ret, dt);
+  if (s.multi) {
+    s.pipIdx = new Map(); s.tethIdx = new Map();
+    if (C) for (let k = 0; k < s.multi; k++) {
+      const tl = prim.poly({ x: C.x, y: C.y, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: color, so: 0, sw: DPI * 0.025, dash: [DPI * 0.06, DPI * 0.06], closed: false, z: z - 2 });
+      s.tethIdx.set(tl.id, k); items.push(tl);
+    }
+    for (let k = 0; k < s.multi; k++) {
+      const pp = prim.circle({ x: 0, y: 0, r: DPI * 0.075, fill: color, fo: 0.15, stroke: "#fff6d8", so: 0.95, sw: DPI * 0.02, n: 16, z: z + 2 + k });
+      s.pipIdx.set(pp.id, k); items.push(pp);
+    }
+  }
   s.shapeIds = items.map(i => i.id);
-  items.push(...ringsFor(s, toks, color, z, null));
+  if (s.range) items.push(prim.circle({ x: C.x, y: C.y, r: s.range, fill: color, fo: 0.03, stroke: color, so: 0.4, sw: DPI * 0.025, dash: [DPI * 0.2, DPI * 0.15], n: 96, z: z - 5 }));
+  const rs = ringsFor(s, toks, color, z, null);
+  if (s.far) for (const r of rs) if (s.far.has(s.ringTok.get(r.id))) { r.style.strokeColor = "#8c8c8c"; r.style.fillColor = "#8c8c8c"; r.style.strokeDash = [DPI * 0.08, DPI * 0.08]; }
+  items.push(...rs);
   const c0 = C || toks[0] || { x: 0, y: 0 };
-  await arm(s, items, "Выбор цели (Shift — несколько, ПКМ / Esc — отмена)", { x: c0.x + DPI * 2, y: c0.y });
+  await arm(s, items, s.multi
+    ? `${A.name}: до ${s.multi} целей — клик отметить/снять, Enter — применить, Backspace — снять последнюю (ПКМ / Esc — отмена)`
+    : "Выбор цели (Shift — несколько, ПКМ / Esc — отмена)", { x: c0.x + DPI * 2, y: c0.y });
+  if (s.multi) note(`${A.icon || "✨"} ${A.name}: отметь до ${s.multi} целей${s.range ? ` в пределах ${pk.range} фт` : ""} · Enter — применить раньше · Esc — отмена`);
 }

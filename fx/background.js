@@ -272,7 +272,8 @@ async function onCast(m) {
         const have = new Set((await OBR.scene.items.getItems(t.map(x => x.id))).map(i => i.id));
         t = t.filter(x => have.has(x.id));
       }
-      if (!t.length && kind === "tok" && c) t = [c];
+      if (A.pick && A.pick.max) t = t.slice(0, A.pick.max);   // Благословение — не больше 3 целей
+      if (!t.length && (kind === "tok" || A.pick) && c) t = [c];
       if (!t.length) return note(`Выдели цели и нажми ${KEY_TARGETS}`);
       return fireWith({ targets: t });
     }

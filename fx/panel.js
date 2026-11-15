@@ -100,7 +100,7 @@ function pick(id) {
   $("uNum").value = n > 1 ? n : 10;
   $("uWho").dataset.def = u.who === "caster" ? "@c" : "@t";
   $("goSave").hidden = !!A.area || !!A.self || (!A.save && !A.attack);
-  const k = aimKind(A), pickT = k === "dir" ? " — выбрать цель/место" : " — выбрать цель";
+  const k = aimKind(A), pickT = A.pick ? ` — отметить до ${A.pick.max} целей` : k === "dir" ? " — выбрать цель/место" : " — выбрать цель";
   $("go").textContent = k === "area" ? "🎯 Прицелиться — клик по карте" : k === "self" ? "✨ Применить на себя" : A.attack ? "🎯 Попадание" + pickT : A.save ? `✨ Провал (${A.save})` + pickT : "✨ Применить" + pickT;
   $("goSave").textContent = A.attack ? "💨 Промах" + pickT : "🛡️ Спасбросок пройден" + pickT;
   drawGoSel();
@@ -178,7 +178,7 @@ async function cast(saved = false, use) {
   await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), rad: curRad(A), att: curAtt(A), use }, { destination: "LOCAL" });
   const k = aimKind(A);
   if (use === "sel" || k === "self") return toast(`${A.icon || "✨"} ${A.name}`);
-  toast(k === "area" ? "🎯 Наведи на карте и кликни · Esc — отмена" : `🎯 Кликни по ${k === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
+  toast(A.pick ? `🎯 Отметь до ${A.pick.max} целей кликом · Enter — применить · Esc — отмена` : k === "area" ? "🎯 Наведи на карте и кликни · Esc — отмена" : `🎯 Кликни по ${k === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
   if (!pinned) { try { await OBR.action.close(); } catch (e) {} }
 }
 $("go").onclick = () => cast(false);

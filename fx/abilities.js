@@ -8,6 +8,8 @@
 //         n: 1 = следующий ход, 0 (только для "e") = конец текущего, 10 = «1 минута»
 // В панели мастер всё равно может поменять длительность перед применением.
 //
+// pick     — выбор нескольких целей как в BG3: {max: 3, range: футы} — клик отмечает/снимает,
+//            на max целей применяется сразу, Enter — раньше, Backspace — снять последнюю
 // area     — заклинание по области (как в BG3): нужен только «Кто», точку выбирают кликом по карте.
 //            {shape:"sphere", radius: футы, range: футы} или {shape:"cone", length: футы}
 // elements — список стихий из ELEMENTS; в шагах можно писать цвета "$c1" "$c2" "$c3" "$d",
@@ -394,6 +396,43 @@ export const ABILITIES = [
       { fx: "dome", color: "#7fc8ff", grid: "#cfeaff", highlight: "#ffffff", size: 1.4, cells: 3, fill: 0.1, opacity: 0.85 },
     ],
     until: { who: "caster", when: "s", n: 1 },
+  },
+  {
+    id: "bless", name: "Благословение", icon: "🙏", group: "Заклинания",
+    pick: { max: 3, range: 30 },   // как в BG3: клик отмечает до 3 существ в пределах 30 фт, на третьей — применяется
+    cast: [
+      { fx: "sigil", at: "caster", color: "#ffd36b", rune: "#fff4c2", radius: 1.15, points: 8, runes: 8, duration: 2000, spin: 45, fill: 0.08 },
+      { fx: "rise", at: "caster", color: "#ffe39a", core: "#ffffff", count: 14, height: 1.3, duration: 1300 },
+      { fx: "burst", at: "caster", delay: 250, color: "#ffd36b", core: "#fffbe6", radius: 0.8, sparks: 8, stars: true, flash: 0.4 },
+      { fx: "projectile", delay: 450, stagger: 140, color: "#ffd36b", core: "#fffbe6", size: 0.2, speed: 9, arc: 0.8, trail: 8, embers: 6,
+        ribbons: ["#fff4c2", "#ffc94a"], ribbonLen: 6, ribbonSize: 0.035, ribbonAmp: 0.12 },
+      { fx: "pillar", after: "hit", color: "#ffd36b", color2: "#ffe9a8", core: "#fffbe6", height: 3.2, width: 0.32, fall: 280, duration: 1500, rays: 8, motes: 12, opacity: 0.85 },
+      { fx: "burst", at: "targets", after: "hit", color: "#ffd36b", core: "#fffbe6", radius: 0.95, sparks: 10, stars: true, flash: 0.5 },
+      { fx: "shock", at: "targets", after: "hit", color: "#fff1c2", radius: 1.3, rings: 2, duration: 800 },
+      { fx: "rise", at: "targets", after: "hit", delay: 100, color: "#ffd36b", core: "#ffffff", count: 14, height: 1.5, duration: 1600 },
+    ],
+    auraDelay: 250,   // сияние остаётся, когда столп света погас
+    aura: [
+      { fx: "glow", color: "#ffd36b", size: 1.35, opacity: 0.16, period: 3 },
+      { fx: "ring", color: "#ffe39a", size: 1.12, width: 0.03, dash: true, spin: 12, opacity: 0.6, period: 3 },
+      { fx: "orbit", color: "#fff4c2", color2: "#ffd36b", count: 3, size: 0.045, radius: 1.12, speed: 50, opacity: 0.9, flicker: 0.3 },
+    ],
+    until: { who: "caster", when: "e", n: 10 },   // концентрация, 1 минута
+  },
+  {
+    id: "sacred-flame", name: "Священное пламя", icon: "🔆", group: "Заклинания",
+    save: "Лов",
+    cast: [   // провал: на цель обрушивается столп сияющего пламени
+      { fx: "sigil", at: "targets", color: "#ffd36b", rune: "#fffbe6", radius: 0.85, points: 6, runes: 6, duration: 1400, spin: 90, fill: 0.08 },
+      { fx: "pillar", delay: 300, flames: true, color: "#ffc23a", color2: "#fff0b0", core: "#ffffff", height: 4, width: 0.42, fall: 200, duration: 1700, tongues: 11, motes: 8 },
+      { fx: "burst", at: "targets", after: "hit", color: "#ffd36b", core: "#ffffff", radius: 1, sparks: 12, flash: 0.8 },
+      { fx: "shock", at: "targets", after: "hit", color: "#fff3c4", radius: 1.5, rings: 2, width: 0.06, duration: 650 },
+      { fx: "embers", at: "targets", after: "hit", delay: 150, color: "#ffd36b", color2: "#fff0b0", core: "#ffffff", count: 18, height: 1.5, duration: 1700 },
+    ],
+    castSave: [   // спасся: пламя бьёт рядом — цель увернулась
+      { fx: "sigil", at: "targets", color: "#ffd36b", rune: "#fffbe6", radius: 0.85, points: 6, runes: 6, duration: 1200, spin: 90, fill: 0.06, opacity: 0.6 },
+      { fx: "pillar", delay: 300, miss: true, flames: true, color: "#ffc23a", color2: "#fff0b0", core: "#ffffff", height: 4, width: 0.34, fall: 200, duration: 1100, hold: 0.45, tongues: 7, motes: 4 },
+    ],
   },
   {
     id: "shadow-step", name: "Шаг в тень", icon: "🐦‍⬛", group: "Шадар-кай",
