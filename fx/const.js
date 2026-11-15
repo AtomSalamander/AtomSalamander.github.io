@@ -11,3 +11,4 @@ export function normState(s) {
   return JSON.parse(JSON.stringify({ v: 1, e: s.e, p: s.p || null }));
 }
 export const SEL = "dndfx_sel";                 // localStorage: выбранные «Кто» и «Цели» (общий для панели и горячих клавиш)
+export const LOOP = NS + "/loop";                 // метаданные сцены: снимок позиций токенов для «Петли времени»

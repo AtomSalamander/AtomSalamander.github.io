@@ -479,6 +479,22 @@ export const ABILITIES = [
       { fx: "orbit", color: "#9eeaff", color2: "#ffffff", count: 4, radius: 1.15, size: 0.05, speed: 60 },
     ],
   },
+  {
+    id: "lens-shard", name: "Свет осколка Линзы", icon: "🔸", group: "Арка 8 · Воскрешение Паши",
+    cast: [
+      { fx: "implode", at: "targets", color: "#ffb04d", core: "#fff4dc", fill: "#2a1206", radius: 1.6, sparks: 18, duration: 750 },
+      { fx: "rise", at: "targets", delay: 150, color: "#ffc46b", core: "#ffffff", count: 14, height: 1.2, duration: 1300 },
+      { fx: "shock", at: "targets", delay: 700, color: "#ffd9a0", radius: 2.2, rings: 2, width: 0.045, duration: 800 },
+      { fx: "burst", at: "targets", delay: 700, color: "#ff8a3d", core: "#ffffff", radius: 1.1, sparks: 12, stars: true, flash: 0.55 },
+    ],
+    auraDelay: 700,   // осколок вспыхивает — и вокруг растекается свет
+    aura: [
+      { fx: "glow", color: "#ff9a3d", size: 1.25, opacity: 0.14, period: 3 },
+      // light: радиус света в клетках (2 = 10 фт); size — размер кристалла; clock — скорость циферблата
+      { fx: "shard", color: "#ffb04d", color2: "#ff6b35", core: "#fff4dc", light: 2, size: 0.5, height: 0.95, rays: 7, motes: 14, clock: 24, period: 3, flicker: 0.12 },
+    ],
+    until: { who: "target", when: "x" },
+  },
 ];
 
 export const ABIL = Object.fromEntries(ABILITIES.map(a => [a.id, a]));

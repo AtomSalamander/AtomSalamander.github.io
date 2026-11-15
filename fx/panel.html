@@ -73,6 +73,13 @@ input,select{background:#0d0e20;color:#ece9ff;border:1px solid #ffffff30;border-
 </div>
 <div id="pl" class="hint" hidden>Мастер пока не разрешил игрокам ни одной способности. Здесь видно, какие эффекты сейчас висят.</div>
 
+<div id="loopBox" hidden>
+  <h2>⏳ Петля времени</h2>
+  <div class="slot"><span>📸 Снимок</span><b id="loopN" title="">—</b><button class="alt sm" id="loopSave" title="Запомнить положение всех токенов на сцене">Запомнить</button></div>
+  <button id="loopGo" style="width:100%;background:#4fc3ff;color:#04152a" disabled>🔁 Цикл заново</button>
+  <div class="hint" style="margin-top:6px"><span id="loopC">Перезапусков: 0</span> <button class="alt sm" id="loopRst" title="Сбросить счётчик" style="padding:1px 6px">↺</button><br>Вспышку видят все игроки. Токены возвращаются на место, в прежний поворот и видимость.</div>
+</div>
+
 <h2>Активные эффекты</h2>
 <div id="act"></div>
 <button class="alt sm" id="clr" hidden style="margin-top:4px">Снять все</button>

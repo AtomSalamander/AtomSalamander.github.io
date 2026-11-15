@@ -1,7 +1,7 @@
 // Панель: выбор заклинателя/целей, список способностей, активные эффекты.
 // Мастер видит всё и галочками «👥» разрешает способности игрокам; игроки видят только разрешённое.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import { STATE, INIT, CH, PANEL, ALLOW, SEL, normState } from "./const.js";
+import { STATE, INIT, CH, PANEL, ALLOW, SEL, LOOP, normState } from "./const.js";
 import { ABILITIES, ABIL, ELEMENTS, elOf, aimKind, radOf } from "./abilities.js";
 import { untilText } from "./turns.js";
 import { addSlot, openBar, closeBar, loadBar } from "./barctl.js";
@@ -242,6 +242,19 @@ $("pin").onclick = async () => {
 
 addEventListener("storage", ev => { if (ev.key === SK) { sel = load(SK) || { c: null, t: [] }; drawSel(); } });
 
+// ── Петля времени (только мастер) ──
+function drawLoop(S) {
+  $("loopBox").hidden = !isGM;
+  const ok = S && Array.isArray(S.list) && S.list.length;
+  $("loopN").textContent = ok ? `${S.list.length} ток. · ${new Date(S.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "— не запомнено";
+  $("loopGo").disabled = !ok;
+  $("loopC").textContent = `Перезапусков: ${(S && S.n) || 0}`;
+}
+async function readLoop() { try { if (await OBR.scene.isReady()) return drawLoop((await OBR.scene.getMetadata())[LOOP]); } catch (e) {} drawLoop(null); }
+$("loopSave").onclick = () => { OBR.broadcast.sendMessage(CH, { op: "loopSave" }, { destination: "LOCAL" }); toast("📸 Запоминаю положение токенов…"); };
+$("loopGo").onclick = () => { OBR.broadcast.sendMessage(CH, { op: "loopGo" }, { destination: "LOCAL" }); toast("🔁 Цикл начинается заново…"); };
+$("loopRst").onclick = () => OBR.broadcast.sendMessage(CH, { op: "loopReset" }, { destination: "LOCAL" });
+
 OBR.onReady(async () => {
   isGM = (await OBR.player.getRole()) === "GM";
   OBR.player.onChange(p => { const g = p.role === "GM"; if (g !== isGM) { isGM = g; drawRole(); drawActive(); } });
@@ -251,4 +264,8 @@ OBR.onReady(async () => {
   drawSel(); if (ABIL[cur] && canUse(ABIL[cur])) pick(cur);
   onMeta(md);
   OBR.room.onMetadataChange(onMeta);
+  readLoop();
+  OBR.scene.onReadyChange(() => readLoop());
+  OBR.scene.onMetadataChange(md => drawLoop(md[LOOP]));
+  OBR.player.onChange(() => readLoop());
 });

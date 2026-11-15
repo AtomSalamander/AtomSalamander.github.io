@@ -5,9 +5,9 @@
 //  • горячие клавиши Alt+1 / Alt+2;
 //  • у мастера — следит за трекером инициативы и снимает эффекты, когда наступает нужный ход.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import { NS, STATE, INIT, CH, ALLOW, SEL, normState } from "./const.js";
+import { NS, STATE, INIT, CH, ALLOW, SEL, LOOP, normState } from "./const.js";
 import { ABIL, paint, aimKind, radOf, sized } from "./abilities.js";
-import { play, startAura, startZone, stopAura, stopAll, label, tokens, grid } from "./engine.js";
+import { play, startAura, startZone, stopAura, stopAll, label, tokens, grid, loopFlash, loopMark, LOOP_PEAK } from "./engine.js";
 import { turnEvents, applyEvents, samePos, makeEffects } from "./turns.js";
 import { startAim, startPick, cancelAim, aiming, feetPerCell } from "./aim.js";
 import { loadBar, openBar } from "./barctl.js";
@@ -308,6 +308,60 @@ async function pickSel(kind, items) {
     else await label(list.map(x => x.id), "Цель", { color: "#ff9a9a" });
   } catch (e) { console.warn("[fx] label", e); }
 }
+// ── Петля времени (только мастер): запомнить позиции всех токенов и вернуть их после голубой вспышки ──
+// Снимок хранится в метаданных СЦЕНЫ: [id, x, y, поворот, видим]. Комната не засоряется, у каждой сцены свой снимок.
+const isTok = it => it.layer === "CHARACTER" || it.layer === "MOUNT";
+const r1 = v => Math.round(v * 10) / 10;
+let looping = false;
+async function loopSave() {
+  if (!ready) return note("Сцена ещё не загружена");
+  const items = await OBR.scene.items.getItems(isTok);
+  if (!items.length) return note("⏳ На сцене нет токенов");
+  const old = (await OBR.scene.getMetadata())[LOOP] || {};
+  const list = items.map(it => [it.id, r1(it.position.x), r1(it.position.y), r1(it.rotation || 0), it.visible === false ? 0 : 1]);
+  await OBR.scene.setMetadata({ [LOOP]: { t: Date.now(), n: old.n || 0, list } });
+  try { const T = await tokens(items.filter(i => i.visible !== false).map(i => i.id)); loopMark(Object.values(T)); } catch (e) {}
+  note(`📸 Петля запомнила положение ${list.length} токенов`);
+}
+async function loopGo() {
+  if (!ready) return note("Сцена ещё не загружена");
+  if (looping) return;
+  const S = (await OBR.scene.getMetadata())[LOOP];
+  if (!S || !Array.isArray(S.list) || !S.list.length) return note("⏳ Сначала нажми «Запомнить»");
+  looping = true;
+  try {
+    const want = new Map(S.list.map(q => [q[0], q]));
+    const items = await OBR.scene.items.getItems([...want.keys()]);
+    const ch = [];
+    for (const it of items) {
+      const q = want.get(it.id), dx = q[1] - it.position.x, dy = q[2] - it.position.y, vis = !!q[4];
+      const moved = Math.abs(dx) + Math.abs(dy) > 0.5, turned = Math.abs((it.rotation || 0) - q[3]) > 0.05, shown = (it.visible !== false) !== vis;
+      if (moved || turned || shown) ch.push({ it, q, dx, dy, vis });
+    }
+    // анимация — только для токенов, которые видны и сейчас, и после возврата (чтобы не выдать спрятанных)
+    const vis = ch.filter(c => c.vis && c.it.visible !== false);
+    const T = vis.length ? await tokens(vis.map(c => c.it.id)) : {};
+    const moves = vis.filter(c => T[c.it.id]).map(c => { const a = T[c.it.id]; return { a: { x: r1(a.x), y: r1(a.y) }, b: { x: r1(a.x + c.dx), y: r1(a.y + c.dy) }, r: r1(a.r) }; });
+    await OBR.broadcast.sendMessage(CH, { op: "loopFx", m: moves }, { destination: "REMOTE" });
+    const peak = await loopFlash(moves).catch(e => { console.warn("[fx] loop", e); return LOOP_PEAK; });
+    await new Promise(r => setTimeout(r, peak + 60));
+    if (ch.length) {
+      const by = new Map(ch.map(c => [c.it.id, c]));
+      await OBR.scene.items.updateItems([...by.keys()], ds => {
+        for (const d of ds) { const c = by.get(d.id); if (!c) continue; d.position = { x: c.q[1], y: c.q[2] }; d.rotation = c.q[3]; d.visible = c.vis; }
+      });
+    }
+    const n = (S.n || 0) + 1, lost = S.list.length - items.length;
+    await OBR.scene.setMetadata({ [LOOP]: { ...S, n } });
+    note(`🔁 Цикл заново (${n}-й раз): вернул ${ch.length} ток.` + (lost > 0 ? ` · ${lost} уже нет на сцене` : ""));
+  } catch (e) { console.warn("[fx] loop", e); note("⏳ Не смог вернуть токены"); }
+  finally { looping = false; }
+}
+async function loopReset() {
+  const S = (await OBR.scene.getMetadata())[LOOP];
+  if (S) await OBR.scene.setMetadata({ [LOOP]: { ...S, n: 0 } });
+}
+
 const onlyTokens = { every: [{ key: "layer", value: "CHARACTER", coordinator: "||" }, { key: "layer", value: "MOUNT" }] };
 
 OBR.onReady(async () => {
@@ -321,6 +375,11 @@ OBR.onReady(async () => {
 
   OBR.broadcast.onMessage(CH, async ev => {
     const m = ev.data || {};
+    if (m.op === "loopFx") { if (!fromPlayer(ev) && ready) loopFlash(Array.isArray(m.m) ? m.m : []).catch(e => console.warn("[fx] loop", e)); return; }
+    if (m.op === "loopSave" || m.op === "loopGo" || m.op === "loopReset") {   // кнопки панели мастера (только свои)
+      if (isGM && (!ev.connectionId || !myConn || ev.connectionId === myConn)) (m.op === "loopSave" ? loopSave : m.op === "loopGo" ? loopGo : loopReset)().catch(e => console.warn("[fx] loop", e));
+      return;
+    }
     if (fromPlayer(ev) && (m.op === "del" || m.op === "clear" || m.op === "rad" || m.op === "att")) return;                 // снимает только мастер
     if (fromPlayer(ev) && m.op === "play" && !allow.has(m.a)) return;                  // игрокам — только разрешённое
     if (m.op === "play") onPlay(m);

@@ -1353,6 +1353,59 @@ export async function startAura(parts, tok) {
           P.set(w.claw.id, { pts: [{ x: G.tp.x + Math.sin(ca) * S * 0.03, y: G.tp.y - Math.cos(ca) * S * 0.03 }, { x: G.tp.x + Math.cos(ca - 0.5) * cl, y: G.tp.y + Math.sin(ca - 0.5) * cl }, { x: G.tp.x - Math.sin(ca) * S * 0.03, y: G.tp.y + Math.cos(ca) * S * 0.03 }].map(m), fo: A, so: A });
         }
       });
+    } else if (p.fx === "shard") {
+      // Осколок Линзы: парящий кристалл над токеном, лучи, блик и круг света (p.light — радиус в клетках, 10 фт = 2),
+      // внутри которого «идёт время»: медленно вращается циферблат, поднимаются пылинки
+      const o = op ?? 1, c2 = p.color2 || "#ff7a2e", core = p.core || "#fff4dc", L = p.layer || "MOUNT";
+      const R = (p.light ?? 2) * DPI, h = T.r * (p.size || 0.5), hy = -T.r * (p.height ?? 0.95), lo = p.lightOpacity ?? 1;
+      const cfg = { x: T.x, y: T.y, attach: tok };
+      const pools = [[1.0, 0.06], [0.84, 0.07], [0.62, 0.08], [0.38, 0.1]].map(([k, a], i) => {
+        const it = circle({ ...cfg, r: R * k, fill: i % 2 ? c2 : col, n: 56, layer: L, z: z + items.length }); items.push(it); return { it, a, ph: i * 1.3 };
+      });
+      const rim = circle({ ...cfg, r: R, fill: col, stroke: col, sw: DPI * 0.025, dash: [DPI * 0.05, DPI * 0.18], n: 80, layer: L, z: z + items.length }); items.push(rim);
+      const ticks = circle({ ...cfg, r: R * 0.92, fill: col, stroke: core, sw: DPI * 0.08, dash: [DPI * 0.025, R * 0.92 * TAU / 12 - DPI * 0.025], n: 96, layer: L, z: z + items.length }); items.push(ticks);
+      const motes = [];
+      for (let k = 0; k < (p.motes ?? 14); k++) {
+        const mr = DPI * (0.016 + Math.random() * 0.02), it = circle({ ...cfg, r: mr, fill: k % 3 ? col : core, n: 8, z: z + items.length });
+        items.push(it);
+        motes.push({ it, mr, a: Math.random() * TAU, d: Math.sqrt(Math.random()) * R * 0.85, per: 2.4 + Math.random() * 2.2, off: Math.random() });
+      }
+      const nR = p.rays ?? 7, rays = [];
+      for (let k = 0; k < nR; k++) { const it = poly({ ...cfg, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], fill: k % 2 ? col : core, z: z + items.length }); items.push(it); rays.push({ it, k }); }
+      const halo = poly({ ...cfg, pts: ringPts(h * 1.25, 28, 0, hy), fill: col, z: z + items.length }); items.push(halo);
+      const halo2 = poly({ ...cfg, pts: ringPts(h * 0.75, 24, 0, hy), fill: core, z: z + items.length }); items.push(halo2);
+      // кристалл со сколом снизу: контур, светлая грань, ребро
+      const BODY = [[0, -1], [0.5, -0.4], [0.42, 0.42], [0.16, 0.62], [0.06, 0.86], [-0.14, 0.58], [-0.44, 0.44], [-0.5, -0.32]];
+      const FACE = [[0, -1], [-0.5, -0.32], [-0.44, 0.44], [-0.14, 0.58], [-0.02, 0.05]];
+      const RIDGE = [[0, -1], [-0.02, 0.05], [0.06, 0.86]];
+      const body = poly({ ...cfg, pts: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }], fill: col, stroke: c2, sw: DPI * 0.02, z: z + items.length }); items.push(body);
+      const face = poly({ ...cfg, pts: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }], fill: core, z: z + items.length }); items.push(face);
+      const ridge = poly({ ...cfg, pts: [{ x: 0, y: 0 }, { x: 1, y: 1 }], stroke: core, sw: DPI * 0.012, closed: false, z: z + items.length }); items.push(ridge);
+      const glint = poly({ ...cfg, pts: starPts(1, 4, 0.2), fill: "#ffffff", z: z + items.length }); items.push(glint);
+      fs.push((t, P) => {
+        const ap = Math.max(0.01, out3(c01(t / 0.9))), A = o * c01(t / 0.5) * fl(t), br = 0.85 + 0.15 * wave(t);
+        for (const q of pools) P.set(q.it.id, { s: ap * (1 + 0.025 * Math.sin(t * 1.4 + q.ph)), fo: q.a * A * br * lo });
+        P.set(rim.id, { s: ap, r: t * 5, so: 0.45 * A * br * lo });
+        P.set(ticks.id, { s: ap, r: t * (p.clock ?? 24), so: 0.32 * A * lo });
+        for (const m of motes) {
+          const k = (t / m.per + m.off) % 1, ox = Math.cos(m.a) * m.d * ap + Math.sin(k * TAU + m.off * 9) * DPI * 0.06, oy = Math.sin(m.a) * m.d * ap - k * DPI * 0.7;
+          P.set(m.it.id, { pts: ringPts(m.mr, 8, ox, oy), fo: Math.sin(Math.PI * k) * A * 0.85 });
+        }
+        const bob = Math.sin(t * TAU / 3.2) * h * 0.12, cy = hy + bob, ang = t * 1.15, cs = Math.cos(ang);
+        const kx = (0.42 + 0.58 * Math.abs(cs)) * (cs < 0 ? -1 : 1) * h * 0.85, map = L2 => L2.map(([u, v]) => ({ x: u * kx, y: cy + v * h }));
+        for (const q of rays) {
+          const a = q.k / nR * TAU + t * 0.22, len = h * (1.9 + 0.6 * Math.sin(t * 1.9 + q.k * 2.1)) * ap, wd = 0.07;
+          P.set(q.it.id, { pts: [{ x: Math.cos(a + wd) * h * 0.3, y: cy + Math.sin(a + wd) * h * 0.3 }, { x: Math.cos(a) * len, y: cy + Math.sin(a) * len }, { x: Math.cos(a - wd) * h * 0.3, y: cy + Math.sin(a - wd) * h * 0.3 }],
+            fo: A * 0.2 * (0.45 + 0.55 * Math.pow(0.5 + 0.5 * Math.sin(t * 1.6 + q.k * 2.4), 2)) });
+        }
+        P.set(halo.id, { pts: ringPts(h * 1.25 * (1 + 0.08 * wave(t)), 28, 0, cy), fo: 0.22 * A * br });
+        P.set(halo2.id, { pts: ringPts(h * 0.75 * (1 + 0.1 * wave(t)), 24, 0, cy), fo: 0.3 * A * br });
+        P.set(body.id, { pts: map(BODY), fo: 0.88 * A, so: 0.9 * A });
+        P.set(face.id, { pts: map(FACE), fo: A * (0.25 + 0.6 * Math.pow(Math.max(0, Math.sin(ang * 2)), 2)) });
+        P.set(ridge.id, { pts: map(RIDGE), so: 0.7 * A });
+        const g = ((t + 0.4) % (p.glintEvery || 2.8)) / 0.5;
+        P.set(glint.id, g < 1 ? { pts: starPts(h * 0.55 * Math.sin(Math.PI * g) + 0.5, 4, 0.18, g * 0.7, kx * 0.05, cy - h * 0.95), fo: A * Math.sin(Math.PI * g) } : { fo: 0 });
+      });
     } else if (p.fx === "image") {
       const it = picture({ x: T.x, y: T.y, url: p.url, cells: (p.size || 1.5) * T.r * 2 / DPI, px: p.px, pxh: p.pxh, mime: p.mime, attach: tok, layer: p.layer, s: 0.01, z: z + items.length });
       items.push(it);
@@ -1437,3 +1490,124 @@ export function stopAura(r, del = true) {
   if (del) OBR.scene.local.deleteItems(r.a.ids).catch(() => {});
 }
 export function stopAll() { anims.clear(); }
+
+// ── Петля времени ──
+// Снимок позиций: короткая голубая «вспышка затвора» на каждом токене (pts: [{x,y,r}])
+export async function loopMark(pts = [], o = {}) {
+  await grid();
+  const col = o.color || "#3fb6ff", wh = "#eafaff", items = [], P0 = [], z = Date.now() + 50;
+  for (const q of pts.slice(0, 80)) {
+    const a = circle({ x: q.x, y: q.y, r: q.r * 1.15, fill: col, stroke: col, sw: DPI * 0.05, n: 36, s: 0.6, z: z + items.length });
+    const b = circle({ x: q.x, y: q.y, r: q.r * 0.9, fill: wh, n: 28, z: z + items.length + 1 });
+    items.push(a, b); P0.push([a, b]);
+  }
+  if (!items.length) return;
+  spawn(0, items, { dur: 900, f: (p, P) => {
+    for (const [a, b] of P0) {
+      P.set(a.id, { s: 0.6 + 0.9 * out3(p), so: 0.9 * (1 - p) });
+      P.set(b.id, { fo: 0.45 * Math.max(0, 1 - p * 3) });
+    }
+  } });
+}
+
+// Цикл заново: время «сматывается» (циферблат крутится назад, от каждого токена к его старому месту бежит огонёк),
+// затем яркая голубая вспышка на весь экран — под ней мастер переносит токены, — и ударная волна.
+// moves: [{a:{x,y}, b:{x,y}, r}] — центры токенов «сейчас» и «куда вернуть». Возвращает мс до пика вспышки.
+export const LOOP_PEAK = 1500, LOOP_HOLD = 260;
+export async function loopFlash(moves = [], o = {}) {
+  await grid();
+  const col = o.color || "#2fa8ff", col2 = o.color2 || "#8fe0ff", wh = "#f0fbff", PEAK = LOOP_PEAK, HOLD = LOOP_HOLD, END = PEAK + HOLD + 1900;
+  const FL = "POINTER";   // поверх тумана и всего остального
+  let V = null;
+  try {
+    const W = await OBR.viewport.getWidth(), H = await OBR.viewport.getHeight();
+    const p0 = await OBR.viewport.inverseTransformPoint({ x: 0, y: 0 }), p1 = await OBR.viewport.inverseTransformPoint({ x: W, y: H });
+    V = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2, w: Math.abs(p1.x - p0.x), h: Math.abs(p1.y - p0.y) };
+    if (![V.x, V.y, V.w, V.h].every(isFinite) || !V.w) V = null;
+  } catch (e) { V = null; }
+  if (!V) {
+    const xs = moves.flatMap(m => [m.a.x, m.b.x]), ys = moves.flatMap(m => [m.a.y, m.b.y]);
+    V = xs.length ? { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2, w: DPI * 40, h: DPI * 30 } : { x: 0, y: 0, w: DPI * 60, h: DPI * 40 };
+  }
+  const z = Date.now() + 1000, items = [], hw = V.w * 0.9, hh = V.h * 0.9, M = Math.max(V.w, V.h);
+  const rect = (fill, k) => { const it = poly({ x: V.x, y: V.y, pts: [{ x: -hw, y: -hh }, { x: hw, y: -hh }, { x: hw, y: hh }, { x: -hw, y: hh }], fill, layer: FL, z: z + k }); items.push(it); return it; };
+  // по токенам: нить к старому месту, бегущий огонёк, сжимающееся кольцо, после — след-призрак и кольцо прибытия
+  const per = moves.slice(0, 60).map((m, i) => {
+    const r = m.r || DPI / 2, dx = m.b.x - m.a.x, dy = m.b.y - m.a.y, far = Math.hypot(dx, dy) > DPI * 0.3;
+    const q = { m, r, dx, dy, far, ph: Math.random() * TAU };
+    q.ring = circle({ x: m.a.x, y: m.a.y, r: r * 1.25, fill: col, stroke: col2, sw: DPI * 0.04, dash: [DPI * 0.12, DPI * 0.07], n: 40, z: z - 400 + i * 6 });
+    q.arr = circle({ x: m.b.x, y: m.b.y, r: r * 1.2, fill: col2, stroke: wh, sw: DPI * 0.05, n: 40, z: z - 400 + i * 6 + 1 });
+    q.ghost = circle({ x: m.a.x, y: m.a.y, r: r * 0.95, fill: col, n: 32, z: z - 400 + i * 6 + 2 });
+    items.push(q.ring, q.arr, q.ghost);
+    if (far) {
+      q.th = poly({ x: m.a.x, y: m.a.y, pts: [{ x: 0, y: 0 }, { x: dx, y: dy }], stroke: col2, sw: DPI * 0.035, dash: [DPI * 0.1, DPI * 0.09], closed: false, z: z - 400 + i * 6 + 3 });
+      q.orb = circle({ x: m.a.x, y: m.a.y, r: DPI * 0.11, fill: wh, stroke: col, sw: DPI * 0.05, n: 14, z: z - 400 + i * 6 + 4 });
+      q.orbG = circle({ x: m.a.x, y: m.a.y, r: DPI * 0.3, fill: col, n: 18, z: z - 400 + i * 6 + 5 });
+      items.push(q.th, q.orb, q.orbG);
+    }
+    return q;
+  });
+  // циферблат по центру экрана, стрелки разгоняются против часовой
+  const CR = Math.min(V.w, V.h) * 0.3;
+  const tint = rect(col, 0);
+  const dial = circle({ x: V.x, y: V.y, r: CR, fill: col, stroke: col2, sw: DPI * 0.08, n: 72, layer: FL, z: z + 1 }); items.push(dial);
+  const dTicks = circle({ x: V.x, y: V.y, r: CR * 0.9, fill: col, stroke: wh, sw: DPI * 0.22, dash: [DPI * 0.06, CR * 0.9 * TAU / 12 - DPI * 0.06], n: 120, layer: FL, z: z + 2 }); items.push(dTicks);
+  const dIn = circle({ x: V.x, y: V.y, r: CR * 0.7, fill: col, stroke: col2, sw: DPI * 0.04, dash: [DPI * 0.3, DPI * 0.2], n: 64, layer: FL, z: z + 3 }); items.push(dIn);
+  const hands = [0, 1].map(k => { const it = poly({ x: V.x, y: V.y, pts: [{ x: 0, y: 0 }, { x: 0, y: -1 }], stroke: wh, sw: DPI * (k ? 0.08 : 0.13), closed: false, layer: FL, z: z + 4 + k }); items.push(it); return it; });
+  const bloom = circle({ x: V.x, y: V.y, r: M, fill: wh, n: 64, s: 0.02, layer: FL, z: z + 7 });
+  items.push(bloom);
+  const flash = rect(col, 8), white = rect(wh, 9);
+  const waves = [0, 1, 2].map(k => { const it = circle({ x: V.x, y: V.y, r: M * 0.75, fill: col2, stroke: k === 1 ? wh : col2, sw: DPI * (0.5 - k * 0.12), n: 96, s: 0.02, layer: FL, z: z + 10 + k }); items.push(it); return it; });
+  const sparks = Array.from({ length: 36 }, (_, k) => {
+    const a = k / 36 * TAU + Math.random() * 0.2, it = circle({ x: V.x, y: V.y, r: DPI * (0.05 + Math.random() * 0.06), fill: k % 3 ? col2 : wh, n: 8, layer: FL, z: z + 14 + k });
+    items.push(it); return { it, a, d: M * (0.25 + Math.random() * 0.5), sp: 0.7 + Math.random() * 0.6 };
+  });
+  const f = (p, P) => {
+    const tm = p * END, c = c01(tm / PEAK), aft = tm - PEAK - HOLD, qA = c01(aft / 1500);
+    // до пика: нарастает голубой оттенок и циферблат
+    P.set(tint.id, { fo: tm < PEAK ? 0.22 * c * c : 0.22 * (1 - qA) });
+    const dA = tm < PEAK ? c01(tm / 350) * (0.35 + 0.65 * c) : 0;
+    const rot = -Math.pow(tm / 1000, 2.2) * 540;   // градусы, разгон назад
+    P.set(dial.id, { so: 0.75 * dA, fo: 0.06 * dA, s: 1 + 0.15 * (1 - c01(tm / 500)) - 0.1 * c * c });
+    P.set(dTicks.id, { so: 0.7 * dA, r: rot * 0.15 });
+    P.set(dIn.id, { so: 0.5 * dA, r: -rot * 0.4 });
+    hands.forEach((it, k) => { const a = (rot * (k ? 12 : 1) - 90) * Math.PI / 180, L = CR * (k ? 0.82 : 0.55); P.set(it.id, { pts: [{ x: 0, y: 0 }, { x: Math.cos(a) * L, y: Math.sin(a) * L }], so: 0.9 * dA }); });
+    // бело-голубой шар раскрывается из центра на весь экран
+    const bq = c01((tm - PEAK + 420) / 420);
+    P.set(bloom.id, { s: Math.max(0.02, out3(bq) * 1.3), fo: tm < PEAK + HOLD ? 0.85 * bq : 0 });
+    // вспышка: резкий подъём, удержание (в это время токены переносятся), плавный спад
+    const up = c01((tm - PEAK + 160) / 160);
+    const fB = aft < 0 ? up : 1 - out3(c01(aft / 1100));
+    const fW = aft < 0 ? up : Math.pow(1 - c01(aft / 520), 2);
+    P.set(flash.id, { fo: 0.97 * fB });
+    P.set(white.id, { fo: 0.8 * fW });
+    // ударные волны и искры после вспышки
+    waves.forEach((it, k) => { const q = c01((aft - k * 160) / 1300); P.set(it.id, aft > k * 160 ? { s: Math.max(0.02, 0.05 + out3(q) * 1.1), so: 0.85 * (1 - q) } : { so: 0 }); });
+    for (const s of sparks) {
+      const q = c01(aft / (1400 * s.sp)), d = s.d * out3(q);
+      P.set(s.it.id, aft > 0 ? { x: V.x + Math.cos(s.a) * d, y: V.y + Math.sin(s.a) * d, fo: 0.95 * (1 - q) } : { fo: 0 });
+    }
+    for (const q of per) {
+      const pre = tm < PEAK, k = ((tm / 700 + q.ph) % 1);
+      P.set(q.ring.id, pre ? { s: 1.5 - 0.6 * out3(k), so: 0.8 * c01(tm / 300) * (1 - k * 0.6) } : { so: 0 });
+      const g = c01(aft / 1200);
+      P.set(q.ghost.id, aft > 0 && q.far ? { s: 1 + 0.4 * g, fo: 0.45 * (1 - g) } : { fo: 0 });
+      const ar = c01(aft / 1000);
+      P.set(q.arr.id, aft > 0 ? { s: 0.3 + 1.3 * out3(ar), so: 0.95 * (1 - ar), fo: 0.25 * (1 - ar) * (1 - ar) } : { so: 0, fo: 0 });
+      if (q.far) {
+        P.set(q.th.id, { so: pre ? 0.7 * c01((tm - 150) / 400) : 0 });
+        const u = c01((tm - 250) / (PEAK - 450)), e = u * u * (3 - 2 * u);
+        const x = q.m.a.x + q.dx * e, y = q.m.a.y + q.dy * e, on = pre && tm > 250 ? 1 : 0;
+        P.set(q.orb.id, { x, y, fo: 0.95 * on, so: 0.9 * on });
+        P.set(q.orbG.id, { x, y, fo: 0.35 * on * (0.7 + 0.3 * Math.sin(tm / 60)) });
+      }
+    }
+  };
+  try { await OBR.scene.local.addItems(items); }
+  catch (e) {   // если слой POINTER недоступен — рисуем на обычном
+    items.forEach(i => { if (i.layer === FL) i.layer = "ATTACHMENT"; });
+    try { await OBR.scene.local.addItems(items); } catch (e2) { console.warn("[fx] loop", e2); return PEAK; }
+  }
+  anims.add({ ids: items.map(i => i.id), t0: now(), dur: END, f }); kick();
+  return PEAK;
+}
