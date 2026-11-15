@@ -1,0 +1,16 @@
+{
+  "name": "Статус-эффекты",
+  "version": "1.0.0",
+  "manifest_version": 1,
+  "author": "DM",
+  "description": "Статус-эффекты кругляшками под токенами: название, описание, цвет, библиотека мастера и все состояния D&D 5e.",
+  "icon": "/status/icon.svg",
+  "background_url": "/status/background.html",
+  "action": {
+    "title": "Статус-эффекты",
+    "icon": "/status/icon.svg",
+    "popover": "/status/panel.html",
+    "width": 380,
+    "height": 640
+  }
+}
