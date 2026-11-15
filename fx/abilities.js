@@ -399,7 +399,7 @@ export const ABILITIES = [
   },
   {
     id: "bless", name: "Благословение", icon: "🙏", group: "Заклинания",
-    pick: { max: 3, range: 30 },   // как в BG3: клик отмечает до 3 существ в пределах 30 фт, на третьей — применяется
+    pick: { max: 3, range: 30, upcast: { base: 1, top: 9, per: 1 } },   // как в BG3: до 3 существ в 30 фт; +1 цель за каждый уровень ячейки выше 1-го
     cast: [
       { fx: "sigil", at: "caster", color: "#ffd36b", rune: "#fff4c2", radius: 1.15, points: 8, runes: 8, duration: 2000, spin: 45, fill: 0.08 },
       { fx: "rise", at: "caster", color: "#ffe39a", core: "#ffffff", count: 14, height: 1.3, duration: 1300 },
@@ -552,6 +552,23 @@ export function sized(A, r) {
   const k = v / A.area.radius, f = L => (L || []).map(s => s.at === "center" && s.radius ? { ...s, radius: s.radius * k } : s);
   return { ...A, area: { ...A.area, radius: v }, cast: f(A.cast), ...(A.castSave ? { castSave: f(A.castSave) } : {}) };
 }
+// Повышение ячейки для выбора нескольких целей: A.pick.upcast = { base, top, per } —
+// за каждый уровень ячейки выше base добавляется per целей (Благословение: 1-я → 3, 2-я → 4 … 9-я → 11)
+export function slotOf(A, v) {
+  const u = A && A.pick && A.pick.upcast; if (!u) return null;
+  const n = Math.round(+v || u.base);
+  return Math.max(u.base, Math.min(u.top, n));
+}
+export function picksOf(A, v) {
+  if (!A || !A.pick) return 0;
+  const s = slotOf(A, v);
+  return s == null ? A.pick.max : A.pick.max + (s - A.pick.upcast.base) * (A.pick.upcast.per || 1);
+}
+export function upcasted(A, v) {
+  const s = slotOf(A, v); if (s == null || s === A.pick.upcast.base) return A;
+  return { ...A, pick: { ...A.pick, max: picksOf(A, s) } };
+}
+export const targetsWord = n => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? "цель" : a >= 2 && a <= 4 && (b < 12 || b > 14) ? "цели" : "целей"; };
 export function aimKind(A) {
   if (!A) return null;
   if (A.self) return "self";   // на себя — без прицела

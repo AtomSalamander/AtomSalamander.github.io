@@ -6,7 +6,7 @@
 //  • у мастера — следит за трекером инициативы и снимает эффекты, когда наступает нужный ход.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { NS, STATE, INIT, CH, ALLOW, SEL, LOOP, normState } from "./const.js";
-import { ABIL, paint, aimKind, radOf, sized } from "./abilities.js";
+import { ABIL, paint, aimKind, radOf, sized, upcasted } from "./abilities.js";
 import { play, startAura, startZone, stopAura, stopAll, label, tokens, grid, loopFlash, loopMark, LOOP_PEAK } from "./engine.js";
 import { turnEvents, applyEvents, samePos, makeEffects } from "./turns.js";
 import { startAim, startPick, cancelAim, aiming, feetPerCell } from "./aim.js";
@@ -219,7 +219,7 @@ async function resolveCaster(c) {
 // ── применение (op:"cast" из своей панели / панели быстрого доступа) ──
 // m = { a, v?, el?, dur?, use? }: use:"sel" — по целям из Alt+2 без прицела
 async function onCast(m) {
-  const A = ABIL[m.a];
+  const A = upcasted(ABIL[m.a], m.slot);   // ячейка выше — больше целей (Благословение)
   if (!A) return;
   if (!isGM && !allow.has(A.id)) return note("🔒 Мастер закрыл эту способность");
   if (!ready) return note("Сцена ещё не загружена");
@@ -272,7 +272,7 @@ async function onCast(m) {
         const have = new Set((await OBR.scene.items.getItems(t.map(x => x.id))).map(i => i.id));
         t = t.filter(x => have.has(x.id));
       }
-      if (A.pick && A.pick.max) t = t.slice(0, A.pick.max);   // Благословение — не больше 3 целей
+      if (A.pick && A.pick.max) t = t.slice(0, A.pick.max);   // Благословение — не больше целей, чем даёт ячейка
       if (!t.length && (kind === "tok" || A.pick) && c) t = [c];
       if (!t.length) return note(`Выдели цели и нажми ${KEY_TARGETS}`);
       return fireWith({ targets: t });

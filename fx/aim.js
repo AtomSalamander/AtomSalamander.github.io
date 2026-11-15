@@ -130,7 +130,7 @@ async function drawPick(p, force) {
       }
       if (s.pipIdx && s.pipIdx.has(d.id)) {   // счётчик целей: n кружков под прицелом, отмеченные — залиты
         const k = s.pipIdx.get(d.id), n = s.multi, on = k < pk.length;
-        d.position = { x: q.x + (k - (n - 1) / 2) * s.DPI * 0.22, y: q.y + s.DPI * 0.5 };
+        d.position = { x: q.x + (k - (n - 1) / 2) * s.DPI * (n > 6 ? 0.17 : 0.22), y: q.y + s.DPI * 0.5 };
         d.style.fillOpacity = on ? 0.95 : 0.15; d.style.strokeOpacity = 0.95;
         continue;
       }

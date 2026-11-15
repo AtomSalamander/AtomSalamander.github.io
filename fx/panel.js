@@ -2,14 +2,14 @@
 // Мастер видит всё и галочками «👥» разрешает способности игрокам; игроки видят только разрешённое.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { STATE, INIT, CH, PANEL, ALLOW, SEL, LOOP, normState } from "./const.js";
-import { ABILITIES, ABIL, ELEMENTS, elOf, aimKind, radOf } from "./abilities.js";
+import { ABILITIES, ABIL, ELEMENTS, elOf, aimKind, radOf, slotOf, picksOf, targetsWord } from "./abilities.js";
 import { untilText } from "./turns.js";
 import { addSlot, openBar, closeBar, loadBar } from "./barctl.js";
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const pinned = new URLSearchParams(location.search).has("pin");
-const SK = SEL, AK = "dndfx_ab", EK = "dndfx_el_", RK = "dndfx_r_", TK = "dndfx_att_";
+const SK = SEL, AK = "dndfx_ab", EK = "dndfx_el_", RK = "dndfx_r_", TK = "dndfx_att_", LK = "dndfx_slot_";
 let chips = [], state = normState(null), isGM = false, allow = new Set(), roleKnown = false;
 const canUse = a => isGM || allow.has(a.id);
 let sel = load(SK) || { c: null, t: [] };
@@ -100,13 +100,41 @@ function pick(id) {
   $("uNum").value = n > 1 ? n : 10;
   $("uWho").dataset.def = u.who === "caster" ? "@c" : "@t";
   $("goSave").hidden = !!A.area || !!A.self || (!A.save && !A.attack);
-  const k = aimKind(A), pickT = A.pick ? ` — отметить до ${A.pick.max} целей` : k === "dir" ? " — выбрать цель/место" : " — выбрать цель";
-  $("go").textContent = k === "area" ? "🎯 Прицелиться — клик по карте" : k === "self" ? "✨ Применить на себя" : A.attack ? "🎯 Попадание" + pickT : A.save ? `✨ Провал (${A.save})` + pickT : "✨ Применить" + pickT;
-  $("goSave").textContent = A.attack ? "💨 Промах" + pickT : "🛡️ Спасбросок пройден" + pickT;
   drawGoSel();
-  drawWho(true); drawEl(); drawRad(); drawAtt();
+  drawWho(true); drawEl(); drawRad(); drawSlot(); drawAtt();
   drawList();
 }
+// подписи кнопок применения (число целей зависит от ячейки)
+function drawGo() {
+  const A = ABIL[cur]; if (!A) return;
+  const n = A.pick ? picksOf(A, curSlot(A)) : 0;
+  const k = aimKind(A), pickT = A.pick ? ` — отметить до ${n} ${targetsWord(n)}` : k === "dir" ? " — выбрать цель/место" : " — выбрать цель";
+  $("go").textContent = k === "area" ? "🎯 Прицелиться — клик по карте" : k === "self" ? "✨ Применить на себя" : A.attack ? "🎯 Попадание" + pickT : A.save ? `✨ Провал (${A.save})` + pickT : "✨ Применить" + pickT;
+  $("goSave").textContent = A.attack ? "💨 Промах" + pickT : "🛡️ Спасбросок пройден" + pickT;
+}
+// уровень ячейки (Благословение: 1-я — 3 цели, каждая ячейка выше — +1 цель)
+const hasSlot = A => !!(A && A.pick && A.pick.upcast);
+function drawSlot() {
+  const A = ABIL[cur], row = $("sRow");
+  if (row) row.style.display = hasSlot(A) ? "" : "none";
+  if (hasSlot(A)) {
+    const u = A.pick.upcast, i = $("slot");
+    i.min = u.base; i.max = u.top;
+    i.value = slotOf(A, localStorage.getItem(LK + A.id));
+    const n = picksOf(A, i.value);
+    $("sInfo").textContent = `→ ${n} ${targetsWord(n)}`;
+  }
+  drawGo();
+}
+function setSlot(v) {
+  const A = ABIL[cur]; if (!hasSlot(A)) return;
+  try { localStorage.setItem(LK + A.id, slotOf(A, v)); } catch (e) {}
+  drawSlot();
+}
+$("slot").onchange = () => setSlot($("slot").value);
+$("sDn").onclick = () => setSlot(+$("slot").value - 1);
+$("sUp").onclick = () => setSlot(+$("slot").value + 1);
+$("slot").onwheel = ev => { ev.preventDefault(); setSlot(+$("slot").value + (ev.deltaY > 0 ? -1 : 1)); };
 // выбор стихии (чародейский выброс, дыхание дракона…)
 function drawEl() {
   const A = ABIL[cur], row = $("elRow");
@@ -171,14 +199,16 @@ $("uMode").onchange = () => drawWho();
 const curEl = A => A.elements ? elOf(A, $("el").value) : undefined;
 const curRad = A => A.area && A.area.adjust ? radOf(A, $("rad").value) : undefined;
 const curAtt = A => canAtt(A) ? !!$("att").checked : undefined;
+function curSlot(A) { return hasSlot(A) ? slotOf(A, $("slot").value || localStorage.getItem(LK + A.id)) : undefined; }
 const curDur = A => A.aura ? { mode: $("uMode").value, who: $("uWho").value, n: $("uNum").value } : null;
 async function cast(saved = false, use) {
   const A = ABIL[cur]; if (!A) return;
   if (!canUse(A)) return toast("🔒 Мастер закрыл эту способность");
-  await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), rad: curRad(A), att: curAtt(A), use }, { destination: "LOCAL" });
+  await OBR.broadcast.sendMessage(CH, { op: "cast", a: A.id, v: saved ? "save" : undefined, el: curEl(A), dur: curDur(A), rad: curRad(A), att: curAtt(A), slot: curSlot(A), use }, { destination: "LOCAL" });
   const k = aimKind(A);
   if (use === "sel" || k === "self") return toast(`${A.icon || "✨"} ${A.name}`);
-  toast(A.pick ? `🎯 Отметь до ${A.pick.max} целей кликом · Enter — применить · Esc — отмена` : k === "area" ? "🎯 Наведи на карте и кликни · Esc — отмена" : `🎯 Кликни по ${k === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
+  const pn = A.pick ? picksOf(A, curSlot(A)) : 0;
+  toast(A.pick ? `🎯 Отметь до ${pn} ${targetsWord(pn)} кликом · Enter — применить · Esc — отмена` : k === "area" ? "🎯 Наведи на карте и кликни · Esc — отмена" : `🎯 Кликни по ${k === "dir" ? "цели или месту" : "токену"} · Shift — несколько · Esc — отмена`);
   if (!pinned) { try { await OBR.action.close(); } catch (e) {} }
 }
 $("go").onclick = () => cast(false);
@@ -186,7 +216,7 @@ $("goSave").onclick = () => cast(true);
 $("goSel").onclick = () => cast(false, "sel");
 $("fav").onclick = async () => {
   const A = ABIL[cur]; if (!A) return;
-  const added = await addSlot({ a: A.id, el: curEl(A), dur: curDur(A), rad: curRad(A), att: curAtt(A) });
+  const added = await addSlot({ a: A.id, el: curEl(A), dur: curDur(A), rad: curRad(A), att: curAtt(A), slot: curSlot(A) });
   toast(added ? `⭐ ${A.name} — в панели быстрого доступа` : `⭐ ${A.name}: настройки обновлены`);
 };
 $("barBtn").onclick = async () => { if (loadBar().open) await closeBar(); else await openBar(); };
