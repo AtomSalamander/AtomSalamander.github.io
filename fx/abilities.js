@@ -435,6 +435,25 @@ export const ABILITIES = [
     ],
   },
   {
+    id: "lightning-bolt", name: "Молния", icon: "⚡", group: "Заклинания",
+    save: "Лов", area: { shape: "sphere", radius: 2.5, range: 100, line: 5 },   // линия 100 × 5 фт от заклинателя
+    // у руки собирается заряд → три переплетённые молнии бьют по линии до точки прицела →
+    // каждую цель на линии пробивает вспышкой, кольцами и искрами; в конце линии — разряд в землю
+    cast: [
+      { fx: "implode", at: "caster", color: "#4f7dff", core: "#e6eeff", radius: 0.9, sparks: 12, duration: 420 },
+      { fx: "burst", at: "caster", delay: 380, color: "#9fc2ff", core: "#ffffff", radius: 0.6, sparks: 8, flash: 0.6, duration: 400 },
+      { fx: "bolt", to: "point", delay: 380, color: "#4f7dff", core: "#ffffff", width: 0.1, jag: 0.4, segments: 28, duration: 1000, grow: 0.15, flick: 55 },
+      { fx: "bolt", to: "point", delay: 400, color: "#9fc2ff", core: "#ffffff", width: 0.05, jag: 0.55, segments: 22, duration: 850, grow: 0.15, flick: 40 },
+      { fx: "bolt", to: "point", delay: 420, color: "#ffe45c", core: "#ffffff", width: 0.03, jag: 0.6, segments: 18, duration: 600, grow: 0.18, flick: 33 },
+      { fx: "burst", at: "targets", after: "hit", stagger: 50, color: "#4f7dff", core: "#ffffff", radius: 0.8, sparks: 12, flash: 0.7 },
+      { fx: "shock", at: "targets", after: "hit", stagger: 50, color: "#cfe0ff", radius: 1.2, rings: 2, width: 0.04, duration: 550 },
+      { fx: "embers", at: "targets", after: "hit", delay: 100, color: "#ffe45c", color2: "#4f7dff", core: "#ffffff", count: 10, height: 0.8, duration: 1200 },
+      { fx: "smoke", at: "targets", after: "hit", delay: 250, color: "#2c3466", color2: "#4f5a99", radius: 0.6, count: 5, size: 0.25, rise: 0.3, opacity: 0.35, duration: 1400 },
+      { fx: "burst", at: "point", after: "hit", color: "#9fc2ff", core: "#ffffff", radius: 0.7, sparks: 10, flash: 0.4 },
+      { fx: "shock", at: "point", after: "hit", color: "#4f7dff", radius: 1, rings: 1, width: 0.04, duration: 500 },
+    ],
+  },
+  {
     id: "shadow-step", name: "Шаг в тень", icon: "🐦‍⬛", group: "Шадар-кай",
     area: { shape: "sphere", radius: 2.5, range: 30 },
     teleport: true, teleportDelay: 520,
