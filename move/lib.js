@@ -4,11 +4,13 @@ import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 
 export const NS = "com.dnd-move";
 export const KEY = NS + "/m";                        // метаданные токена: скорость и пройденное за ход
-export const CFG = NS + "/cfg";                      // метаданные комнаты: настройки мастера {hard}
+export const CFG = NS + "/cfg";                      // метаданные комнаты: настройки мастера {hard, snap}
 export const CH = NS + "/msg";                       // канал: игрок → мастер (если у игрока нет прав на токен)
 export const INIT = "com.dnd-tracker/initiative";    // данные трекера инициативы {r, chips:[{n, on}]}
 export const LS_TOK = "dndmove_tok";                 // localStorage: «мой токен» {id, name}
 export const LS_DIFF = "dndmove_diff";               // localStorage: трудная местность для следующих перемещений
+export const LS_LBL = "dndmove_lbl";                 // localStorage: "0" — не показывать подпись под токеном
+export const snapOn = cfg => !cfg || cfg.snap !== false;   // прилипание к клеткам (настройка мастера, по умолчанию вкл.)
 export const LAYERS = ["CHARACTER", "MOUNT"];
 export const DEF_SPEED = 30;
 export const COL = { ok: "#4ade80", dash: "#facc15", over: "#f87171", free: "#93c5fd", trail: "#cbd5e1" };
@@ -64,6 +66,15 @@ export function stepCells(dx, dy, meas, dg = 0) {
   if (meas === "MANHATTAN") return { c: ax + ay, dg };
   if (meas === "ALTERNATING") return { c: str + diag + Math.floor(((dg % 2) + diag) / 2), dg: dg + diag };
   return { c: str + diag, dg };
+}
+
+// ── без прилипания: расстояние в клетках (дробное) по тому же правилу диагоналей ──
+export function freeCells(dx, dy, meas) {
+  const ax = Math.abs(dx), ay = Math.abs(dy);
+  if (meas === "EUCLIDEAN") return Math.hypot(ax, ay);
+  if (meas === "MANHATTAN") return ax + ay;
+  if (meas === "ALTERNATING") return Math.max(ax, ay) + Math.min(ax, ay) / 2;
+  return Math.max(ax, ay);
 }
 
 // ── настройки сетки сцены ──

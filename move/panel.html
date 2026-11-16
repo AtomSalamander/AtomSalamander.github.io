@@ -5,7 +5,7 @@
 <title>Передвижение</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 12px; font: 13px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #e5e7eb; background: transparent; }
+  body { margin: 0; padding: 10px; font: 12.5px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #e5e7eb; background: transparent; }
   body.light { color: #1f2937; }
   h1 { font-size: 15px; margin: 0 0 8px; display: flex; align-items: center; gap: 6px; }
   .card { background: rgba(127,127,127,.12); border-radius: 10px; padding: 9px 10px; margin-bottom: 8px; }
@@ -95,15 +95,18 @@
         <label class="chk" title="Каждые 5 фт стоят 10 фт — для следующих перемещений, пока галочка стоит"><input type="checkbox" id="diff"> 🌿 Труднопроходимая местность (×2)</label>
       </div>
       <div class="line">
+        <label class="chk" title="Маленькая подпись «🏃 15/30» под токеном в твой ход"><input type="checkbox" id="lbl"> Подпись под токеном</label>
+      </div>
+      <div class="line">
         <button class="big" id="undo" title="Вернуть токен на начало последнего шага (Ctrl+Z в инструменте)">↶ Отменить шаг</button>
         <button class="big" id="reset" title="Обнулить пройденное за ход, токен останется на месте">⟲ Сбросить ход</button>
       </div>
     </div>
 
     <div class="hint">
-      Возьми инструмент <b>🏃 Передвижение</b> на панели инструментов слева и тащи токен — путь подсветится:
-      <b style="color:#4ade80">зелёный</b> — хватает скорости, <b style="color:#facc15">жёлтый</b> — нужен рывок,
-      <b style="color:#f87171">красный</b> — не дойти. Обычное перетаскивание тоже считается (по прямой).
+      Просто тащи токен — линейка покажет, сколько футов пройдено, ход засчитается, когда отпустишь.
+      Инструмент <b>🏃 Передвижение</b> слева рисует путь по клеткам: <b style="color:#4ade80">зелёный</b> — хватает скорости,
+      <b style="color:#facc15">жёлтый</b> — нужен рывок, <b style="color:#f87171">красный</b> — не дойти.
     </div>
   </div>
 
@@ -111,6 +114,9 @@
     <h2>👑 Мастер: все в бою</h2>
     <div id="all"></div>
     <div class="line" style="margin-top:8px">
+      <label class="chk" title="Отпущенный токен встаёт ровно в клетку. Без прилипания расстояние считается по точному пути"><input type="checkbox" id="snap"> 🧲 Прилипание к клеткам</label>
+    </div>
+    <div class="line">
       <label class="chk" title="Токен нельзя увести дальше, чем позволяет скорость (с учётом рывка)"><input type="checkbox" id="hard"> 🚫 Жёсткий лимит (не пускать дальше скорости)</label>
     </div>
   </div>

@@ -2,7 +2,7 @@
 // Мастер дополнительно видит всех участников боя и может включить жёсткий лимит.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import {
-  KEY, CFG, INIT, LS_TOK, LS_DIFF, LAYERS, COL, curTurn, isTurnOf, matchChip, tokName, getM, blank,
+  KEY, CFG, INIT, LS_TOK, LS_DIFF, LS_LBL, LAYERS, snapOn, COL, curTurn, isTurnOf, matchChip, tokName, getM, blank,
   perTurn, maxMove, leftOf, fmt, gridInfo, saveM, undoMove, resetMove,
 } from "./lib.js";
 
@@ -82,6 +82,7 @@ function draw() {
     $("reset").disabled = !active || !(+m.used);
   }
   $("diff").checked = localStorage.getItem(LS_DIFF) === "1";
+  $("lbl").checked = localStorage.getItem(LS_LBL) !== "0";
   drawGM();
 }
 
@@ -89,6 +90,7 @@ function drawGM() {
   $("gm").hidden = !isGM;
   if (!isGM) return;
   $("hard").checked = !!cfg.hard;
+  $("snap").checked = snapOn(cfg);
   const order = T ? T.chips.map(c => String(c.n)) : [];
   const L = items.filter(i => LAYERS.includes(i.layer) && getM(i)).map(i => ({ it: i, m: getM(i), w: T ? matchChip(tokName(i), T.chips) : null }));
   L.sort((a, b) => (a.w ? order.indexOf(a.w) : 999) - (b.w ? order.indexOf(b.w) : 999));
@@ -125,8 +127,10 @@ $("dashDn").onclick = () => patch(m => ({ dash: Math.max(0, (+m.dash || 0) - 1) 
 $("diff").onchange = () => { try { localStorage.setItem(LS_DIFF, $("diff").checked ? "1" : "0"); } catch (e) {} };
 $("undo").onclick = () => { const { it } = cur(); if (it) undoMove(it.id); };
 $("reset").onclick = () => { const { it } = cur(); if (it) resetMove(it.id); };
+$("lbl").onchange = () => { try { localStorage.setItem(LS_LBL, $("lbl").checked ? "1" : "0"); } catch (e) {} };
+$("snap").onchange = () => { if (isGM) OBR.room.setMetadata({ [CFG]: { ...cfg, snap: $("snap").checked } }); };
 $("hard").onchange = () => { if (isGM) OBR.room.setMetadata({ [CFG]: { ...cfg, hard: $("hard").checked } }); };
-addEventListener("storage", ev => { if (ev.key === LS_TOK || ev.key === LS_DIFF) draw(); });
+addEventListener("storage", ev => { if (ev.key === LS_TOK || ev.key === LS_DIFF || ev.key === LS_LBL) draw(); });
 
 async function loadScene() {
   try {
