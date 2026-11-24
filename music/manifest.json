@@ -4,12 +4,12 @@
   "manifest_version": 1,
   "description": "Мастер вписывает название трека — у всех игроков появляется аккуратная плашка «сейчас звучит».",
   "author": "DM",
-  "icon": "/owlbear-dnd/music/icon.svg",
-  "background_url": "/owlbear-dnd/music/background.html",
+  "icon": "/music/icon.svg",
+  "background_url": "/music/background.html",
   "action": {
     "title": "Музыка",
-    "icon": "/owlbear-dnd/music/icon.svg",
-    "popover": "/owlbear-dnd/music/panel.html",
+    "icon": "/music/icon.svg",
+    "popover": "/music/panel.html",
     "width": 360,
     "height": 600
   }

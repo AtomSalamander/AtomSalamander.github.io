@@ -265,7 +265,7 @@ if (pinned) { $("pin").textContent = "✕"; $("pin").title = "Закрыть п�
 $("pin").onclick = async () => {
   if (pinned) { await OBR.popover.close(PANEL); return; }
   const w = await OBR.viewport.getWidth(), h = await OBR.viewport.getHeight();
-  await OBR.popover.open({ id: PANEL, url: "/owlbear-dnd/fx/panel.html?pin=1", width: 340, height: Math.max(360, h - 140),
+  await OBR.popover.open({ id: PANEL, url: "/fx/panel.html?pin=1", width: 340, height: Math.max(360, h - 140),
     anchorReference: "POSITION", anchorPosition: { left: Math.max(12, w - 352), top: 70 },
     transformOrigin: { horizontal: "LEFT", vertical: "TOP" }, disableClickAway: true });
   try { await OBR.action.close(); } catch (e) {}

@@ -4,12 +4,12 @@
   "manifest_version": 1,
   "description": "Анимации способностей и висящие эффекты на токенах. Таймеры эффектов связаны с трекером инициативы.",
   "author": "DM",
-  "icon": "/owlbear-dnd/fx/icon.svg",
-  "background_url": "/owlbear-dnd/fx/background.html",
+  "icon": "/fx/icon.svg",
+  "background_url": "/fx/background.html",
   "action": {
     "title": "Эффекты",
-    "icon": "/owlbear-dnd/fx/icon.svg",
-    "popover": "/owlbear-dnd/fx/panel.html",
+    "icon": "/fx/icon.svg",
+    "popover": "/fx/panel.html",
     "width": 360,
     "height": 620
   }

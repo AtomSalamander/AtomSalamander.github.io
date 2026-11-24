@@ -110,7 +110,7 @@ async function alarm() {
   if (!p) { if (was) for (const id of [...SIDES.map(edgeId), BANNER]) OBR.popover.close(id).catch(() => {}); return; }
   const P = PROTO[p], c = encodeURIComponent(P.glow || P.color), t0 = Date.now();
   const base = { hidePaper: true, disableClickAway: true, marginThreshold: 0, anchorReference: "POSITION" };
-  const url = (q) => `/owlbear-dnd/emergence/alert.html?${q}&c=${c}&t0=${t0}`;
+  const url = (q) => `/emergence/alert.html?${q}&c=${c}&t0=${t0}`;
   const geo = { t: [0, 0, w, EDGE], b: [0, h - EDGE, w, EDGE], l: [0, 0, EDGE, h], r: [w - EDGE, 0, EDGE, h] };
   for (const s of SIDES) {
     const [x, y, ww, hh] = geo[s];
@@ -121,7 +121,7 @@ async function alarm() {
 }
 async function bigMsg(text, col) {
   let w = 800, h = 600; try { w = await OBR.viewport.getWidth(); h = await OBR.viewport.getHeight(); } catch (e) {}
-  const u = `/owlbear-dnd/emergence/alert.html?mode=msg&c=${encodeURIComponent(col || PAL.cy)}&t=${encodeURIComponent(text)}`;
+  const u = `/emergence/alert.html?mode=msg&c=${encodeURIComponent(col || PAL.cy)}&t=${encodeURIComponent(text)}`;
   OBR.popover.open({ id: MSG, url: u, width: Math.min(620, w - 40), height: 96, hidePaper: true, disableClickAway: true, marginThreshold: 0, anchorReference: "POSITION", anchorPosition: { left: w / 2, top: h * .3 }, transformOrigin: { horizontal: "CENTER", vertical: "CENTER" } }).catch(() => {});
   clearTimeout(bigMsg.t); bigMsg.t = setTimeout(() => OBR.popover.close(MSG).catch(() => {}), 4200);
 }

@@ -4,12 +4,12 @@
   "manifest_version": 1,
   "description": "Анимации Эмерджентности: Протоколы тревоги, Ключи Порога, Рубиновая Линза. Висящие эффекты связаны с трекером инициативы.",
   "author": "DM",
-  "icon": "/owlbear-dnd/emergence/icon.svg",
-  "background_url": "/owlbear-dnd/emergence/background.html",
+  "icon": "/emergence/icon.svg",
+  "background_url": "/emergence/background.html",
   "action": {
     "title": "Эмерджентность",
-    "icon": "/owlbear-dnd/emergence/icon.svg",
-    "popover": "/owlbear-dnd/emergence/panel.html",
+    "icon": "/emergence/icon.svg",
+    "popover": "/emergence/panel.html",
     "width": 380,
     "height": 680
   }

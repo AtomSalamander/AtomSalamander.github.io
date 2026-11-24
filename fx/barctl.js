@@ -36,7 +36,7 @@ export async function openBar(b = loadBar()) {
   b.pos = { left: Math.round(clamp(p.left, 4, Math.max(4, W - w - 4))), top: Math.round(clamp(p.top, 4, Math.max(4, H - h - 4))) };
   b.open = true; saveBar(b);
   await OBR.popover.open({
-    id: BAR, url: "/owlbear-dnd/fx/bar.html", width: w, height: h,
+    id: BAR, url: "/fx/bar.html", width: w, height: h,
     anchorReference: "POSITION", anchorPosition: b.pos,
     anchorOrigin: { horizontal: "LEFT", vertical: "TOP" }, transformOrigin: { horizontal: "LEFT", vertical: "TOP" },
     disableClickAway: true, hidePaper: true, marginThreshold: 0,

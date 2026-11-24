@@ -23,7 +23,7 @@ async function show(m) {
   await OBR.popover.close(POP).catch(() => {});
   await OBR.popover.open({
     id: POP,
-    url: `/owlbear-dnd/legendary/banner.html?${q}`,
+    url: `/legendary/banner.html?${q}`,
     width, height,
     hidePaper: true,
     disableClickAway: true,

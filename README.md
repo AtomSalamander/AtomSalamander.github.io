@@ -1,12 +1,17 @@
 # Расширения Owlbear Rodeo
 
-Полный комплект для нового репозитория **`owlbear-dnd`**. Готовый статический сайт: сборки, npm и отдельных workflow не требуется.
+Комплект для репозитория **`AtomSalamander.github.io`** (сайт пользователя, файлы лежат в корне). Сборка не нужна.
 
-1. В аккаунте GitHub создай пустой публичный репозиторий с именем **`owlbear-dnd`** (точно так, строчными буквами). Пути в манифестах и окнах расширений уже настроены для этого имени.
-2. Распакуй ZIP на компьютере. В **Add file → Upload files** перетащи **всё содержимое распакованной папки разом**, включая все папки. Не загружай сам ZIP или только содержимое `fx`. Сохрани в `main`.
-3. Проверь корень в GitHub: там должны быть `index.html`, `manifest.json`, `tracker.html` и **папка** `fx` рядом; файл `abilities.js` должен быть внутри `fx`, а не рядом с трекером.
-4. В **Settings → Pages → Deploy from a branch** выбери `main` и `/(root)`, нажми Save. Дождись завершения публикации.
-5. Открой адрес сайта из Pages. На главной есть ссылки на все модули. Для заклинаний скопируй адрес **«Эффекты · Астра 1.20.0»** (`https://<аккаунт>.github.io/owlbear-dnd/fx/manifest.json`). Открой его: должен показаться JSON с `version: "1.20.0"`.
-6. Добавь новый адрес как расширение в Owlbear Rodeo и включи его в комнате. Не оставляй одновременно включёнными старую и новую копии одного модуля. Другие модули можно переносить по отдельности; корневой `manifest.json` — не эффекты. Старый репозиторий удалять не требуется.
+1. Загрузи всё содержимое папки в корень репозитория `AtomSalamander.github.io` (ветка `main`). Рядом должны лежать `index.html`, `manifest.json`, `tracker.html` и папки `fx`, `move`, `status`, `music`, `legendary`, `emergence`.
+2. Settings → Pages → Deploy from a branch → `main`, `/(root)`.
+3. Проверь в браузере, что открывается, например, `https://atomsalamander.github.io/fx/icon.svg`.
+4. Адреса манифестов для Owlbear Rodeo:
+   - `https://atomsalamander.github.io/fx/manifest.json`
+   - `https://atomsalamander.github.io/tracker-manifest.json`
+   - `https://atomsalamander.github.io/move/manifest.json`
+   - `https://atomsalamander.github.io/status/manifest.json`
+   - `https://atomsalamander.github.io/music/manifest.json`
+   - `https://atomsalamander.github.io/legendary/manifest.json`
+   - `https://atomsalamander.github.io/emergence/manifest.json`
 
-Исходная база — полный архив пользователя, с обновлённой папкой `fx/` версии 1.20.0. В этой сборке исправлены только адреса ресурсов для нового места публикации; игровой код трекера не переделывался. Для двух отсутствовавших в исходном архиве значков трекера добавлены файлы SVG. Старые адреса установки в исторических README модулей относятся к прежнему сайту — используй ссылки с новой главной страницы.
+Все пути в манифестах и коде указаны от корня сайта (`/fx/...`, `/status/...` и т.д.). Если когда-нибудь переедешь в репозиторий с другим именем (например, `owlbear-dnd`), пути придётся снова поменять на `/owlbear-dnd/...`.

@@ -46,14 +46,14 @@ OBR.onReady(async()=>{
     $("side").onclick=async()=>{
       await closeAll();
       const w=await OBR.viewport.getWidth(),h=await OBR.viewport.getHeight();
-      await OBR.popover.open({id:TID,url:"/owlbear-dnd/tracker.html",width:Math.min(560,w-120),height:Math.max(400,h-100),
+      await OBR.popover.open({id:TID,url:"/tracker.html",width:Math.min(560,w-120),height:Math.max(400,h-100),
         anchorReference:"POSITION",anchorPosition:{left:w-12,top:64},
         transformOrigin:{horizontal:"RIGHT",vertical:"TOP"},disableClickAway:true});
       try{await OBR.action.close()}catch(e){}
     };
-    $("full").onclick=async()=>{await closeAll();await OBR.modal.open({id:TID,url:"/owlbear-dnd/tracker.html",width:1400,height:880});try{await OBR.action.close()}catch(e){}};
+    $("full").onclick=async()=>{await closeAll();await OBR.modal.open({id:TID,url:"/tracker.html",width:1400,height:880});try{await OBR.action.close()}catch(e){}};
     let code="";try{code=localStorage.getItem("dnd_room")||"";if(!code){code=Array.from(crypto.getRandomValues(new Uint8Array(12)),b=>(b%36).toString(36)).join("");localStorage.setItem("dnd_room",code)}}catch(e){}
-    $("tab").style.display="block";$("url").value=location.origin+"/owlbear-dnd/tracker.html?room="+code;
+    $("tab").style.display="block";$("url").value=location.origin+"/tracker.html?room="+code;
     $("url").onclick=()=>$("url").select();
     $("copy").onclick=async()=>{try{await navigator.clipboard.writeText($("url").value);$("copy").textContent="Скопировано ✓"}catch(e){$("url").select();$("copy").textContent="Выделено — нажмите Ctrl+C"}};
     $("close").onclick=async()=>{await closeAll();try{await OBR.action.close()}catch(e){}};

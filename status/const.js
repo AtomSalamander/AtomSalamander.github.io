@@ -5,7 +5,7 @@ export const CFG = `${NS}/cfg`;           // метаданные комнаты
 export const LIB = `${NS}.lib.v1`;        // localStorage мастера: сохранённые эффекты
 export const INFO = `${NS}/info`;         // id всплывающего окошка с описанием
 export const TAG = `${NS}/dot`;           // метка локальных кругляшков
-export const ICON = "/owlbear-dnd/status/icon.svg";
+export const ICON = "/status/icon.svg";
 
 // Палитра для быстрого выбора цвета
 export const PALETTE = [

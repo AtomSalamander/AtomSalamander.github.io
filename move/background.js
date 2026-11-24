@@ -12,7 +12,7 @@ import {
   perTurn, maxMove, leftOf, fmt, pushMove, stepCells, freeCells, snapOn, gridInfo, undoMove,
 } from "./lib.js";
 
-const TOOL = NS + "/tool", MODE = NS + "/drag", CTX = NS + "/bind", ICON = "/owlbear-dnd/move/icon.svg", TAG = "🏃 move";
+const TOOL = NS + "/tool", MODE = NS + "/drag", CTX = NS + "/bind", ICON = "/move/icon.svg", TAG = "🏃 move";
 const SETTLE = 700;   // мс без движения — считаем, что токен отпустили
 let me = "", isGM = false, sceneOn = false, items = [], T = null, cfg = {};
 let G = { dpi: 150, mul: 5, unit: "фт", meas: "CHEBYSHEV", sq: true };

@@ -3,7 +3,7 @@ import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { DPI, V, circle, line, poly } from "./engine.js";
 import { NS, PAL } from "./const.js";
 
-const TOOL = NS + '/pick', MODE = TOOL + '/mode', OK = TOOL + '/ok', ICON = '/owlbear-dnd/emergence/icon.svg';
+const TOOL = NS + '/pick', MODE = TOOL + '/mode', OK = TOOL + '/ok', ICON = '/emergence/icon.svg';
 const note = msg => OBR.notification.show(msg).catch(() => {});
 const right = e => e?.button === 2 || e?.buttons === 2 || e?.nativeEvent?.button === 2;
 const xy = p => ({ x:p.x, y:p.y });

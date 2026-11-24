@@ -49,7 +49,7 @@ async function openPlate(mode) {
   shown = mode;
   await OBR.popover.open({
     id: POP,
-    url: `/owlbear-dnd/music/plate.html?${q}`,
+    url: `/music/plate.html?${q}`,
     width: size.w,
     height: size.h,
     hidePaper: true,
@@ -74,7 +74,7 @@ async function openMove() {
   await closePlate();
   await OBR.popover.open({
     id: POP_MOVE,
-    url: `/owlbear-dnd/music/move.html?r=${pos.right}&b=${pos.bottom}`,
+    url: `/music/move.html?r=${pos.right}&b=${pos.bottom}`,
     width: w,
     height: h,
     hidePaper: true,

@@ -101,7 +101,7 @@ async function openInfo(tok, fx, anchor) {
   const [it] = await OBR.scene.items.getItems([tok]);
   const n = it ? readFx(it).length : 1;
   const height = Math.min(520, Math.max(isGM ? 240 : 170, 92 + n * 52 + (isGM ? 60 : 0)));
-  const url = `/owlbear-dnd/status/info.html?tok=${encodeURIComponent(tok)}${fx ? "&fx=" + encodeURIComponent(fx) : ""}`;
+  const url = `/status/info.html?tok=${encodeURIComponent(tok)}${fx ? "&fx=" + encodeURIComponent(fx) : ""}`;
   try { await OBR.popover.close(INFO); } catch (e) {}
   const base = { id: INFO, url, width: 340, height, marginThreshold: 8 };
   if (anchor && anchor.elementId) {

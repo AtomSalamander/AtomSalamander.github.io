@@ -4,11 +4,11 @@
   "manifest_version": 1,
   "description": "Трекер боя и инициативы",
   "author": "DM",
-  "icon": "/owlbear-dnd/icon.svg",
+  "icon": "/icon.svg",
   "action": {
     "title": "Инициатива",
-    "icon": "/owlbear-dnd/icon.svg",
-    "popover": "/owlbear-dnd/launcher.html",
+    "icon": "/icon.svg",
+    "popover": "/launcher.html",
     "width": 300,
     "height": 330
   }

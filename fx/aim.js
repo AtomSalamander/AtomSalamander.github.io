@@ -8,7 +8,7 @@ import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { NS } from "./const.js";
 import { grid, prim, tokens } from "./engine.js";
 
-const TOOL = NS + "/aim", MODE = NS + "/aim-mode", ICON = "/owlbear-dnd/fx/icon.svg";
+const TOOL = NS + "/aim", MODE = NS + "/aim-mode", ICON = "/fx/icon.svg";
 const TAU = Math.PI * 2;
 let S = null;   // текущий прицел
 

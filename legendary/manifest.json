@@ -4,12 +4,12 @@
   "manifest_version": 1,
   "description": "Эффектная надпись на экране у всех игроков: «Босс» использует легендарное действие «Способность».",
   "author": "DM",
-  "icon": "/owlbear-dnd/legendary/icon.svg",
-  "background_url": "/owlbear-dnd/legendary/background.html",
+  "icon": "/legendary/icon.svg",
+  "background_url": "/legendary/background.html",
   "action": {
     "title": "Легендарные действия",
-    "icon": "/owlbear-dnd/legendary/icon.svg",
-    "popover": "/owlbear-dnd/legendary/panel.html",
+    "icon": "/legendary/icon.svg",
+    "popover": "/legendary/panel.html",
     "width": 360,
     "height": 600
   }

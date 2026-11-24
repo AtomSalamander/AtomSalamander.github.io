@@ -15,7 +15,7 @@ import { loadBar, openBar } from "./barctl.js";
 // Горячие клавиши (формат Owlbear: "Alt+1", "Shift+C", "Ctrl+Alt+2"…). На Mac Alt = Option.
 const KEY_CASTER = "Alt+1";    // выделенный токен → «Кто»
 const KEY_TARGETS = "Alt+2";   // выделенные токены → «Цели»
-const ICON = "/owlbear-dnd/fx/icon.svg";
+const ICON = "/fx/icon.svg";
 
 let state = normState(null), ready = false, isGM = false, initSig = "", allow = new Set(), myConn = "", chips = [];
 const roles = new Map();     // connectionId → роль (GM / PLAYER) других участников
