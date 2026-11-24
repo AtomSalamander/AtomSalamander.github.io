@@ -38,7 +38,7 @@ export function brushes({buildEffect,spawn,dpi,anchor}){
  };
  function pathItem(kind,A,B,R,o,b,pad){const dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||.001,axis=two(dx/L,dy/L);return item(kind,two((A.x+B.x)/2,(A.y+B.y)/2),R,Math.abs(dx)+2*pad,Math.abs(dy)+2*pad,o,b,axis);}
  for(const kind of ['beam','bolt'])cast[kind]=(A,B,o,d)=>{const D=dpi(),R=D*(o.width||(kind==='bolt'?.06:.12)),L=Math.hypot(B.x-A.x,B.y-A.y),amp=(o.jag??(kind==='beam'?.035:.32))*D/R,g=o.grow??(o.wave?.25:.08),dur=o.duration||(kind==='beam'?650:450);
-  const it=pathItem(o.wave?'tether':kind,A,B,R,o,[L/R,amp,g],R*(amp+4));emit(it,dur,d,(p,t)=>phase(p,t,envelope(p)));return o.hitAt??(kind==='beam'?120:g*dur);
+  const it=pathItem(o.wave?'tether':kind,A,B,R,o,[L/R,amp,g],R*((o.finish==='electric'?2.6:1)*amp+4));emit(it,dur,d,(p,t)=>phase(p,t,envelope(p)));return o.hitAt??(kind==='beam'?120:g*dur);
  };
  cast.seam=(A,B,o,d)=>{
   const D=dpi(),R=(o.veinLen??.60)*D,L=Math.hypot(B.x-A.x,B.y-A.y),dur=o.duration||3200,grow=o.grow||320;
@@ -46,7 +46,7 @@ export function brushes({buildEffect,spawn,dpi,anchor}){
   emit(it,dur,d,(p,t)=>phase(smooth(p*dur/grow),t,smooth(p*dur/75)*smooth((1-p)*dur/Math.min(1000,.35*dur))));return o.hitAt??grow;
  };
  cast.cone=(A,B,o,d)=>{const D=dpi(),L=(o.length||3)*D,ang=Math.atan2(B.y-A.y,B.x-A.x),v=two(Math.cos(ang),Math.sin(ang)),s=(A.r||D*.5)*.6,c=two(A.x+(s+.5*L)*v.x,A.y+(s+.5*L)*v.y),w=Math.tan((o.angle??53)*deg*.5),dur=o.duration||1600;
-  const it=item('cone',c,L,L*(Math.abs(v.x)+2.2*w*Math.abs(v.y)+.16),L*(Math.abs(v.y)+2.2*w*Math.abs(v.x)+.16),o,[w,0,0],v);emit(it,dur,d,(p,t)=>phase(p,t,envelope(p)));return o.hitAt??dur*.3;
+  const it=item('cone',c,L,L*(Math.abs(v.x)+2.2*w*Math.abs(v.y)+.16),L*(Math.abs(v.y)+2.2*w*Math.abs(v.x)+.16),o,[w,o.bolts??4,0],v);emit(it,dur,d,(p,t)=>phase(p,t,envelope(p)));return o.hitAt??dur*.3;
  };
  cast.pillar=(c,o,d)=>{const D=dpi(),W=(o.width||.4)*D,H=(o.height||3.5)*D,fall=o.fall||260,dur=o.duration||1600;
   const x=c.x+(o.miss?(Math.random()<.5?-1:1)*((c.r||D/2)+D*(o.side??.45)):0);const it=item('pillar',two(x,c.y-H*.5),W,6.8*W,H+3.3*W,o,[H/W,Math.min(.97,fall/dur),o.flames?1:0]);

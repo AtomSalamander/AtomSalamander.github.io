@@ -1,3 +1,4 @@
+import { discharge, dischargeLib } from './discharge.js';
 // Bounded, premultiplied SkSL plates. q is measured in design radii, not screen pixels.
 // The compiler sees only the selected silhouette and plate, not a giant per-pixel switch.
 const lib=`uniform float2 size;uniform float unit;uniform float3 phase;uniform float3 dye;uniform float3 lit;uniform float3 ink;uniform float3 knobs;uniform float2 axis;uniform float seed;
@@ -97,10 +98,11 @@ const fireArea=`float g=.08+.92*(1.-pow(1.-sat(p/.42),2.3));float2 v=q/g;if(leng
 const cache=new Map();
 export function plate(kind,school='prism'){
  const base=kind==='bolt'||kind==='beam'||kind==='tether'?'stream':kind;
- const body=base==='area'&&school==='fire'?fireArea:bodies[base];if(!body)throw Error('Unknown Astra plate: '+kind);
- const type=body.includes('grain(')?school:'flat';const key=kind+':'+type;
+ const electric=school==='electric'&&Object.hasOwn(discharge,kind);
+ const body=electric?discharge[kind]:base==='area'&&school==='fire'?fireArea:bodies[base];if(!body)throw Error('Unknown Astra plate: '+kind);
+ const type=electric?'electric':body.includes('grain(')?school:'flat';const key=kind+':'+type;
  if(!cache.has(key)){
   const wob=kind==='bolt'?'(.79*channel(u*18.+seed,t*6.)+.21*channel(u*41.+seed,t*8.))':kind==='tether'?'sin(13.*u-5.*t)':'(.16*sin(8.*u-3.*t))';
-  cache.set(key,lib+'\nfloat grain(float2 q,float t){'+(texture[type]||texture.prism)+'}\nfloat4 paint(float2 q,float p,float t){float r=length(q),a=atan(q.y,q.x+.000001);'+body.replace('WOBBLE',wob).replace('RIBBON_COLOR',kind==='comet'&&type==='prism'?'(.60+.37*cos(float3(0.,2.1,4.2)+k*9.-t*2.6))':'mix(dye,lit,v)')+'}\nhalf4 main(float2 coord){float2 q=(coord-size*.5)/unit;return half4(paint(q,phase.x,phase.y)*clamp(phase.z,0.,1.));}');
+  cache.set(key,lib+(electric?dischargeLib:'')+'\nfloat grain(float2 q,float t){'+(texture[type]||texture.prism)+'}\nfloat4 paint(float2 q,float p,float t){float r=length(q),a=atan(q.y,q.x+.000001);'+body.replace('WOBBLE',wob).replace('RIBBON_COLOR',kind==='comet'&&type==='prism'?'(.60+.37*cos(float3(0.,2.1,4.2)+k*9.-t*2.6))':'mix(dye,lit,v)')+'}\nhalf4 main(float2 coord){float2 q=(coord-size*.5)/unit;return half4(paint(q,phase.x,phase.y)*clamp(phase.z,0.,1.));}');
  }return cache.get(key);
 }
