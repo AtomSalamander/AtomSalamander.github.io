@@ -8,7 +8,7 @@ const all=Object.fromEntries(ABILITIES.map(a=>[a.id,a]));
 const sparks=['bolt','cone','shock','burst','comet','wisps'];
 assert.equal(finish('lightning-bolt'),'electric');
 for(const id of ['sorcerous-burst','dragons-breath','dragons-breath-buff'])assert.equal(finish(id,paint(all[id],'lightning').visualElement),'electric');
-assert.equal(finish('sorcerous-burst','thunder'),'echo');assert.equal(finish('rolen-seam'),'storm');
+assert.equal(finish('sorcerous-burst','thunder'),'echo');assert.equal(finish('rolen-seam'),'threshold');assert.equal(finish('rolen-resonance'),'storm');
 for(const kind of sparks){const ordinary=plate(kind,'echo'),electric=plate(kind,'electric');assert.notEqual(ordinary,electric);assert.equal(plate(kind,'echo'),ordinary);assert.equal(plate(kind,'electric'),electric);assert(!plate(kind,'fire').includes('float4 forked('));}
 const A={x:24,y:24,r:32},B={x:420,y:165};let item;
 const b=brushes({buildEffect,dpi:()=>64,anchor:()=>({x:0,y:0}),spawn:(_,items)=>{[item]=items;}});

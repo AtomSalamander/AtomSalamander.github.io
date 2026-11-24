@@ -3,7 +3,7 @@ import { plate } from './plates.js';
 const sat=x=>Math.min(1,Math.max(0,x)), smooth=x=>{x=sat(x);return x*x*(3-2*x);};
 const two=(x,y)=>({x,y}),three=(x,y,z)=>({x,y,z});
 const deg=Math.PI/180;
-const defs={burst:[1,700],area:[3,1400],implode:[1.1,800],shock:[1.5,700],debris:[1.5,1100],smoke:[1,2200],sigil:[1,1800],spiral:[1.3,1300]};
+const defs={forceCatch:[1.1,440],burst:[1,700],area:[3,1400],implode:[1.1,800],shock:[1.5,700],debris:[1.5,1100],smoke:[1,2200],sigil:[1,1800],spiral:[1.3,1300]};
 // The effect rectangle and its center use world pixels. A standalone attached to a token is
 // moved by Owlbear; JS only animates uniforms, never overwrites the token-relative placement.
 export function brushes({buildEffect,spawn,dpi,anchor}){
@@ -49,13 +49,14 @@ export function brushes({buildEffect,spawn,dpi,anchor}){
   const it=item('cone',c,L,L*(Math.abs(v.x)+2.2*w*Math.abs(v.y)+.16),L*(Math.abs(v.y)+2.2*w*Math.abs(v.x)+.16),o,[w,o.bolts??4,0],v);emit(it,dur,d,(p,t)=>phase(p,t,envelope(p)));return o.hitAt??dur*.3;
  };
  cast.pillar=(c,o,d)=>{const D=dpi(),W=(o.width||.4)*D,H=(o.height||3.5)*D,fall=o.fall||260,dur=o.duration||1600;
-  const x=c.x+(o.miss?(Math.random()<.5?-1:1)*((c.r||D/2)+D*(o.side??.45)):0);const it=item('pillar',two(x,c.y-H*.5),W,6.8*W,H+3.3*W,o,[H/W,Math.min(.97,fall/dur),o.flames?1:0]);
+  const x=c.x+(o.miss?(Math.random()<.5?-1:1)*((c.r||D/2)+D*(o.side??.45)):0);const it=item(o.radiance?'benediction':'pillar',two(x,c.y-H*.5),W,6.8*W,H+3.3*W,o,[H/W,Math.min(.97,fall/dur),o.flames?1:0]);
   emit(it,dur,d,(p,t)=>phase(p,t,smooth(p/.055)*smooth((1-p)/(1-(o.hold??.60)))*(o.opacity??1)));return o.hitAt??fall;
  };
  function zoneItem(c,R,o){return item('domain',c,R,2.35*R,2.35*R,{...o,color:o.color||'#120c21',core:o.ripple||o.glow||'#9678c6',dark:o.color||'#070610'},[o.ripples?1:0,0,0]);}
  cast.gloom=(c,o,d)=>{const enter=o.grow||900,exit=o.fade||1500,dur=enter+(o.hold??5000)+exit;const it=zoneItem(c,(o.radius||3)*dpi(),o);emit(it,dur,d,(p,t)=>phase(.03+.97*smooth(p*dur/enter),t,smooth(p*dur/enter)*smooth((1-p)*dur/exit)*(o.opacity??1)));return 0;};
  function aura(p,c,tok,z){const D=dpi(),T=c.r||D/2;let kind=p.fx,R=T*(p.size||1.12),pos=c,b=[0,0,0],v=two(1,0),layer=p.layer,op=p.opacity??1,ratio=1.31;
-  switch(kind){case 'arcs':R=T*(p.radius||1.1);b=[Math.max(3,p.count||5),p.width||.03,p.rate||1];break;
+  switch(kind){case 'faithVeil':case 'forceTrace':break;
+   case 'arcs':R=T*(p.radius||1.1);b=[Math.max(3,p.count||5),p.width||.03,p.rate||1];break;
    case 'plates':kind='mineral';R=T*((p.radius||.95)+.5*(p.width||.2));b=[p.count||8,T*(p.width||.2)/(2*R),(p.spin??4)*deg];ratio=1.56;break;
    case 'dome':b=[p.cells||3.4,p.fill??.13,0];break;
    case 'glow':layer=layer||'MOUNT';op=p.opacity??.30;break;

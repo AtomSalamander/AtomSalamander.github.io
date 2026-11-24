@@ -349,7 +349,7 @@ export const ABILITIES = [
     id: "fireball", name: "Огненный шар", icon: "☄️", group: "Примеры",
     save: "Лов", area: { shape: "sphere", radius: 20, range: 150 },
     cast: [
-      { fx: "projectile", to: "point", color: "#ff8a1a", core: "#fff1b0", size: 0.22, speed: 9, arc: 1, trail: 10, embers: 14 },
+      { fx: "projectile", to: "point", color: "#ff8a1a", core: "#fff1b0", size: 0.15, speed: 9, arc: 0, trail: 14, embers: 14 },
       { fx: "burst", at: "center", after: "hit", color: "#ffd36b", core: "#ffffff", radius: 2.2, sparks: 0, duration: 450 },
       { fx: "area", at: "center", after: "hit", color: "#ff4a0a", edge: "#ffb347", radius: 4, opacity: 0.45, duration: 1800 },
       { fx: "area", at: "center", after: "hit", color: "#ffd36b", edge: "#fff1b0", radius: 2.4, opacity: 0.4, duration: 900 },
@@ -397,15 +397,11 @@ export const ABILITIES = [
   {
     id: "shield", name: "Щит веры", icon: "🛡️", group: "Примеры",
     cast: [
-      { fx: "rise", at: "targets", color: "#ffd36b", core: "#fffbe6", count: 12, height: 1.2, duration: 1200 },
-      { fx: "implode", at: "targets", color: "#ffd36b", core: "#fffbe6", fill: "#fff4cc", radius: 1.8, sparks: 18, duration: 750 },
-      { fx: "shock", at: "targets", delay: 700, color: "#fff1c2", radius: 1.6, rings: 2, duration: 700 },
-      { fx: "burst", at: "targets", delay: 700, color: "#ffd36b", core: "#fffbe6", radius: 1.1, sparks: 8, flash: 0.5 },
+      { fx: "rise", at: "targets", color: "#ffbf56", core: "#fff4cb", count: 9, height: 0.88, duration: 1100 },
     ],
-    auraDelay: 650,   // купол появляется, когда искры собрались
+    auraDelay: 180,
     aura: [
-      { fx: "glow", color: "#ffd36b", size: 1.4, opacity: 0.18 },
-      { fx: "dome", color: "#ffcf5a", grid: "#ffe39a", highlight: "#fffbe6", size: 1.35, cells: 3.4 },
+      { fx: "faithVeil", color: "#ffc15b", highlight: "#fff4cb", size: 1.20, opacity: 0.96 },
     ],
     until: { who: "target", when: "x" },
   },
@@ -570,15 +566,10 @@ export const ABILITIES = [
     id: "shield-spell", name: "Щит", icon: "🔰", group: "Заклинания",
     self: true,
     cast: [
-      { fx: "shock", at: "targets", color: "#bfe3ff", radius: 1.7, rings: 3, width: 0.05, duration: 500 },
-      { fx: "burst", at: "targets", color: "#7fc8ff", core: "#ffffff", radius: 1.25, sparks: 12, stars: true, flash: 0.7, duration: 500 },
-      { fx: "implode", at: "targets", color: "#9fd6ff", core: "#ffffff", fill: "#0a2036", radius: 1.4, sparks: 10, duration: 450 },
+      { fx: "forceCatch", at: "targets", color: "#92deff", core: "#edfbff", radius: 0.71, duration: 430 },
     ],
     auraDelay: 120,
-    aura: [
-      { fx: "glow", color: "#7fc8ff", size: 1.45, opacity: 0.12 },
-      { fx: "dome", color: "#7fc8ff", grid: "#cfeaff", highlight: "#ffffff", size: 1.4, cells: 3, fill: 0.1, opacity: 0.85 },
-    ],
+    aura: [{ fx: "forceTrace", color: "#9fe4ff", core: "#e7f9ff", size: 1.18 }],
     until: { who: "caster", when: "s", n: 1 },
   },
   {
@@ -608,14 +599,13 @@ export const ABILITIES = [
     save: "Лов",
     cast: [   // провал: на цель обрушивается столп сияющего пламени
       { fx: "sigil", at: "targets", color: "#ffd36b", rune: "#fffbe6", radius: 0.85, points: 6, runes: 6, duration: 1400, spin: 90, fill: 0.08 },
-      { fx: "pillar", delay: 300, flames: true, color: "#ffc23a", color2: "#fff0b0", core: "#ffffff", height: 4, width: 0.42, fall: 200, duration: 1700, tongues: 11, motes: 8 },
-      { fx: "burst", at: "targets", after: "hit", color: "#ffd36b", core: "#ffffff", radius: 1, sparks: 12, flash: 0.8 },
-      { fx: "shock", at: "targets", after: "hit", color: "#fff3c4", radius: 1.5, rings: 2, width: 0.06, duration: 650 },
-      { fx: "embers", at: "targets", after: "hit", delay: 150, color: "#ffd36b", color2: "#fff0b0", core: "#ffffff", count: 18, height: 1.5, duration: 1700 },
+      { fx: "pillar", delay: 300, radiance: true, color: "#ffc23a", color2: "#fff0b0", core: "#ffffff", height: 4, width: 0.42, fall: 200, duration: 1700, tongues: 11, motes: 8 },
+      { fx: "burst", at: "targets", after: "hit", color: "#fff0be", core: "#fffbe8", radius: 0.53, sparks: 0, flash: 0.30, duration: 370, opacity: 0.55 },
+      { fx: "rise", at: "targets", after: "hit", delay: 150, color: "#ffd36b", color2: "#fff0b0", core: "#ffffff", count: 8, height: 0.55, duration: 1700 },
     ],
     castSave: [   // спасся: пламя бьёт рядом — цель увернулась
       { fx: "sigil", at: "targets", color: "#ffd36b", rune: "#fffbe6", radius: 0.85, points: 6, runes: 6, duration: 1200, spin: 90, fill: 0.06, opacity: 0.6 },
-      { fx: "pillar", delay: 300, miss: true, flames: true, color: "#ffc23a", color2: "#fff0b0", core: "#ffffff", height: 4, width: 0.34, fall: 200, duration: 1100, hold: 0.45, tongues: 7, motes: 4 },
+      { fx: "pillar", delay: 300, miss: true, radiance: true, color: "#ffc23a", color2: "#fff0b0", core: "#ffffff", height: 4, width: 0.34, fall: 200, duration: 1100, hold: 0.45, tongues: 7, motes: 4 },
     ],
   },
   {
