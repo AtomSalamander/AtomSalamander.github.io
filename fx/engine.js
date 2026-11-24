@@ -467,7 +467,7 @@ export async function play(A, cId, tIds = [], opt = {}) {
   if(A.id!=="meteor-swarm-astra")await calibrate();
   if(stamp!==epoch)return hits;
   for (const step of A.cast || []) {
-    const st={...step,finish:finish(A.id,A.visualElement)};
+    const st={...step,finish:step.finish??finish(A.id,A.visualElement)};
     if (st.fx === "astra-solar-rift") {
       const points = Array.isArray(opt.pts) && opt.pts.length ? opt.pts : [pointOf()];
       Object.assign(hits, await astra.run(points, T, DPI, A.area?.radius || 40, st, astraEpoch));

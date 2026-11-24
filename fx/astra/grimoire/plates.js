@@ -1,4 +1,5 @@
 import { discharge, dischargeLib } from './discharge.js';
+import { spearBodies } from './spear.js';
 import { thresholdFault, wardBodies } from './threshold-wards.js';
 // Bounded, premultiplied SkSL plates. q is measured in design radii, not screen pixels.
 // The compiler sees only the selected silhouette and plate, not a giant per-pixel switch.
@@ -101,7 +102,7 @@ export function plate(kind,school='prism'){
  const base=kind==='bolt'||kind==='beam'||kind==='tether'?'stream':kind;
  const seam=school==='threshold'&&['fault','burst','shock'].includes(kind);
  const electric=(school==='electric'&&Object.hasOwn(discharge,kind))||seam;
- const body=wardBodies[kind]||(seam&&kind==='fault'?thresholdFault:electric?discharge[kind]:base==='area'&&school==='fire'?fireArea:bodies[base]);if(!body)throw Error('Unknown Astra plate: '+kind);
+ const body=spearBodies[kind]||wardBodies[kind]||(seam&&kind==='fault'?thresholdFault:electric?discharge[kind]:base==='area'&&school==='fire'?fireArea:bodies[base]);if(!body)throw Error('Unknown Astra plate: '+kind);
  const type=electric?school:body.includes('grain(')?school:'flat';const key=kind+':'+type;
  if(!cache.has(key)){
   const wob=kind==='bolt'?'(.79*channel(u*18.+seed,t*6.)+.21*channel(u*41.+seed,t*8.))':kind==='tether'?'sin(13.*u-5.*t)':'(.16*sin(8.*u-3.*t))';

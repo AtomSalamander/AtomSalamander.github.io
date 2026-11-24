@@ -3,7 +3,7 @@ import { plate } from './plates.js';
 const sat=x=>Math.min(1,Math.max(0,x)), smooth=x=>{x=sat(x);return x*x*(3-2*x);};
 const two=(x,y)=>({x,y}),three=(x,y,z)=>({x,y,z});
 const deg=Math.PI/180;
-const defs={forceCatch:[1.1,440],burst:[1,700],area:[3,1400],implode:[1.1,800],shock:[1.5,700],debris:[1.5,1100],smoke:[1,2200],sigil:[1,1800],spiral:[1.3,1300]};
+const defs={spearFrost:[1.1,840],spearAcid:[.95,870],forceCatch:[1.1,440],burst:[1,700],area:[3,1400],implode:[1.1,800],shock:[1.5,700],debris:[1.5,1100],smoke:[1,2200],sigil:[1,1800],spiral:[1.3,1300]};
 // The effect rectangle and its center use world pixels. A standalone attached to a token is
 // moved by Owlbear; JS only animates uniforms, never overwrites the token-relative placement.
 export function brushes({buildEffect,spawn,dpi,anchor}){
@@ -70,9 +70,9 @@ export function brushes({buildEffect,spawn,dpi,anchor}){
  }
  // Tail in a moving tangent frame. Weapon silhouettes stay vector-sharp at every zoom.
  function flight(A,B,o,d,shapes){const D=dpi(),dx=B.x-A.x,dy=B.y-A.y,L=Math.hypot(dx,dy)||1,dur=Math.max(180,L/D/(o.speed||14)*1000),arc=(o.arc||0)*D,nx=-dy/L,ny=dx/L;
-  const R=D*(o.size||.3)/2,tail=Math.min(12,Math.max(2.6,(o.trail??6)*.82+(o.ribbons?.length||0))),side=2*R*(tail+1.3),stick=o.stick||0,total=dur+Math.max(stick,170);
+  const R=D*(o.size||.3)/2,tail=o.fivefold?12:Math.min(12,Math.max(2.6,(o.trail??6)*.82+(o.ribbons?.length||0))),side=2*R*(tail+1.3),stick=o.stick||0,total=dur+Math.max(stick,170);
   const at=k=>two(A.x+dx*k+nx*Math.sin(k*Math.PI)*arc,A.y+dy*k+ny*Math.sin(k*Math.PI)*arc);
-  const it=item('comet',A,R,side,side,o,[tail,o.ribbons?.length ? .9 : .25,o.shape ? .18 : 1]);const polys=shapes||[];
+  const it=item(o.fivefold?'fivefold':'comet',A,R,side,side,o,o.fivefold?[tail,0,L/R]:[tail,o.ribbons?.length ? .9 : .25,o.shape ? .18 : 1]);const polys=shapes||[];
   spawn(d,[it,...polys.map(x=>x.it)],{dur:total,f:(p,P)=>{const ms=p*total,k=sat(ms/dur),c=at(k),h=Math.cos(k*Math.PI)*Math.PI*arc,ux=dx+nx*h,uy=dy+ny*h,n=Math.hypot(ux,uy)||1;
    const end=Math.max(0,ms-dur);P.set(it.id,{...phase(k,ms/1000,smooth(ms/45)*smooth(1-end/170)*(o.shape==='arrow'?.48:1)),pos:position(c,side,side),axis:two(ux/n,uy/n)});
    const rot=Math.atan2(uy,ux)/deg+(end&&stick?Math.sin(end*.05)*5*Math.exp(-end/140):0),alpha=end?(stick?smooth((stick-end)/230):0):smooth(ms/45);
