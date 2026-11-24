@@ -1,0 +1,104 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden; cursor: crosshair; user-select: none; -webkit-user-select: none; touch-action: none; outline: none; }
+</style></head>
+<body tabindex="-1">
+<script type="module">
+// Прозрачный слой поверх карты на время прицеливания (открывает aim.js, закрывает при отмене / применении).
+// Owlbear не сообщает инструменту, какой кнопкой мыши кликнули, поэтому ПКМ, клики, колесо и клавиши
+// ловим здесь и отправляем фону (op:"pad"). Координаты переводим в координаты сцены сами.
+//   ЛКМ — применить (Shift — отметить ещё цель, Alt — в точку), ПКМ — отмена,
+//   перетаскивание ЛКМ / СКМ — двигать карту, колесо — масштаб, Esc / Enter / Backspace — как в прицеле.
+import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
+import { CH } from "./const.js";
+
+const send = m => OBR.broadcast.sendMessage(CH, { op: "pad", ...m }, { destination: "LOCAL" }).catch(() => {});
+const world = (x, y) => OBR.viewport.inverseTransformPoint({ x, y });
+
+OBR.onReady(() => {
+  try { window.focus(); document.body.focus(); } catch (e) {}
+
+  // движение курсора: отправляем только последнее положение (без очереди)
+  let mv = null, mvBusy = false;
+  async function flushMove() {
+    if (mvBusy) return; mvBusy = true;
+    try { while (mv) { const q = mv; mv = null; const p = await world(q.x, q.y); await send({ t: "move", p, alt: q.alt, shift: q.shift }); } }
+    catch (e) {} finally { mvBusy = false; }
+  }
+
+  // перетаскивание — двигаем карту. Знак смещения определяем по самому Owlbear (transformPoint), чтобы не гадать.
+  let down = null;
+  async function panStart(d) {
+    try {
+      const pos = await OBR.viewport.getPosition(), o = await OBR.viewport.transformPoint({ x: 0, y: 0 }), s = await OBR.viewport.getScale();
+      const o2 = await OBR.viewport.transformPoint({ x: 100 / (s || 1), y: 0 });
+      d.pos = pos; d.k = Math.sign(o2.x - o.x) || 1;   // экран = мир·scale + position (k = 1) — обычный случай
+    } catch (e) { d.pos = null; }
+  }
+  let panBusy = false, panWant = null;
+  async function panFlush() {
+    if (panBusy) return; panBusy = true;
+    try { while (panWant) { const q = panWant; panWant = null; await OBR.viewport.setPosition(q); } } catch (e) {} finally { panBusy = false; }
+  }
+
+  addEventListener("contextmenu", e => e.preventDefault());
+  addEventListener("pointerdown", e => {
+    try { window.focus(); } catch (err) {}
+    if (e.button === 2) { e.preventDefault(); send({ t: "cancel" }); return; }   // ПКМ — отмена прицела
+    if (e.button !== 0 && e.button !== 1) return;
+    e.preventDefault();
+    down = { x: e.clientX, y: e.clientY, b: e.button, moved: e.button === 1 };
+    try { document.body.setPointerCapture(e.pointerId); } catch (err) {}
+    panStart(down);
+  });
+  addEventListener("pointermove", e => {
+    if (down) {
+      const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (!down.moved && Math.hypot(dx, dy) > 6) down.moved = true;
+      if (down.moved && down.pos) { panWant = { x: down.pos.x + dx * down.k, y: down.pos.y + dy * down.k }; panFlush(); }
+    }
+    mv = { x: e.clientX, y: e.clientY, alt: e.altKey, shift: e.shiftKey }; flushMove();
+  });
+  addEventListener("pointerup", async e => {
+    const d = down; down = null;
+    if (!d || e.button !== d.b) return;
+    if (d.b === 0 && !d.moved) {
+      try { const p = await world(e.clientX, e.clientY); send({ t: "click", p, alt: e.altKey, shift: e.shiftKey }); } catch (err) {}
+    }
+  });
+  addEventListener("pointercancel", () => { down = null; });
+
+  // колесо — масштаб вокруг курсора
+  let wheel = 0, wx = 0, wy = 0, wBusy = false;
+  async function zoomFlush() {
+    if (wBusy) return; wBusy = true;
+    try {
+      while (wheel) {
+        const d = wheel; wheel = 0;
+        const s = await OBR.viewport.getScale(), ns = Math.max(0.05, Math.min(12, s * Math.exp(-d * 0.0015)));
+        if (Math.abs(ns - s) < 1e-4) continue;
+        const w = await world(wx, wy);
+        await OBR.viewport.setScale(ns);
+        const c = await OBR.viewport.transformPoint(w), pos = await OBR.viewport.getPosition();
+        const o = await OBR.viewport.transformPoint({ x: 0, y: 0 }), o2 = await OBR.viewport.transformPoint({ x: 100 / ns, y: 0 }), k = Math.sign(o2.x - o.x) || 1;
+        await OBR.viewport.setPosition({ x: pos.x + (wx - c.x) * k, y: pos.y + (wy - c.y) * k });   // точка под курсором остаётся на месте
+      }
+    } catch (e) {} finally { wBusy = false; }
+  }
+  addEventListener("wheel", e => {
+    e.preventDefault();
+    wheel += e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY; wx = e.clientX; wy = e.clientY;
+    zoomFlush();
+  }, { passive: false });
+
+  // клавиши (когда фокус на этом слое)
+  addEventListener("keydown", e => {
+    if (["Escape", "Enter", "Backspace"].includes(e.key)) e.preventDefault();
+    send({ t: "key", key: e.key, code: e.code, alt: e.altKey, shift: e.shiftKey, ctrl: e.ctrlKey, meta: e.metaKey });
+  });
+
+  send({ t: "ready" });
+});
+</script>
+</body></html>

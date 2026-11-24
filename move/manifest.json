@@ -1,0 +1,16 @@
+{
+  "name": "Передвижение (DnD)",
+  "version": "1.1.0",
+  "manifest_version": 1,
+  "description": "Линейка передвижения в бою как в Foundry VTT: скорость, доп. скорость, рывок, отмена шага. Привязано к трекеру инициативы.",
+  "author": "DM",
+  "icon": "/owlbear-dnd/move/icon.svg",
+  "background_url": "/owlbear-dnd/move/background.html",
+  "action": {
+    "title": "Передвижение",
+    "icon": "/owlbear-dnd/move/icon.svg",
+    "popover": "/owlbear-dnd/move/panel.html",
+    "width": 340,
+    "height": 560
+  }
+}

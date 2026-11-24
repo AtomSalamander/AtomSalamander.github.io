@@ -1,0 +1,15 @@
+{
+  "name": "Трекер инициативы (D&D)",
+  "version": "1.0.1",
+  "manifest_version": 1,
+  "description": "Трекер боя и инициативы",
+  "author": "DM",
+  "icon": "/owlbear-dnd/tracker-icon.svg",
+  "action": {
+    "title": "Инициатива",
+    "icon": "/owlbear-dnd/tracker-icon.svg",
+    "popover": "/owlbear-dnd/launcher.html",
+    "width": 300,
+    "height": 330
+  }
+}

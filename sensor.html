@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8">
+<style>html,body{margin:0;height:100%;background:transparent;overflow:hidden}</style></head><body>
+<script>
+// прозрачный датчик сбоку от зоны кнопок: курсор сюда попал → полоска инициативы сразу возвращается на место
+const off=()=>{try{if(localStorage.getItem("dndbar_dive")!=="0")localStorage.setItem("dndbar_dive","0")}catch(e){}};
+addEventListener("pointermove",off);addEventListener("pointerover",off);addEventListener("pointerdown",off);
+</script></body></html>

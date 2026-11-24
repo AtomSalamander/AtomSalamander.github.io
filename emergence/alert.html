@@ -1,0 +1,39 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8">
+<style>
+html,body{margin:0;width:100%;height:100%;background:transparent;overflow:hidden;font-family:system-ui,"Segoe UI",sans-serif}
+#e{position:absolute;inset:0;opacity:.2;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.18}50%{opacity:.95}}
+#b{position:absolute;inset:3px 6px;display:flex;align-items:center;justify-content:center;border-radius:12px;
+  background:linear-gradient(180deg,#0A2342ee,#06142aee);border:1.5px solid var(--c);color:var(--c);
+  font:800 14px/1 system-ui;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;overflow:hidden;
+  box-shadow:0 0 14px -2px var(--c),inset 0 0 12px -4px var(--c);animation:glow 1.6s ease-in-out infinite}
+#b span{animation:blink 1.6s ease-in-out infinite;text-shadow:0 0 8px var(--c)}
+#b:before,#b:after{content:"";position:absolute;top:0;bottom:0;width:40%;background:linear-gradient(90deg,transparent,var(--c),transparent);opacity:.18;animation:sweep 2.4s linear infinite}
+#b:after{animation-delay:-1.2s}
+@keyframes glow{0%,100%{box-shadow:0 0 6px -2px var(--c),inset 0 0 6px -4px var(--c)}50%{box-shadow:0 0 18px 0 var(--c),inset 0 0 16px -2px var(--c)}}
+@keyframes blink{0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes sweep{from{left:-40%}to{left:100%}}
+#m{position:absolute;inset:6px;display:flex;align-items:center;justify-content:center;text-align:center;padding:0 18px;border-radius:16px;
+  background:radial-gradient(ellipse at center,#0A2342f2,#050d1dd9);border:1.5px solid var(--c);color:#E9FDFF;
+  font:800 20px/1.25 system-ui;letter-spacing:.08em;text-shadow:0 0 10px var(--c),0 0 22px var(--c);
+  box-shadow:0 0 26px -4px var(--c);animation:msg 4s ease forwards}
+@keyframes msg{0%{opacity:0;transform:scale(.85);filter:blur(4px)}8%{opacity:1;transform:scale(1.03);filter:blur(0)}14%{transform:scale(1)}82%{opacity:1}100%{opacity:0;transform:scale(1.04)}}
+</style></head><body>
+<script>
+const q = new URLSearchParams(location.search), mode = q.get("mode"), c = q.get("c") || "#00D4FF", t = q.get("t") || "";
+const t0 = +q.get("t0") || Date.now(), delay = -((Date.now() - t0) % 1600) + "ms";   // все полосы мерцают синхронно
+document.documentElement.style.setProperty("--c", c);
+if (mode === "edge") {
+  const dir = { t: "to bottom", b: "to top", l: "to right", r: "to left" }[q.get("side")] || "to bottom";
+  const d = document.createElement("div"); d.id = "e";
+  d.style.background = `linear-gradient(${dir}, ${c} 0%, ${c}99 35%, transparent 100%)`;
+  d.style.animationDelay = delay; document.body.appendChild(d);
+} else if (mode === "banner") {
+  const d = document.createElement("div"); d.id = "b"; d.style.animationDelay = delay;
+  const s = document.createElement("span"); s.textContent = "!!! " + t + " !!!"; s.style.animationDelay = delay;
+  d.appendChild(s); document.body.appendChild(d);
+} else {
+  const d = document.createElement("div"); d.id = "m"; d.textContent = t; document.body.appendChild(d);
+}
+</script>
+</body></html>
