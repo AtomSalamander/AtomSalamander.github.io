@@ -3,7 +3,7 @@ import { plate } from './plates.js';
 const sat=x=>Math.min(1,Math.max(0,x)), smooth=x=>{x=sat(x);return x*x*(3-2*x);};
 const two=(x,y)=>({x,y}),three=(x,y,z)=>({x,y,z});
 const deg=Math.PI/180;
-const defs={spearFrost:[1.1,840],spearAcid:[.95,870],forceCatch:[1.1,440],burst:[1,700],area:[3,1400],implode:[1.1,800],shock:[1.5,700],debris:[1.5,1100],smoke:[1,2200],sigil:[1,1800],spiral:[1.3,1300]};
+const defs={acidSpray:[1,740],spearFrost:[1.1,840],spearAcid:[.95,870],forceCatch:[1.1,440],burst:[1,700],area:[3,1400],implode:[1.1,800],shock:[1.5,700],debris:[1.5,1100],smoke:[1,2200],sigil:[1,1800],spiral:[1.3,1300]};
 // The effect rectangle and its center use world pixels. A standalone attached to a token is
 // moved by Owlbear; JS only animates uniforms, never overwrites the token-relative placement.
 export function brushes({buildEffect,spawn,dpi,anchor}){

@@ -53,6 +53,9 @@ export function paint(A, el) {
   return { ...A, visualElement:key, cast: steps(A.cast), castSave: steps(A.castSave), aura: steps(A.aura) };
 }
 
+// No radial spokes or cross-shaped core; the coloured body still blooms.
+const SOFT_BURST = { sparks: 0, flash: 0 };
+
 export const ABILITIES = [
   // ─── Арка 7 · Шариты ───
   {
@@ -334,14 +337,14 @@ export const ABILITIES = [
     attack: true,
     cast: [
       { fx: "projectile", color: "#ff5a10", core: "#ffe08a", size: 0.34, speed: 13, trail: 7, embers: 10 },
-      { fx: "burst", at: "targets", after: "hit", color: "#ff7a1a", core: "#fff1b0", radius: 0.85, sparks: 12 },
+      { fx: "burst", at: "targets", after: "hit", color: "#ff7a1a", core: "#fff1b0", radius: 0.85, sparks: 0, flash: 0 },
       { fx: "shock", at: "targets", after: "hit", color: "#ffb347", radius: 1.1, rings: 1, duration: 450 },
       { fx: "embers", at: "targets", after: "hit", color: "#ffb347", color2: "#ff4d10", count: 10, height: 0.9, duration: 1300 },
       { fx: "smoke", at: "targets", after: "hit", delay: 120, color: "#3d3530", color2: "#5a4c44", count: 5, radius: 0.7, size: 0.28, opacity: 0.4, duration: 1600 },
     ],
     castSave: [   // промах
       { fx: "projectile", miss: true, overshoot: 1.5, color: "#ff5a10", core: "#ffe08a", size: 0.34, speed: 13, trail: 7, embers: 8 },
-      { fx: "burst", at: "miss", after: "hit", color: "#ff7a1a", core: "#fff1b0", radius: 0.5, sparks: 6, flash: 0.3 },
+      { fx: "burst", at: "miss", after: "hit", color: "#ff7a1a", core: "#fff1b0", radius: 0.5, sparks: 0, flash: 0 },
       { fx: "smoke", at: "miss", after: "hit", delay: 80, color: "#3d3530", color2: "#5a4c44", count: 4, radius: 0.45, size: 0.22, opacity: 0.4, duration: 1200 },
     ],
   },
@@ -432,7 +435,7 @@ export const ABILITIES = [
       { fx: "burst", at: "targets", after: "hit", color: "#ffffff", core: "#ffffff", radius: 0.52, sparks: 0, flash: 0.32, duration: 270 },
       { fx: "burst", at: "targets", after: "hit", finish: "fire", color: "#ff6a1a", core: "#ffe08a", radius: 0.70, sparks: 5, opacity: 0.78, duration: 550 },
       { fx: "spearFrost", at: "targets", after: "hit", delay: 120, color: "#bfe9ff", color2: "#ffffff", hot: "#7fd6ff", radius: 1.1, count: 9, size: 0.09 },
-      { fx: "spearAcid", at: "targets", after: "hit", delay: 130, radius: 1.05, duration: 880 },
+      { fx: "spearAcid", finish: "acid", at: "targets", after: "hit", delay: 130, radius: 1.05, duration: 880 },
       { fx: "bolt", finish: "electric", from: "sky", after: "hit", delay: 300, color: "#ffe45c", core: "#ffffff", width: 0.05, jag: 0.35, duration: 380, grow: 0.12, height: 1.6 },
       { fx: "shock", at: "targets", after: "hit", delay: 420, color: "#b7a6ff", radius: 1.5, rings: 3, width: 0.05, duration: 650 },
       { fx: "embers", at: "targets", after: "hit", delay: 200, color: "#ffb347", color2: "#7fd6ff", count: 10, height: 0.8, duration: 1200 },
@@ -450,13 +453,13 @@ export const ABILITIES = [
     attack: true,
     elements: ["fire", "cold", "acid", "lightning", "poison", "thunder", "psychic"],
     cast: [
-      { fx: "burst", at: "caster", color: "$c1", core: "$c3", radius: 0.55, sparks: 6, flash: 0.35, duration: 380 },
+      { fx: "burst", per: { acid: SOFT_BURST, poison: SOFT_BURST }, at: "caster", color: "$c1", core: "$c3", radius: 0.55, sparks: 6, flash: 0.35, duration: 380 },
       { fx: "projectile", delay: 120, color: "$c1", core: "$c3", size: 0.26, speed: 15, arc: 0.35, trail: 8, embers: 10 },
       { fx: "projectile", delay: 190, color: "$c2", core: "$c3", size: 0.16, speed: 15, arc: -0.35, trail: 6, embers: 4 },
-      { fx: "burst", at: "targets", after: "hit", color: "$c1", core: "$c3", radius: 0.85, sparks: 10 },
+      { fx: "burst", per: { acid: SOFT_BURST, poison: SOFT_BURST }, at: "targets", after: "hit", color: "$c1", core: "$c3", radius: 0.85, sparks: 10 },
       { fx: "shock", at: "targets", after: "hit", color: "$c2", radius: 1.15, rings: 2, duration: 550 },
-      { fx: "burst", at: "targets", after: "hit", delay: 260, color: "$c2", core: "$c3", radius: 0.55, sparks: 6, flash: 0.3, duration: 420 },   // «взрывающаяся» восьмёрка
-      { fx: "embers", at: "targets", after: "hit", delay: 120, color: "$c2", color2: "$c1", core: "$c3", count: 10, height: 0.8, duration: 1200 },
+      { fx: "burst", per: { acid: SOFT_BURST, poison: SOFT_BURST }, at: "targets", after: "hit", delay: 260, color: "$c2", core: "$c3", radius: 0.55, sparks: 6, flash: 0.3, duration: 420 },   // «взрывающаяся» восьмёрка
+      { fx: "embers", per: { acid: { fx: "acidSpray", color: "$c1", radius: 1.13, duration: 740, delay: 30 } }, at: "targets", after: "hit", delay: 120, color: "$c2", color2: "$c1", core: "$c3", count: 10, height: 0.8, duration: 1200 },
       { fx: "smoke", el: ["fire", "acid", "poison"], at: "targets", after: "hit", delay: 200, color: "$d", color2: "$c1", radius: 0.6, count: 5, size: 0.24, rise: 0.3, opacity: 0.4, duration: 1300 },
       { fx: "debris", el: "cold", at: "targets", after: "hit", color: "#bfe9ff", color2: "#ffffff", hot: "#7fd6ff", radius: 1, count: 9, size: 0.08 },
       { fx: "bolt", el: "lightning", from: "sky", after: "hit", delay: 80, color: "$c2", core: "#ffffff", width: 0.05, jag: 0.35, duration: 380, grow: 0.12, height: 1.6 },
@@ -464,9 +467,10 @@ export const ABILITIES = [
       { fx: "spiral", el: "psychic", at: "targets", after: "hit", color: "$c1", color2: "$c2", radius: 0.9, duration: 1000 },
     ],
     castSave: [   // промах
-      { fx: "burst", at: "caster", color: "$c1", core: "$c3", radius: 0.55, sparks: 6, flash: 0.35, duration: 380 },
+      { fx: "burst", per: { acid: SOFT_BURST, poison: SOFT_BURST }, at: "caster", color: "$c1", core: "$c3", radius: 0.55, sparks: 6, flash: 0.35, duration: 380 },
       { fx: "projectile", miss: true, delay: 120, overshoot: 1.5, color: "$c1", core: "$c3", size: 0.26, speed: 15, arc: 0.35, trail: 8, embers: 8 },
-      { fx: "burst", at: "miss", after: "hit", color: "$c1", core: "$c3", radius: 0.5, sparks: 6, flash: 0.3 },
+      { fx: "burst", per: { acid: SOFT_BURST, poison: SOFT_BURST }, at: "miss", after: "hit", color: "$c1", core: "$c3", radius: 0.5, sparks: 6, flash: 0.3 },
+      { fx: "acidSpray", el: "acid", at: "miss", after: "hit", color: "$c1", radius: 0.74, duration: 580 },
       { fx: "shock", at: "miss", after: "hit", color: "$c2", radius: 0.8, rings: 1, duration: 450 },
     ],
   },
@@ -475,10 +479,11 @@ export const ABILITIES = [
     save: "Лов", area: { shape: "cone", length: 15 },
     elements: ["fire", "cold", "acid", "lightning", "poison"],
     cast: [
-      { fx: "burst", at: "caster", color: "$c1", core: "$c3", radius: 0.6, sparks: 0, flash: 0.45, duration: 350 },
+      { fx: "burst", per: { acid: SOFT_BURST }, at: "caster", color: "$c1", core: "$c3", radius: 0.6, sparks: 0, flash: 0.45, duration: 350 },
       { fx: "cone", delay: 120, color: "$c1", color2: "$c2", core: "$c3", length: 3, count: 42, duration: 1700,
         per: { lightning: { bolts: 6 }, cold: { count: 50, size: 0.18 }, poison: { size: 0.3, duration: 2100 } } },
-      { fx: "burst", at: "targets", after: "hit", stagger: 70, color: "$c1", core: "$c3", radius: 0.7, sparks: 6 },
+      { fx: "acidSpray", el: "acid", at: "targets", after: "hit", stagger: 70, color: "$c1", radius: 0.91, duration: 640 },
+      { fx: "burst", per: { acid: SOFT_BURST }, at: "targets", after: "hit", stagger: 70, color: "$c1", core: "$c3", radius: 0.7, sparks: 6 },
       { fx: "embers", el: ["fire", "lightning"], at: "targets", after: "hit", color: "$c2", color2: "$c1", core: "$c3", count: 8, height: 0.8, duration: 1200 },
       { fx: "debris", el: "cold", at: "targets", after: "hit", color: "#bfe9ff", color2: "#ffffff", hot: "#7fd6ff", radius: 0.9, count: 8, size: 0.08 },
       { fx: "smoke", at: "point", after: "hit", delay: 450, color: "$d", color2: "$c1", radius: 1.3, count: 9, size: 0.45, rise: 0.4, opacity: 0.35, duration: 2300 },
@@ -490,7 +495,7 @@ export const ABILITIES = [
     cast: [
       { fx: "sigil", at: "targets", color: "$c1", rune: "$c3", radius: 0.9, points: 6, runes: 5, duration: 1400, spin: 60, fill: 0.1 },
       { fx: "rise", at: "targets", delay: 150, color: "$c2", core: "$c3", count: 14, height: 1.3, duration: 1400 },
-      { fx: "burst", at: "targets", delay: 250, color: "$c1", core: "$c3", radius: 0.8, sparks: 0, flash: 0.4 },
+      { fx: "burst", per: { acid: SOFT_BURST }, at: "targets", delay: 250, color: "$c1", core: "$c3", radius: 0.8, sparks: 0, flash: 0.4 },
     ],
     aura: [
       { fx: "glow", color: "$c1", size: 1.25, opacity: 0.28, flicker: 0.3 },

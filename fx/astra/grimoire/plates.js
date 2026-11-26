@@ -1,4 +1,5 @@
 import { discharge, dischargeLib } from './discharge.js';
+import { dropLayers, dropLib } from './liquid.js';
 import { spearBodies } from './spear.js';
 import { thresholdFault, wardBodies } from './threshold-wards.js';
 // Bounded, premultiplied SkSL plates. q is measured in design radii, not screen pixels.
@@ -22,7 +23,7 @@ const texture={
  fire:'float f=cloud(q*3.+float2(seed,t*.78));return cloud(q*6.+float2(f*3.1,t*1.25+f));',
  ice:'float2 p=turn(q,.37);return sat(.14+.50*abs(fract(p.x*2.8+p.y*1.6)-.5)+.58*ridge(min(engraving(atan(p.y,p.x+.00001),6.)*length(p),abs(fract((abs(p.y)+p.x*.52)*5.+.08*t)-.5)),.07));',
  life:'float a=atan(q.y,q.x+.0001);float r=length(q);return .25+.67*ridge(r-.50-.27*cos(a*5.+t*.8),.15)+.08*cos(12.*r-a*5.);',
- acid:'float2 f=fract(q*3.+float2(.11*t,-.48*t))-.5;float d=length(f);return .35+.54*ridge(d-.24,.047)+.16*exp(-13.*length(f+float2(.09)));',
+ acid:'float f=cloud(q*1.75+float2(seed,-t*.38));return .17+.75*cloud(q*2.9+float2(f*1.5+t*.32,f));',
  venom:'float f=cloud(q*2.8+float2(t*.17,-t*.28));return .18+.72*cloud(q*5.+float2(f*3.,f*2.-t*.48));',
  storm:'float f=noiseF(float2(q.x*8.+seed,t*5.))-.5;return .22+.75*ridge(q.y-.46*f-.12*sin(12.*q.x+t*5.),.11);',
  echo:'return .20+.75*ridge(fract(length(q)*3.8-t*.55)-.5,.13);',
@@ -102,10 +103,16 @@ export function plate(kind,school='prism'){
  const base=kind==='bolt'||kind==='beam'||kind==='tether'?'stream':kind;
  const seam=school==='threshold'&&['fault','burst','shock'].includes(kind);
  const electric=(school==='electric'&&Object.hasOwn(discharge,kind))||seam;
- const body=spearBodies[kind]||wardBodies[kind]||(seam&&kind==='fault'?thresholdFault:electric?discharge[kind]:base==='area'&&school==='fire'?fireArea:bodies[base]);if(!body)throw Error('Unknown Astra plate: '+kind);
- const type=electric?school:body.includes('grain(')?school:'flat';const key=kind+':'+type;
+ // An accent is composited over the ordinary plate. Only particle-only plates have no base.
+ const particles=kind==='spearAcid'||kind==='acidSpray'||(school==='acid'&&kind==='drift');
+ const accent=(particles||school==='acid')&&dropLayers[kind];
+ const body=particles?null:spearBodies[kind]||wardBodies[kind]||(seam&&kind==='fault'?thresholdFault:electric?discharge[kind]:base==='area'&&school==='fire'?fireArea:bodies[base]);if(!body&&!accent)throw Error('Unknown Astra plate: '+kind);
+ const type=accent?'acid':electric?school:body.includes('grain(')?school:'flat';const key=kind+':'+type;
  if(!cache.has(key)){
   const wob=kind==='bolt'?'(.79*channel(u*18.+seed,t*6.)+.21*channel(u*41.+seed,t*8.))':kind==='tether'?'sin(13.*u-5.*t)':'(.16*sin(8.*u-3.*t))';
-  cache.set(key,lib+(electric?dischargeLib(seam):'')+'\nfloat grain(float2 q,float t){'+(texture[type]||texture.prism)+'}\nfloat4 paint(float2 q,float p,float t){float r=length(q),a=atan(q.y,q.x+.000001);'+body.replace('WOBBLE',wob).replace('RIBBON_COLOR',kind==='comet'&&type==='prism'?'(.60+.37*cos(float3(0.,2.1,4.2)+k*9.-t*2.6))':'mix(dye,lit,v)')+'}\nhalf4 main(float2 coord){float2 q=(coord-size*.5)/unit;return half4(paint(q,phase.x,phase.y)*clamp(phase.z,0.,1.));}');
+  const paint=body?'float4 paint(float2 q,float p,float t){float r=length(q),a=atan(q.y,q.x+.000001);'+body.replace('WOBBLE',wob).replace('RIBBON_COLOR',kind==='comet'&&type==='prism'?'(.60+.37*cos(float3(0.,2.1,4.2)+k*9.-t*2.6))':'mix(dye,lit,v)')+'}':'';
+  const baseCall='paint(q,phase.x,phase.y)',dropCall='drops(q,phase.x,phase.y)';
+  const result=!accent?baseCall:particles?dropCall:'atop('+dropCall+','+baseCall+')';
+  cache.set(key,lib+(electric?dischargeLib(seam):'')+'\nfloat grain(float2 q,float t){'+(texture[type]||texture.prism)+'}\n'+paint+(accent?dropLib+'float4 drops(float2 q,float p,float t){'+accent+'}':'')+'\nhalf4 main(float2 coord){float2 q=(coord-size*.5)/unit;return half4('+result+'*clamp(phase.z,0.,1.));}');
  }return cache.get(key);
 }
