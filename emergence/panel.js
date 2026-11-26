@@ -20,7 +20,7 @@ async function loadNames(ids) {
 async function send(c, extra = {}) {
   if (!isGM) return;
   const targetMode = $('#targetMode').value;
-  const ids = targetMode === 'sel' || c === 'shuffle' ? (await OBR.player.getSelection()) || [] : [];
+  const ids = targetMode === 'sel' || c === 'shuffle' || c === 'core' ? (await OBR.player.getSelection()) || [] : [];
   OBR.broadcast.sendMessage(CH, { op: "cmd", c, ids, targetMode, ...extra }, { destination: "LOCAL" });
 }
 

@@ -1,0 +1,5 @@
+import assert from 'node:assert/strict';import {findCore,lensGeometry} from '../targeting.js';
+const boss={name:'Ядро',id:'boss',visible:true},prop={id:'p',type:'IMAGE',layer:'PROP',name:'  ядРО  '},other={id:'q',name:'object',text:{plainText:'Ядро'}},hidden={id:'h',name:'Ядро',visible:false};
+assert.equal(findCore([boss,hidden],'boss'),null);assert.equal(findCore([boss,prop,hidden],'boss'),prop.id);assert.equal(findCore([prop,other],'boss'),'ambiguous');assert.equal(findCore([prop,other],'boss',['q']),'q');
+for(const ft of [5,10,15]){const L=30/ft*64;for(const theta of [0,.61,Math.PI/2,2.6,-.4]){const H={x:-153,y:88},U={x:Math.cos(theta),y:Math.sin(theta)};const B=d=>({x:H.x+U.x*d,y:H.y+U.y*d,r:16});const {center,u,reaches}=lensGeometry(H,B(L+16),L);assert(reaches);assert(Math.abs(center.x+u.x*.5*L-(H.x+U.x*L))<.001);assert(!lensGeometry(H,B(L+16.01),L).reaches);}}
+console.log('Core matching/duplicates/hidden/boss exclusion; fixed 30 ft length, body intersection and three grid scales OK');

@@ -4,6 +4,8 @@
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
 import { NS, STATE, CH, INIT, PAL, PROTO, DMG, EFF, normState } from "./const.js";
 import { DPI, grid, feetPerCell, V, c01, tokens, token, moveToken, teleportToken, setVisible, shrinkHide, stop, clearAll, wait } from "./engine.js";
+import {findCore,lensGeometry,ERASE} from './targeting.js';
+import { calibratePlates } from './astra.js';
 import * as FX from "./fx.js";
 import { AURA } from "./auras.js";
 import { turnEvents, applyEvents, matchChip, sameName, untilText } from "./turns.js";
@@ -17,7 +19,7 @@ const round = () => (init && Number(init.r)) || 1;
 const cells = ft => ft / FT * DPI;
 
 // ────────── Кэш позиций токенов (для висящих аур) ──────────
-const POS = new Map();
+const POS = new Map(), focusUntil = new Map();
 const G = id => POS.get(id) || null;
 function neededIds() {
   const s = new Set();
@@ -26,6 +28,7 @@ function neededIds() {
   for (const id of Object.values(st.keys || {})) if (id) s.add(id);
   for (const e of st.e) if (e.tok) s.add(e.tok);
   for (const g of st.snap || []) if (g.id) s.add(g.id);
+  for(const [id,end] of focusUntil){if(performance.now()<end)s.add(id);else focusUntil.delete(id);}
   return [...s];
 }
 let posT = 0, posBusy = false, posAgain = false;
@@ -49,7 +52,7 @@ function desired() {
   const want = new Map(), stun = isStunned();
   const add = (key, kind, args, need) => { if (need.some(id => !POS.has(id))) return; want.set(key, { kind, args, sig: kind + JSON.stringify(args) }); };
   for (const e of st.e) {
-    if (!AURA[e.a]) continue;
+    if (!AURA[e.a] || (e.a==='core' && (!e.relic || e.tok===st.boss))) continue;
     const args = { tok: e.tok };
     if (e.a === "charge" || e.a === "grab" || e.a === "appro") args.boss = st.boss;
     if (e.a === "recal") args.col = e.col || PAL.cy;
@@ -135,7 +138,12 @@ function playFx(m) {
       case "wave": return FX.wave(m.B, m.aim, m.L, m.hits);
       case "summon": return FX.summon(m.B, m.pts);
       case "chargeIntro": return FX.chargeIntro(m.B, m.T);
-      case "strike": return FX.strike(m.T, m.fails, m.erased);
+      case "strike": {
+        const id=m.tid,begin=performance.now();let last=m.T;
+        if(id)focusUntil.set(id,begin+ERASE.total+400);
+        const follow=()=>{const cur=id&&G(id);if(cur&&cur.vis!==false&&performance.now()-begin<ERASE.peak-ERASE.shrink)last=cur;return last;};
+        return FX.strike(m.T,!!m.erased,follow);
+      }
       case "sphere": return FX.sphere(m.B, m.T, m.fail);
       case "shift": return FX.shift(m.T, m.to, m.fail);
       case "appro": return FX.appro(m.B, m.T, m.fail);
@@ -147,12 +155,12 @@ function playFx(m) {
       case "loopShatter": return FX.loopShatter(m.K, m.ghosts, m.col);
       case "silenceWave": return FX.silenceWave(m.K, m.dark, m.glow);
       case "recal": return FX.recal(m.B, m.col);
-      case "lens": return FX.lens(m.H, m.B, m.fail);
+      case "lens": return FX.lens(m.H, m.B, m.fail, m.L||cells(30));
       case "veinPulse": return FX.veinPulse(m.B, m.K, 0, m.col);
       case "keyHit": return FX.keyHit(m.B, m.K, m.barrier);
       case "veinFlare": return FX.veinFlare(m.B, m.keys);
       case "keyBreak": return FX.keyBreak(m.B, m.K, m.col);
-      case "coreBurst": return FX.coreBurst(m.B);
+      case "coreBurst": return m.K ? FX.coreBurst(m.K) : undefined;
       case "msg": return bigMsg(m.text, m.col);
       case "clear": clearAll(); LIVE.clear(); return syncAuras();
     }
@@ -222,7 +230,7 @@ const aimLabels = {
   touch:'Касание Системы', weave:'Плетение', sphere:'Сфера', shift:'Сдвиг', appro:'Присвоение',
   charge:'Зарядка Стирания', strike:'Стирание', lens:'Носитель Линзы', keyHit:'Удар по Ключу', keyBreak:'Разрушить Ключ'
 };
-let commandId = 0;
+let commandId = 0, sceneEpoch = 0;
 async function cmd(m) {
   const turn = ++commandId, c = m.c, map = m.targetMode === 'map';
   const valid = () => turn === commandId && ready && GM;
@@ -261,6 +269,16 @@ async function cmd(m) {
   if (c === "loopBreak") return loopBreak("Петля разорвана");
   if (c === "shuffle") return shuffle(ids);
 
+  if(c==='core'){
+    const it=await OBR.scene.items.getItems(); if(!valid())return;
+    const id=findCore(it,st.boss,ids);
+    if(!id)return toast('Не найден видимый объект «Ядро». Проверь имя объекта на карте.');
+    if(id==='ambiguous')return toast('На карте несколько объектов «Ядро». Выдели один и нажми ещё раз.');
+    const K=await token(id);if(!valid()||!K||!K.vis||!Number.isFinite(K.x+K.y+K.r))return;
+    emit({k:'coreBurst',K:P2(K)});
+    const e=makeEff('core',K,K.name,'x',{relic:true});
+    return mutate(s=>{s.e=s.e.filter(x=>x.a!=='core');s.e.push(e);return s;});
+  }
   let B = await bossTok(); if (!B || !valid()) return;
   if(map && aimLabels[c] && !(c==='strike' && st.e.some(e=>e.a==='charge'))) {
     const key = c==='keyHit' || c==='keyBreak';
@@ -278,7 +296,7 @@ async function cmd(m) {
     case "weave": {
       const ts = await targets(ids); if (!ts) return; const T = ts[0];
       emit({ k: "weave", B: BB, T: P2(T), hit: !!m.hit });
-      if (m.hit) addEff(1500 + Math.min(900, V.dist(B, T) / DPI * 40), "weave", T, T.name, "s");
+      if (m.hit) addEff(1600, "weave", T, T.name, "s");
       return;
     }
     case "wave": {
@@ -318,13 +336,13 @@ async function cmd(m) {
       const ch = st.e.find(x => x.a === "charge");
       const tid = ch ? ch.tok : ids[0]; const T = tid && await token(tid);
       if (!T) return toast("Нет заряженной цели: выдели токен или сначала «Зарядка»");
-      const nf = Math.max(0, Math.min(6, m.fails | 0)), fails = [0, 1, 2, 3, 4, 5].map(i => i < nf);
-      for (let i = 5; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [fails[i], fails[j]] = [fails[j], fails[i]]; }
-      const erased = nf === 6 || !!m.erased;
-      dropEff(x => x.a === "charge", 600);
-      const tE = emit({ k: "strike", T: P2(T), fails, erased }) || 3080;
-      if (erased) setTimeout(() => shrinkHide(T.id, 700), tE + 600);
-      setTimeout(() => emit({ k: "msg", text: erased ? `✖ ${T.name} СТЁРТ(А) ИЗ СИСТЕМЫ` : `Стирание: провалов ${nf} из 6 — ${nf * 3}к8 урона`, col: erased ? "#FF4D6D" : PAL.cy }), tE + 900);
+      const nf=Math.max(0,Math.min(6,m.fails|0));const erased=nf===6||!!m.erased;
+      dropEff(x=>x.a==='charge');
+      const peak=emit({k:'strike',T:P2(T),tid:T.id,erased})||ERASE.peak;
+      // This cast alone can hide the target. Standard counts affect the damage text only.
+      const stamp=sceneEpoch;
+      if(erased)setTimeout(()=>{if(ready&&GM&&stamp===sceneEpoch)shrinkHide(T.id,ERASE.shrink);},peak-ERASE.shrink);
+      setTimeout(()=>{if(ready&&GM&&stamp===sceneEpoch)emit({k:'msg',text:erased?`✖ ${T.name} СТЁРТ(А) ИЗ СИСТЕМЫ`:`Стирание: провалов ${nf} из 6 — ${nf*3}к8 урона`,col:erased?'#FF4D6D':PAL.cy});},ERASE.total-350);
       return;
     }
     case "sphere": {
@@ -362,7 +380,8 @@ async function cmd(m) {
     case "lens": {
       const H = ids[0] && ids[0] !== st.boss ? await token(ids[0]) : null;
       if (!H) return toast("Выдели героя, который держит Линзу");
-      emit({ k: "lens", H: P2(H), B: BB, fail: !!m.fail });
+      const L=cells(30);emit({ k: "lens", H:P2(H), B:BB, fail:!!m.fail, L });
+      if(!lensGeometry(H,BB,L).reaches)return toast('Босс вне 30-футового конуса: Линза не наложила эффект.');
       if (m.fail) {
         dropEff(x => x.a === "open");
         addEff(950, "stun", B, B.name, "e");
@@ -377,7 +396,6 @@ async function cmd(m) {
       addEff(1000, "recal", B, B.name, "s", { col, dmg: m.dmg, tn: `${B.name} · ${d[0]}` });
       return;
     }
-    case "core": { emit({ k: "coreBurst", B: BB }); addEff(1800, "core", B, B.name, "x"); return; }
     case "keyHit": {
       const K = ids[0] && await token(ids[0]); if (!K) return toast("Выдели токен Ключа");
       emit({ k: "keyHit", B: BB, K: P2(K), barrier: !isStunned() }); return;
@@ -488,7 +506,7 @@ function onMeta(md) {
   refreshPos(); alarm();
 }
 async function sceneReady() {
-  await grid(); FT = await feetPerCell();
+  await Promise.all([grid(),calibratePlates()]); FT = await feetPerCell();
   ready = true;
   try { onMeta(await OBR.room.getMetadata()); } catch (e) {}
 }
@@ -502,7 +520,7 @@ OBR.onReady(async () => {
     else if (m.op === "cmd" && GM) { if (!ready) return toast("Сцена не готова"); cmd(m).catch(e => { console.warn("[emergence] cmd", e); toast("Ошибка: " + (e && e.message || e)); }); }
   });
   OBR.scene.items.onChange(() => { if (ready) posSoon(); });
-  OBR.scene.onReadyChange(r => { if (r) sceneReady(); else { ready = false; ++commandId; cancelPick(); for (const o of LIVE.values()) stop(o.anim, true); LIVE.clear(); } });
+  OBR.scene.onReadyChange(r => { if (r) sceneReady(); else { ready = false; ++sceneEpoch; focusUntil.clear(); ++commandId; cancelPick(); for (const o of LIVE.values()) stop(o.anim, true); LIVE.clear(); void clearAll(); } });
   try { if (await OBR.scene.isReady()) sceneReady(); } catch (e) {}
   OBR.viewport && setInterval(alarm, 1500);
   window.addEventListener("storage", () => alarm());

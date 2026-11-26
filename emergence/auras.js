@@ -1,6 +1,7 @@
 // Висящие (постоянные) эффекты. Каждый — циклическая анимация, которая следует за токенами
 // через G(id) → {x, y, r, vis} | null (кэш позиций из background.js).
 import { DPI, TAU, V, c01, lerp, rnd, out2, out3, spawn, poly, line, circle, ringPts, hexPts, starPts, boltPts, crackSet, arcPts } from "./engine.js";
+import { marker,wallField } from './astra.js';
 import { PAL } from "./const.js";
 import { tentPts, tentacleKit, eyeShape, hexLattice, clockTicks } from "./fx.js";
 
@@ -159,54 +160,17 @@ function open(G, { tok }) {
 }
 // Перекалибровка: оболочка из сот цвета стихии
 function recal(G, { tok, col }) {
-  const F = follower(G), D = DPI, n = 14;
-  const ring = circle({ r: 1, stroke: col, so: 0, sw: D * .03, fill: col, fo: 0 });
-  const hx = Array.from({ length: n }, (_, i) => poly({ pts: hexPts(.13, 0, Math.cos(i / n * TAU) * 1.12, Math.sin(i / n * TAU) * 1.12), stroke: col, so: 0, sw: D * .02, fill: col, fo: 0 }));
-  const items = [ring, ...hx];
-  return loop(items, (sec, P, a) => {
-    const T = F(tok); if (!T) return hide(P, items);
-    const v = a.v;
-    set(P, ring, { x: T.x, y: T.y, s: T.r * 1.02, sw: D * .03 / T.r, so: v * .5, fo: v * (.06 + .03 * Math.sin(sec * 2)) });
-    hx.forEach((it, i) => set(P, it, { x: T.x, y: T.y, s: T.r, sw: D * .02 / T.r, r: sec * 10, so: v * (.4 + .4 * Math.sin(sec * 3 + i)), fo: v * .12 }));
-  }, { every: 40 });
+  const F=follower(G);return marker('shield',()=>{const T=F(tok);return T?{...T,r:T.r*1.12}:null;},{col,alpha:.65});
 }
-// Обнажённое ядро: пульсирующий свет из груди и лучи
+// Остаточное свечение только на объекте «Ядро».
 function core(G, { tok }) {
-  const F = follower(G), D = DPI;
-  const glow = circle({ r: 1, fill: CY, fo: 0 }), c = circle({ r: 1, fill: WH, fo: 0, stroke: CY2, so: 0, sw: D * .04 });
-  const rays = Array.from({ length: 10 }, (_, i) => line({ pts: [V.pol({ x: 0, y: 0 }, .35, i / 10 * TAU), V.pol({ x: 0, y: 0 }, i % 2 ? 1.2 : 1.6, i / 10 * TAU)], stroke: i % 2 ? WH : CY2, so: 0, sw: D * .05 }));
-  const items = [glow, ...rays, c];
-  return loop(items, (sec, P, a) => {
-    const T = F(tok); if (!T) return hide(P, items);
-    const v = a.v, pu = .5 + .5 * Math.sin(sec * 4);
-    set(P, glow, { x: T.x, y: T.y, s: T.r * (1 + .15 * pu), fo: v * (.15 + .1 * pu) });
-    set(P, c, { x: T.x, y: T.y, s: T.r * (.18 + .05 * pu), sw: D * .04 / (T.r * .2), fo: v * .95, so: v });
-    rays.forEach((it, i) => set(P, it, { x: T.x, y: T.y, s: T.r, sw: D * .05 / T.r, r: sec * 15, so: v * (.25 + .4 * Math.abs(Math.sin(sec * 3 + i))) }));
-  }, { every: 33 });
+  const F=follower(G);return marker('relic',()=>{const T=F(tok);return T?{...T,r:T.r*1.36}:null;},{col:CY2});
 }
 
 // ──────────────────── Ключи и Протоколы ────────────────────
 // Горящий Ключ: пульсирующее ядро, два вращающихся кольца, шестигранная рамка, мерцающие лучи
 function keyGlow(G, { tok, col, dim }) {
-  const F = follower(G), D = DPI;
-  const halo = circle({ r: 1, fill: col, fo: 0 }), halo2 = circle({ r: 1, fill: col, fo: 0 });
-  const core = circle({ r: 1, fill: WH, fo: 0 });
-  const r1 = circle({ r: 1, stroke: col, so: 0, sw: D * .04, n: 60 }), r2 = circle({ r: 1, stroke: WH, so: 0, sw: D * .02, n: 60 });
-  r1.style.strokeDash = [D * .22, D * .12]; r2.style.strokeDash = [D * .06, D * .14];
-  const hx = poly({ pts: hexPts(1), stroke: col, so: 0, sw: D * .035 });
-  const rays = Array.from({ length: 8 }, (_, i) => line({ pts: [V.pol({ x: 0, y: 0 }, 1.25, i / 8 * TAU), V.pol({ x: 0, y: 0 }, i % 2 ? 1.6 : 1.9, i / 8 * TAU)], stroke: i % 2 ? WH : col, so: 0, sw: D * .04 }));
-  const items = [halo2, halo, ...rays, hx, r1, r2, core];
-  return loop(items, (sec, P, a) => {
-    const T = F(tok); if (!T) return hide(P, items);
-    const R = Math.max(T.r, D * .5), v = a.v * (dim ? .35 : 1), pu = .5 + .5 * Math.sin(sec * 3.2);
-    set(P, halo2, { x: T.x, y: T.y, s: R * (2.4 + .3 * pu), fo: v * .08 });
-    set(P, halo, { x: T.x, y: T.y, s: R * (1.5 + .15 * pu), fo: v * (.16 + .1 * pu) });
-    set(P, core, { x: T.x, y: T.y, s: R * (.35 + .1 * pu), fo: v * (.3 + .2 * pu) });
-    set(P, r1, { x: T.x, y: T.y, s: R * 1.3, sw: D * .04 / (R * 1.3), r: sec * 40, so: v * .85 });
-    set(P, r2, { x: T.x, y: T.y, s: R * 1.42, sw: D * .02 / (R * 1.42), r: -sec * 60, so: v * .7 });
-    set(P, hx, { x: T.x, y: T.y, s: R * 1.12, sw: D * .035 / (R * 1.12), r: sec * 8, so: v * (.6 + .3 * pu) });
-    rays.forEach((it, i) => set(P, it, { x: T.x, y: T.y, s: R, sw: D * .04 / R, r: -sec * 12, so: v * (Math.random() < .25 ? .15 : .75) }));
-  }, { every: 33 });
+  const F=follower(G);return marker('seal',()=>{const T=F(tok);return T?{...T,r:Math.max(T.r,DPI*.5)*1.52}:null;},{col,opt:[6,0,0],alpha:dim?.32:.95});
 }
 // Вены: светящиеся линии от босса к целым Ключам (источник Барьера)
 function veins(G, { boss, keys, dim }) {
@@ -231,28 +195,7 @@ function veins(G, { boss, keys, dim }) {
 }
 // Протокол Разделения: сияющая стена силы между точками a и b, растёт от Ключа
 function wall(G, { a: A, b: Bp, tok, col }) {
-  const D = DPI, len = V.dist(A, Bp), dir = V.norm(V.sub(Bp, A)), nn = V.perp(dir);
-  const K = tok && G(tok);
-  let t0 = .5; if (K) t0 = c01(((K.x - A.x) * dir.x + (K.y - A.y) * dir.y) / (len || 1));
-  const glow = line({ pts: [A, Bp], stroke: col, so: 0, sw: D * .9 }), glow2 = line({ pts: [A, Bp], stroke: col, so: 0, sw: D * .4 });
-  const core = line({ pts: [A, Bp], stroke: WH, so: 0, sw: D * .1 });
-  const e1 = line({ pts: [A, Bp], stroke: col, so: 0, sw: D * .03 }), e2 = line({ pts: [A, Bp], stroke: col, so: 0, sw: D * .03 });
-  const n = Math.max(4, Math.min(60, Math.round(len / (D * .5))));
-  const tiles = Array.from({ length: n }, (_, i) => ({ u: (i + .5) / n, it: poly({ pts: hexPts(D * .2), stroke: WH, so: 0, sw: D * .015, fill: col, fo: 0 }), ph: rnd(0, TAU) }));
-  const motes = Array.from({ length: 12 }, () => ({ it: circle({ r: D * .05, fill: WH, fo: 0 }), u: Math.random(), sp: rnd(.05, .15) * (Math.random() < .5 ? -1 : 1), o: rnd(-1, 1) }));
-  const caps = [0, 1].map(() => circle({ r: D * .22, fill: col, fo: 0, stroke: WH, so: 0, sw: D * .03 }));
-  const items = [glow, glow2, e1, e2, ...tiles.map(t => t.it), core, ...motes.map(m => m.it), ...caps];
-  const at = u => V.lerp(A, Bp, u);
-  return loop(items, (sec, P, a) => {
-    const g = out2(c01(sec / 1.2)), u0 = t0 * (1 - g), u1 = t0 + (1 - t0) * g, v = a.v, fl = .85 + .15 * Math.sin(sec * 9) * Math.sin(sec * 3.1);
-    const p0 = at(u0), p1 = at(u1);
-    set(P, glow, { pts: [p0, p1], so: v * .12 * fl }); set(P, glow2, { pts: [p0, p1], so: v * .22 * fl }); set(P, core, { pts: [p0, p1], so: v * .9 * fl });
-    const off = D * .3 + Math.sin(sec * 2) * D * .03;
-    set(P, e1, { pts: [V.add(p0, V.mul(nn, off)), V.add(p1, V.mul(nn, off))], so: v * .55 }); set(P, e2, { pts: [V.sub(p0, V.mul(nn, off)), V.sub(p1, V.mul(nn, off))], so: v * .55 });
-    tiles.forEach(t => { const on = t.u >= u0 && t.u <= u1, q = at(t.u), f = .5 + .5 * Math.sin(sec * 2.5 + t.ph); set(P, t.it, { x: q.x, y: q.y, r: sec * 20, fo: on ? v * .2 * f : 0, so: on ? v * (.25 + .5 * f) : 0 }); });
-    motes.forEach(m => { const u = ((m.u + sec * m.sp) % 1 + 1) % 1, on = u >= u0 && u <= u1, q = V.add(at(u), V.mul(nn, m.o * D * .2)); set(P, m.it, { x: q.x, y: q.y, fo: on ? v * (.5 + .5 * Math.sin(sec * 6 + m.o * 5)) : 0 }); });
-    set(P, caps[0], { x: p0.x, y: p0.y, fo: v * .5, so: v }); set(P, caps[1], { x: p1.x, y: p1.y, fo: v * .5, so: v });
-  }, { every: 33 });
+  return wallField(A,Bp,tok&&G(tok),col);
 }
 // Протокол Перестановки: искажённое пространство вокруг Ключа (две встречные гексаграммы)
 function perm(G, { tok, col }) {

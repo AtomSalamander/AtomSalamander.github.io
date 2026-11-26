@@ -39,7 +39,7 @@ export function bez(a, c, b, t) { const u = 1 - t; return { x: u * u * a.x + 2 *
 export function bez3(a, c1, c2, b, t) { const u = 1 - t; return { x: u*u*u*a.x + 3*u*u*t*c1.x + 3*u*t*t*c2.x + t*t*t*b.x, y: u*u*u*a.y + 3*u*u*t*c1.y + 3*u*t*t*c2.y + t*t*t*b.y }; }
 
 // ───────────────────────── цикл ─────────────────────────
-const anims = new Set(); let running = false;
+const anims = new Set(); let running = false, generation = 0;
 function kick() { if (!running) { running = true; setTimeout(tick, 0); } }
 async function tick() {
   const t = now(), P = new Map(), dead = [];
@@ -69,6 +69,8 @@ function apply(d, q) {
   if (q.s != null) d.scale = { x: q.s, y: q.s };
   if (q.sx != null) d.scale = { x: q.sx, y: q.sy ?? q.sx };
   if (q.r != null) d.rotation = q.r;
+  if (q.phase) d.uniforms = d.uniforms.map(u => u.name === 'phase' ? {name:u.name,value:q.phase} : q.focus && u.name==='focus' ? {name:u.name,value:q.focus} : q.box && u.name==='unit' ? {name:u.name,value:q.box[2]} : u);
+  if (q.box) { d.width=q.box[0]; d.height=q.box[1]; }
   const st = d.style;
   if (st) {
     if (q.fo != null) st.fillOpacity = c01(q.fo);
@@ -81,12 +83,13 @@ function apply(d, q) {
 
 // Одноразовая анимация: anim = {dur, f(p, P)}. Постоянная: {loop:true, f(sec, P, a)} — a.v = видимость (появление × затухание)
 export function spawn(delay, items, anim) {
+  const stamp = generation;
   anim.ids = items.map(i => i.id);
   if (anim.loop) { anim.appear = anim.appear || 600; anim.fade = anim.fade || 600; anim.v = 0; anim.k = 1; }
   setTimeout(async () => {
-    if (anim.dead) return;
+    if (anim.dead || stamp !== generation) return;
     try { await OBR.scene.local.addItems(items); } catch (e) { console.warn("[emergence] addItems", e); return; }
-    if (anim.dead) { try { await OBR.scene.local.deleteItems(anim.ids); } catch (e) {} return; }
+    if (anim.dead || stamp !== generation) { try { await OBR.scene.local.deleteItems(anim.ids); } catch (e) {} return; }
     anim.t0 = now(); anims.add(anim); kick();
   }, Math.max(0, delay || 0));
   return anim;
@@ -99,6 +102,7 @@ export function stop(anim, quick) {
   if (!anim.fadeAt) { anim.fadeAt = now(); kick(); }
 }
 export async function clearAll() {
+  generation++;
   for (const a of anims) a.dead = true; anims.clear();
   try { const it = await OBR.scene.local.getItems(i => i.name === "⚡ emergence"); if (it.length) await OBR.scene.local.deleteItems(it.map(i => i.id)); } catch (e) {}
 }

@@ -4,6 +4,9 @@ import {
   DPI, TAU, V, c01, out3, out2, in2, inOut, backOut, lerp, rnd, env, seg, bez, spawn,
   poly, line, circle, ringPts, ellPts, hexPts, arcPts, starPts, shardPts, boltPts, crackSet, partial, offs,
 } from "./engine.js";
+import { eraseGrade } from './loom.js';
+import { ERASE,lensGeometry } from './targeting.js';
+import { film,rail,pullScene } from './astra.js';
 import { PAL } from "./const.js";
 
 const { cy: CY, cy2: CY2, navy: NAVY, white: WH, bone: BONE, bone2: BONE2, boneDk: BONEDK, lens: LENS, lens2: LENS2 } = PAL;
@@ -12,22 +15,10 @@ const once = (delay, dur, items, f) => spawn(delay, items, { dur, f });
 
 // ──────────────────────── базовые эффекты ────────────────────────
 export function flash(c, R, col = CY, dur = 650, d = 0, peak = .85) {
-  const g = circle({ x: c.x, y: c.y, r: R, fill: col, fo: 0 });
-  const k = circle({ x: c.x, y: c.y, r: R * .45, fill: WH, fo: 0 });
-  return once(d, dur, [g, k], (p, P) => {
-    const a = Math.pow(1 - p, 2) * peak;
-    set(P, g, { s: lerp(.35, 1.15, out3(p)), fo: a * .7 });
-    set(P, k, { s: lerp(.5, 1.3, out3(p)), fo: a });
-  });
+  return film('flash',c,R,dur,d,{col,alpha:peak,gain:p=>Math.min(1,p*45)});
 }
 export function shock(c, R, col = CY, dur = 700, d = 0, w = 1) {
-  const r = circle({ x: c.x, y: c.y, r: R, stroke: col, so: 0, sw: DPI * .09 * w });
-  const r2 = circle({ x: c.x, y: c.y, r: R, stroke: WH, so: 0, sw: DPI * .025 * w });
-  return once(d, dur, [r, r2], (p, P) => {
-    const s = lerp(.08, 1, out3(p)), a = 1 - p;
-    set(P, r, { s, so: a * .75, sw: DPI * .09 * w * (1 - p * .7) / Math.max(.2, s) });
-    set(P, r2, { s: s * .985, so: a * .9, sw: DPI * .025 * w / Math.max(.2, s) });
-  });
+  return film('shock',c,R,dur,d,{col,opt:[Math.max(.012,DPI*.048*w/R),0,0]});
 }
 export function sparks(c, n, R, cols = [CY, CY2, WH], dur = 900, d = 0, o = {}) {
   const its = [], v = [];
@@ -44,35 +35,16 @@ export function sparks(c, n, R, cols = [CY, CY2, WH], dur = 900, d = 0, o = {}) 
   });
 }
 export function shards(c, n, R, col = CY2, dur = 1000, d = 0, o = {}) {
-  const its = [], v = [];
-  for (let i = 0; i < n; i++) {
-    its.push(poly({ x: c.x, y: c.y, pts: shardPts(DPI * rnd(.06, .16) * (o.size || 1)), fill: i % 3 ? col : WH, fo: 0, stroke: WH, so: 0, sw: DPI * .01 }));
-    v.push({ a: o.dir != null ? o.dir + rnd(-1, 1) * (o.spread ?? .7) : rnd(0, TAU), r: R * rnd(.4, 1.1), sp: rnd(-300, 300) });
-  }
-  return once(d, dur, its, (p, P) => {
-    its.forEach((it, i) => {
-      const q = v[i], r = q.r * out3(p);
-      set(P, it, { x: c.x + Math.cos(q.a) * r, y: c.y + Math.sin(q.a) * r, r: q.sp * p, fo: env(p, .04, .5) * .75, so: env(p, .04, .5) * .8 });
-    });
-  });
+  // Keep the directed spray on punches; radial chips share a single plate.
+  if(o.dir==null)return film('flecks',c,R,dur,d,{col,pad:3.2,opt:[n,Math.min(.21,DPI*.135*(o.size||1)/R),.18]});
+  const list=Array.from({length:n},(_,i)=>({it:poly({pts:shardPts(DPI*rnd(.06,.15)),fill:i%3?col:WH,fo:0}),ang:o.dir+rnd(-1,1)*(o.spread??.7),len:R*rnd(.4,1.1),rot:rnd(-240,240)}));
+  return once(d,dur,list.map(v=>v.it),(p,P)=>{for(const v of list){const q=V.pol(c,v.len*out3(p),v.ang);set(P,v.it,{...q,r:v.rot*p,fo:env(p,.04,.5)});}});
 }
 export function cracks(c, R, col = CY, dur = 1400, d = 0, o = {}) {
-  const its = [];
-  for (const path of crackSet(R, o.n || 7)) {
-    const abs = offs(path, c);
-    its.push({ g: line({ pts: abs, stroke: col, so: 0, sw: DPI * .08 * (o.w || 1), layer: o.layer }), k: line({ pts: abs, stroke: WH, so: 0, sw: DPI * .02 * (o.w || 1), layer: o.layer }), abs });
-  }
-  return once(d, dur, its.flatMap(i => [i.g, i.k]), (p, P) => {
-    const g = out3(seg(p, 0, o.grow ?? .3)), a = p > .6 ? (1 - p) / .4 : 1;
-    for (const i of its) { const pts = partial(i.abs, g); set(P, i.g, { pts, so: a * .45 }); set(P, i.k, { pts, so: a * .95 }); }
-  });
+  return film('crack',c,R,dur,d,{col,layer:o.layer,gain:p=>env(p,.035,.36)});
 }
 export function bolt(A, B, col = CY, dur = 400, d = 0, w = 1, jag = .16) {
-  const g = line({ pts: [A, B], stroke: col, so: 0, sw: DPI * .14 * w }), k = line({ pts: [A, B], stroke: WH, so: 0, sw: DPI * .035 * w });
-  return once(d, dur, [g, k], (p, P) => {
-    const pts = boltPts(A, B, jag, 9), f = (Math.random() * .4 + .6) * env(p, .05, .4);
-    set(P, g, { pts, so: f * .5 }); set(P, k, { pts, so: f });
-  });
+  return rail('bolt',A,B,DPI,dur,d,{col,margin:DPI*(jag*2+.37),vec:L=>[L,jag,.043*w]});
 }
 // Шестигранный щит (соты внутри круга)
 export function hexLattice(R, s) {
@@ -84,26 +56,11 @@ export function hexLattice(R, s) {
   return out;
 }
 export function hexShield(c, R, col = CY, dur = 800, d = 0) {
-  const s = Math.max(R / 3.2, DPI * .16), its = [];
-  const ring = circle({ x: c.x, y: c.y, r: R, fill: col, fo: 0, stroke: WH, so: 0, sw: DPI * .03 });
-  for (const h of hexLattice(R, s)) its.push({ it: poly({ x: c.x, y: c.y, pts: hexPts(s * .92, 0, h.x, h.y), fill: col, fo: 0, stroke: CY2, so: 0, sw: DPI * .015 }), d: Math.hypot(h.x, h.y) / R });
-  return once(d, dur, [ring, ...its.map(i => i.it)], (p, P) => {
-    set(P, ring, { fo: env(p, .1, .6) * .12, so: env(p, .1, .6) * .8, s: lerp(.9, 1.04, out3(p)) });
-    for (const i of its) { const a = env(c01(p * 1.25 - i.d * .25), .15, .6); set(P, i.it, { fo: a * .16, so: a * .8 }); }
-  });
+  return film('shield',c,R,dur,d,{col});
 }
 // Разлом: тёмная дыра с голубой кромкой (как дыра в груди на арте)
 export function rift(c, R, dur, d = 0, open = .12, close = .15) {
-  const glow = circle({ x: c.x, y: c.y, r: R * 1.5, fill: CY, fo: 0 });
-  const hole = circle({ x: c.x, y: c.y, r: R, fill: "#02060F", fo: 0, stroke: CY2, so: 0, sw: DPI * .05 });
-  const rim = circle({ x: c.x, y: c.y, r: R * 1.12, stroke: CY, so: 0, sw: DPI * .03, n: 36 });
-  rim.style.strokeDash = [DPI * .12, DPI * .08];
-  return once(d, dur, [glow, hole, rim], (p, P) => {
-    const a = p < open ? out3(p / open) : p > 1 - close ? 1 - in2((p - (1 - close)) / close) : 1;
-    set(P, glow, { s: a, fo: a * (.18 + Math.random() * .06) });
-    set(P, hole, { s: a, fo: a * .92, so: a });
-    set(P, rim, { s: a, so: a * .8, r: p * 200 });
-  });
+  return film('iris',c,R,dur,d,{pad:3.1,gain:p=>p<open?out3(p/open):p>1-close?1-in2((p-1+close)/close):1});
 }
 
 // ──────────────────────── скелетная рука ────────────────────────
@@ -485,46 +442,14 @@ export function touch(B, T, v = "fail") {
 }
 
 // ──────────────────────── Плетение ────────────────────────
-// У босса сплетается узел из нитей, летит к цели с шлейфом и опутывает её паутиной
-export function weave(B, T, hit = true) {
-  const D = DPI, dir = V.norm(V.sub(T, B)), nrm = V.perp(dir);
-  const K = V.add(B, V.mul(dir, B.r + D * .6));
-  const E = hit ? { x: T.x, y: T.y } : V.add(V.add(T, V.mul(nrm, (Math.random() < .5 ? -1 : 1) * (T.r + D * 1.2))), V.mul(dir, D * 2));
-  const fly = Math.min(900, Math.max(380, V.dist(K, E) / D * 40)), t1 = 950, t2 = t1 + fly, DUR = t2 + 150;
-  const threads = [], ribbons = [];
-  for (let i = 0; i < 7; i++) threads.push({ it: line({ pts: [K, K], stroke: i % 2 ? CY2 : CY, so: 0, sw: D * .025, tension: .5 }), rot: i / 7 * Math.PI, sp: rnd(1.5, 3) * (i % 2 ? 1 : -1) });
-  const glow = circle({ x: K.x, y: K.y, r: D * .5, fill: CY, fo: 0 }), orb = circle({ x: K.x, y: K.y, r: D * .2, fill: CY2, fo: 0, stroke: WH, so: 0, sw: D * .025 }), core = circle({ x: K.x, y: K.y, r: D * .09, fill: WH, fo: 0 });
-  for (let k = 0; k < 3; k++) ribbons.push(line({ pts: [K, K], stroke: k ? CY : CY2, so: 0, sw: D * (k ? .025 : .04), tension: .5 }));
-  const path = s => V.lerp(K, E, out2(c01(s)));
-  once(0, DUR, [...threads.map(t => t.it), ...ribbons, glow, orb, core], (p, P) => {
-    const t = p * DUR, sec = t / 1000;
-    if (t < t1) {
-      const k = seg(t, 0, t1), rx = lerp(D * 1.4, D * .22, out2(k));
-      threads.forEach((o, i) => set(P, o.it, { pts: ellPts(rx * (1 - i * .04), rx * .32, o.rot + sec * o.sp, 28, K.x, K.y).concat([]), so: env(k, .15, .1) * .85 }));
-      const a = out3(k);
-      set(P, glow, { x: K.x, y: K.y, s: .4 + a * .9 + .1 * Math.sin(sec * 20), fo: a * .25 });
-      set(P, orb, { x: K.x, y: K.y, s: .3 + a * .8, fo: a * .8, so: a });
-      set(P, core, { x: K.x, y: K.y, s: .3 + a, fo: a });
-      ribbons.forEach(r => set(P, r, { so: 0 }));
-    } else {
-      const f = seg(t, t1, t2), h = path(f);
-      threads.forEach(o => set(P, o.it, { so: 0 }));
-      set(P, glow, { x: h.x, y: h.y, s: 1.1, fo: .25 }); set(P, orb, { x: h.x, y: h.y, s: 1.1, fo: .85, so: 1 }); set(P, core, { x: h.x, y: h.y, s: 1.2, fo: 1 });
-      ribbons.forEach((r, k) => {
-        const pts = [];
-        for (let j = 0; j <= 10; j++) { const s = f - j * .04, b = path(s), amp = D * .16 * (j / 10) * (1 + k * .3); pts.push(V.add(b, V.mul(nrm, Math.sin(s * 26 + k * 2.1 + sec * 10) * amp))); }
-        set(P, r, { pts, so: .85 - k * .15 });
-      });
-    }
-  });
-  if (hit) {
-    flash(T, T.r * 1.5, CY2, 650, t2 - 30);
-    webWrap(T, t2);
-    sparks(T, 14, T.r * 2, [CY, CY2, WH], 800, t2);
-  } else {
-    sparks(E, 16, D * 1.4, [CY, CY2, WH], 800, t2 - 20);
-    shock(E, D * 1.1, CY, 500, t2 - 20, .6);
-  }
+// The five strands remain connected to the caster; no projectile, head or flying orb.
+export function weave(B,T,hit=true){const D=DPI,theta=V.ang(B,T),S=V.pol(B,B.r*.60,theta);
+ const side=theta+Math.PI/2,E=hit?T:V.pol(T,T.r+D*.7,side);
+ film('seal',B,Math.max(D*.6,B.r*1.24),1250,0,{col:CY2,opt:[5,0,0],alpha:.68});
+ rail('loomBeam',S,E,Math.max(D*.68,B.r*.42),1980,200,{col:CY2,margin:D*1.25,gain:p=>env(p,.075,.31)});
+ const contact=520;
+ if(hit){webWrap(T,contact);flash(T,T.r*.9,CY2,450,contact,.44);}
+ else{sparks(E,9,D*.67,[CY,CY2,WH],650,contact,{dir:theta,spread:.4});}
 }
 // Паутина сжимается вокруг цели
 function webWrap(T, d) {
@@ -548,36 +473,10 @@ function webWrap(T, d) {
 export function wave(B, aim, L, hits = []) {
   const D = DPI, ang = V.ang(B, aim), half = .4636, dir = { x: Math.cos(ang), y: Math.sin(ang) };
   const O = V.add(B, V.mul(dir, B.r * .55)), T0 = 650, T1 = 1750, DUR = 2700;
-  const s = Math.max(D * .55, L / 20), cells = [];
-  const w = Math.sqrt(3) * s, n = Math.ceil(L / s) + 2;
-  for (let q = -n; q <= n; q++) for (let r = -n; r <= n; r++) {
-    const x = w * (q + r / 2), y = 1.5 * s * r, d = Math.hypot(x, y);
-    if (d > L || d < B.r * .4) continue;
-    let da = Math.atan2(y, x) - ang; da = Math.atan2(Math.sin(da), Math.cos(da));
-    if (Math.abs(da) > half) continue;
-    cells.push({ d, it: poly({ x: O.x + x, y: O.y + y, pts: hexPts(s * .9), fill: CY, fo: 0, stroke: CY2, so: 0, sw: D * .02, layer: "DRAWING" }) });
-  }
-  const sig = [0, 1].map(k => poly({ x: O.x, y: O.y, pts: hexPts(D * (k ? .45 : .8)), stroke: k ? WH : CY, so: 0, sw: D * .04 }));
-  const chest = circle({ x: O.x, y: O.y, r: D * .9, fill: CY, fo: 0 });
-  const front = line({ pts: [O, O], stroke: WH, so: 0, sw: D * .1 }), frontG = line({ pts: [O, O], stroke: CY, so: 0, sw: D * .55 });
-  const edges = [0, 1].map(() => line({ pts: [O, O], stroke: CY, so: 0, sw: D * .03 }));
-  once(0, DUR, [chest, ...sig, ...cells.map(c => c.it), frontG, front, ...edges], (p, P) => {
-    const t = p * DUR, sec = t / 1000, ch = seg(t, 0, T0);
-    const ca = t < T0 ? out2(ch) : Math.max(0, 1 - (t - T0) / 600);
-    set(P, chest, { s: .4 + ch * .8, fo: ca * (.25 + .1 * Math.sin(sec * 30)) });
-    sig.forEach((it, k) => set(P, it, { r: (k ? -1 : 1) * sec * 220, s: .3 + out3(ch) * .9, so: ca }));
-    const R = L * out2(seg(t, T0, T1)), fa = t < T0 ? 0 : t < T1 ? 1 : Math.max(0, 1 - (t - T1) / 400);
-    for (const c of cells) {
-      const k = (R - c.d) / (L * .3);
-      const a = t < T0 || k < 0 ? 0 : k < .1 ? k / .1 : Math.max(0, 1 - (k - .1) / 1.1);
-      const fade = t > T1 ? Math.max(0, 1 - (t - T1) / 900) : 1;
-      set(P, c.it, { fo: a * .2 * fade, so: Math.min(1, a * 1.1) * fade, sc: k < .12 ? WH : CY2 });
-    }
-    const arc = arcPts(O, Math.max(R, 1), ang - half, ang + half, 26);
-    set(P, front, { pts: arc, so: fa * .95 }); set(P, frontG, { pts: arc, so: fa * .3 });
-    set(P, edges[0], { pts: [O, V.pol(O, R, ang - half)], so: fa * .35 });
-    set(P, edges[1], { pts: [O, V.pol(O, R, ang + half)], so: fa * .35 });
-  });
+  film('iris',O,D*.76,1100,0,{pad:3.1});
+  film('crown',B,Math.max(B.r*1.63,D*.96),1100,0,{col:CY2});
+  const cc=V.add(O,V.mul(dir,L*.5));
+  film('wave',cc,L,DUR,0,{axis:dir,w:L*(Math.abs(dir.x)+Math.abs(dir.y)+.12),h:L*(Math.abs(dir.y)+Math.abs(dir.x)+.12),col:CY,opt:[Math.min(27,Math.max(7,L/D*1.5)),0,0],layer:'DRAWING',gain:(p,t)=>t<.65?0:t<1.75?1:Math.max(0,1-(t-1.75)/.64)});
   for (const h of hits) {
     const d = T0 + c01(V.dist(O, h) / L) * (T1 - T0);
     if (h.fail && h.to) {
@@ -610,6 +509,7 @@ const FIG = [
   [[-.18, -.12], [.18, -.12]],
 ];
 export function summon(B, pts) {
+  film('crown',B,Math.max(B.r*1.8,DPI),1900,0,{col:CY2});
   const D = DPI, T1 = 950, T2 = 2250, DUR = 3500;
   pts.forEach((P0, idx) => {
     const S = { x: B.x + (idx ? 1 : -1) * B.r * .35, y: B.y - B.r * .8 };
@@ -649,62 +549,22 @@ export function summon(B, pts) {
 // ──────────────────────── Стирание из реальности ────────────────────────
 // Зарядка: глаза и сферы вспыхивают, из босса к цели тянется луч внимания (сетка — висящий эффект)
 export function chargeIntro(B, T) {
+  film('crown',B,Math.max(B.r*2,DPI),1900,0,{col:CY2});
   const D = DPI;
   for (let i = 0; i < 6; i++) { const q = V.pol(B, B.r * .75, -Math.PI / 2 + (i - 2.5) * .35); flash(q, D * .3, CY2, 500, i * 60, 1); }
   const ln = line({ pts: [B, B], stroke: CY2, so: 0, sw: D * .05 }), lg = line({ pts: [B, B], stroke: CY, so: 0, sw: D * .3 });
   once(300, 1300, [lg, ln], (p, P) => { const e = V.lerp(B, T, out3(seg(p, 0, .35))); set(P, ln, { pts: [B, e], so: env(p, .05, .5) }); set(P, lg, { pts: [B, e], so: env(p, .05, .5) * .25 }); });
   hexShield(T, T.r * 1.6, CY, 1000, 600);
 }
-// Удар: шесть лучей по очереди (fails — массив из 6 true/false), при стирании — имплозия. Возвращает момент стирания.
-export function strike(T, fails, erased) {
-  const D = DPI, R = Math.max(D * 3.4, T.r * 3), step = 430, t0 = 350;
-  const hexR = T.r * 1.35, edges = [];
-  for (let k = 0; k < 6; k++) {
-    const a = -Math.PI / 2 + k * TAU / 6, b = a + TAU / 6;
-    edges.push(line({ pts: [V.pol(T, hexR, a), V.pol(T, hexR, b)], stroke: CY, so: 0, sw: D * .05 }));
-  }
-  const total = t0 + 6 * step + 500;
-  once(0, total + (erased ? 500 : 0), edges, (p, P) => {
-    const t = p * (total + (erased ? 500 : 0));
-    edges.forEach((it, k) => {
-      const hit = t > t0 + k * step + 130, f = fails[k];
-      const end = t > total - 300 ? Math.max(0, 1 - (t - (total - 300)) / 400) : 1;
-      set(P, it, { so: (hit ? (f ? 1 : .45) : .2 * out2(seg(t, 0, t0))) * end, sc: hit && f ? WH : CY, sw: D * (hit && f ? .08 : .04) });
-    });
-  });
-  for (let k = 0; k < 6; k++) {
-    const a = -Math.PI / 2 + (k + .5) * TAU / 6, S = V.pol(T, R, a), d = t0 + k * step;
-    const E = V.pol(T, T.r * .2, a);
-    const g = line({ pts: [S, S], stroke: CY, so: 0, sw: D * .38 }), c = line({ pts: [S, S], stroke: WH, so: 0, sw: D * .07 });
-    const src = circle({ x: S.x, y: S.y, r: D * .25, fill: CY2, fo: 0 });
-    once(d, 420, [g, c, src], (p, P) => {
-      const e = V.lerp(S, fails[k] ? E : V.pol(T, T.r * 1.3, a), out3(seg(p, 0, .3))), a2 = env(p, .05, .45);
-      set(P, g, { pts: [S, e], so: a2 * .35 }); set(P, c, { pts: [S, e], so: a2 }); set(P, src, { fo: a2 * .8, s: 1 + Math.random() * .3 });
-    });
-    if (fails[k]) {
-      flash(T, T.r * 1.1, WH, 380, d + 120, .9);
-      shards(T, 6, T.r * 1.8, CY2, 700, d + 120);
-      if (k === 0 || k === 3) cracks(T, T.r * 1.5, CY, 1500, d + 120, { n: 5, w: .8 });
-    } else {
-      hexShield(V.pol(T, T.r * 1.25, a), D * .45, CY, 450, d + 110);
-      sparks(V.pol(T, T.r * 1.3, a), 8, D * .9, [CY, WH], 500, d + 120, { dir: a, spread: 1.1 });
-    }
-  }
-  const tE = t0 + 6 * step + 150;
-  if (erased) {
-    const rings = [0, 1, 2].map(k => circle({ x: T.x, y: T.y, r: T.r * (1.8 + k * .5), stroke: k ? CY : WH, so: 0, sw: D * .05 }));
-    const hole = circle({ x: T.x, y: T.y, r: T.r * 1.1, fill: "#02060F", fo: 0, stroke: CY2, so: 0, sw: D * .04 });
-    once(tE, 1300, [hole, ...rings], (p, P) => {
-      rings.forEach((it, k) => { const q = seg(p, k * .1, .6 + k * .1); set(P, it, { s: 1 - in2(q) * .97, so: env(q, .1, .2) }); });
-      const h = p < .55 ? out3(p / .55) : 1 - in2((p - .55) / .45);
-      set(P, hole, { s: h, fo: h * .9, so: h });
-    });
-    flash(T, T.r * 2.2, WH, 900, tE + 750, 1);
-    shock(T, T.r * 3.5, CY, 900, tE + 750, 1.3);
-    sparks(T, 30, T.r * 2.4, [CY, CY2, WH], 1600, tE + 800, { up: true });
-  }
-  return tE;
+// A single collapse. No count, random failure mask or sequence of hits enters the visual score.
+export function strike(T,erased,follow){const D=DPI,R=Math.max(D*3.7,T.r*4.2),sz=Math.max(D*1.04,T.r*1.75);
+ pullScene(T,R,ERASE.total,eraseGrade,follow);
+ film('unravel',T,R,ERASE.total,0,{follow,pad:2.28,col:CY2,z:1000110,gain:(p,t)=>1-smoothFade(t,5.28,5.58)});
+ film('eventHorizon',T,sz,ERASE.total,0,{follow,pad:3.65,col:CY2,z:1000111,opt:[erased?1:0,0,0],gain:()=>1});
+ film('residue',T,R*.76,2210,ERASE.peak,{follow,pad:2.2,col:CY2,z:1000109,gain:p=>env(p,.025,.47)});
+ return ERASE.peak;
 }
+function smoothFade(t,a,b){const u=c01((t-a)/(b-a));return u*u*(3-2*u);}
 
 // ──────────────────────── Щупальце со сферой ────────────────────────
 // Геометрия щупальца от A к Tip с волной (используется и в висящем эффекте)
@@ -737,6 +597,7 @@ export function tentacleKit() {
 }
 // Сфера: щупальце хлещет по цели. fail — цель схвачена (дальше держит висящий эффект)
 export function sphere(B, T, fail) {
+  film('crown',B,Math.max(B.r*1.58,DPI*.9),1050,0,{col:CY});
   const D = DPI, dir = V.norm(V.sub(T, B)), nrm = V.perp(dir), side = Math.random() < .5 ? -1 : 1;
   const A = V.add(B, V.add(V.mul(dir, B.r * .55), V.mul(nrm, side * B.r * .25)));
   const E = fail ? V.pol(T, T.r * .3, V.ang(T, B)) : V.add(T, V.mul(nrm, side * (T.r + D * .7)));
@@ -787,6 +648,7 @@ export function shift(T, to, fail) {
 // ──────────────────────── Присвоение ────────────────────────
 // Тонкий луч из головы с бегущими импульсами; при провале над целью загорается глаз в шестиграннике
 export function appro(B, T, fail) {
+  film('crown',B,Math.max(B.r*1.66,DPI*.88),1300,0,{col:CY2});
   const D = DPI, H = { x: B.x, y: B.y - B.r * .55 }, E = fail ? { x: T.x, y: T.y } : V.pol(T, T.r * 1.2, V.ang(T, H));
   const g = line({ pts: [H, H], stroke: CY, so: 0, sw: D * .2 }), c = line({ pts: [H, H], stroke: WH, so: 0, sw: D * .03 });
   const dots = [0, 1, 2].map(() => circle({ x: H.x, y: H.y, r: D * .08, fill: WH, fo: 0 }));
@@ -813,6 +675,7 @@ function eyePop(c, w, d) {
 // ──────────────────────── Перенаправление ────────────────────────
 // Снаряд из A в B ловится голубой сферой на полпути. fail — улетает в C; иначе сфера трескается и снаряд летит дальше
 export function redirect(A, Bp, C, fail) {
+  film('shield',V.lerp(A,Bp,.5),DPI*.78,910,370,{col:CY2});
   const D = DPI, S = V.lerp(A, Bp, .5), tgt = fail && C ? C : Bp, DUR = 2000, WARM = "#FFD58A";
   const orb = circle({ x: A.x, y: A.y, r: D * .15, fill: WH, fo: 0 }), og = circle({ x: A.x, y: A.y, r: D * .35, fill: WARM, fo: 0 });
   const trail = [0, 1, 2, 3, 4, 5].map(k => circle({ x: A.x, y: A.y, r: D * .12 * (1 - k * .13), fill: WARM, fo: 0 }));
@@ -842,6 +705,7 @@ export function redirect(A, Bp, C, fail) {
 // ──────────────────────── Протоколы ────────────────────────
 // Включение: Ключ вспыхивает, лучи расходятся, три волны цвета Ключа
 export function protoOn(K, col, B) {
+  film('seal',K,Math.max(K.r,DPI*.5)*2,2100,0,{col,opt:[({'#BFEFFF':6,'#B56BFF':3,'#FFD23F':12,'#2FB8C4':4})[col.toUpperCase()]||6,0,0]});
   const D = DPI, R = Math.max(K.r, D * .5), rays = [];
   for (let i = 0; i < 12; i++) rays.push({ it: line({ pts: [K, K], stroke: i % 2 ? WH : col, so: 0, sw: D * (i % 2 ? .03 : .07) }), a: i / 12 * TAU, L: R * rnd(3, 5) });
   once(150, 1600, rays.map(r => r.it), (p, P) => {
@@ -885,6 +749,7 @@ export function shuffle(moves, col = "#B56BFF") {
 export function clockTicks(c, R) { const o = []; for (let i = 0; i < 12; i++) { const a = i / 12 * TAU, l = i % 3 ? .1 : .2; o.push([V.pol(c, R * (1 - l), a), V.pol(c, R, a)]); } return o; }
 // Откат Петли: стрелки крутятся назад, золотые следы тянутся к запомненным местам. moves: [{a, b, r}]
 export function loopRewind(K, moves, col = "#FFD23F") {
+  if(K)film('seal',K,Math.max(K.r*2.7,DPI*2),1500,0,{col,opt:[12,0,0]});
   const D = DPI, R = Math.max(K ? K.r * 2.4 : 0, D * 1.8);
   if (K) {
     const dial = circle({ x: K.x, y: K.y, r: R, stroke: col, so: 0, sw: D * .05, fill: col, fo: 0 });
@@ -935,20 +800,11 @@ export function recal(B, col) {
 }
 
 // Рубиновая Линза: тёплый конус от держателя к боссу. fail — оглушена (трещины), иначе разомкнута
-export function lens(Hh, B, fail) {
-  const D = DPI, ang = V.ang(Hh, B), dist = V.dist(Hh, B), nn = { x: -Math.sin(ang), y: Math.cos(ang) };
-  const H0 = V.pol(Hh, Hh.r * .6, ang);
-  const wedge = k => { const w = B.r * (1.15 - k * .35), far = V.pol(Hh, dist, ang); return [H0, V.add(far, V.mul(nn, w)), V.pol(Hh, dist + B.r * .3, ang), V.sub(far, V.mul(nn, w))]; };
-  const cones = [0, 1, 2].map(k => poly({ pts: wedge(k), fill: k === 2 ? "#FFE6B0" : k ? LENS2 : LENS, fo: 0, tension: .15 }));
-  const hr = circle({ x: Hh.x, y: Hh.y, r: Hh.r * 1.3, stroke: LENS2, so: 0, sw: D * .06, fill: LENS, fo: 0 });
-  const motes = [0, 1, 2, 3, 4, 5, 6, 7].map(() => ({ it: circle({ x: Hh.x, y: Hh.y, r: D * .06, fill: "#FFF1D0", fo: 0 }), o: rnd(0, 1), w: rnd(-.6, .6) }));
-  const DUR = 2200;
-  once(0, DUR, [hr, ...cones, ...motes.map(m => m.it)], (p, P) => {
-    const t = p * DUR, a = t < 300 ? 0 : env(seg(t, 300, 2000), .12, .35), fl = .8 + Math.random() * .2;
-    set(P, hr, { fo: env(p, .05, .3) * (.15 + .1 * Math.sin(t / 50)), so: env(p, .05, .3), s: 1 + .08 * Math.sin(t / 70) });
-    cones.forEach((c, k) => set(P, c, { fo: a * fl * [.12, .16, .2][k] }));
-    motes.forEach(m => { const u = (t / 700 + m.o) % 1, q = V.add(V.lerp(H0, B, u), V.mul(nn, m.w * B.r * u)); set(P, m.it, { x: q.x, y: q.y, fo: a * Math.sin(u * Math.PI) }); });
-  });
+export function lens(Hh,B,fail,L=DPI*6){
+ const {u,center,reaches}=lensGeometry(Hh,B,L),ax=Math.abs(u.x),ay=Math.abs(u.y);
+ film('iris',Hh,Hh.r*.72,1700,0,{col:LENS2,pad:3});
+ film('rubyCone',center,L,2200,0,{axis:u,w:L*(ax+ay+.03),h:L*(ay+ax+.03),col:LENS,layer:'DRAWING',gain:p=>env(p,.12,.31)});
+ if(!reaches)return false;
   if (fail) {
     cracks(B, B.r * 1.1, LENS, 2000, 900, { n: 9, w: 1.2 });
     flash(B, B.r * 1.4, LENS2, 900, 900, 1);
@@ -959,6 +815,7 @@ export function lens(Hh, B, fail) {
     shards(B, 18, B.r * 1.7, CY2, 900, 1250);
     flash(B, B.r, LENS2, 600, 1250, .6);
   }
+  return true;
 }
 
 // ──────────────────────── Ключи ────────────────────────
@@ -988,6 +845,7 @@ export function veinFlare(B, keys) {
 }
 // Ключ сломан: трещины, прорывающийся свет, взрыв, босс содрогается. Возвращает момент взрыва.
 export function keyBreak(B, K, col = CY) {
+  film('iris',K,Math.max(K.r,DPI*.5),1450,0,{col,pad:3.1});
   const D = DPI, R = Math.max(K.r, D * .5), tx = 1500;
   cracks(K, R * 1.3, col, tx + 200, 0, { n: 8, grow: .55, w: 1.1 });
   const beams = [];
@@ -1009,15 +867,11 @@ export function keyBreak(B, K, col = CY) {
   }
   return tx;
 }
-// Обнажённое ядро: столб света из груди, трещины по телу
-export function coreBurst(B) {
-  const D = DPI, R = B.r, rays = [];
-  const build = circle({ x: B.x, y: B.y, r: R * .5, fill: WH, fo: 0 });
-  once(0, 1100, [build], (p, P) => set(P, build, { s: .2 + out2(p) * .8, fo: in2(p) * .8 }));
-  cracks(B, R * 1.1, CY2, 2600, 200, { n: 10, grow: .4, w: 1.3 });
-  for (let i = 0; i < 16; i++) rays.push({ it: line({ pts: [B, B], stroke: i % 2 ? WH : CY2, so: 0, sw: D * (i % 2 ? .05 : .14) }), a: i / 16 * TAU, L: R * rnd(2.2, 3.4) });
-  once(1000, 2000, rays.map(r => r.it), (p, P) => rays.forEach(r => { const a = r.a + p * .6, l = r.L * out3(seg(p, 0, .4)); set(P, r.it, { pts: [V.pol(B, R * .3, a), V.pol(B, R * .3 + l, a)], so: env(p, .05, .5) * (.6 + Math.random() * .4) }); }));
-  flash(B, R * 2.4, CY2, 1200, 1000, 1);
-  for (let k = 0; k < 3; k++) shock(B, R * (3 + k), k ? CY : WH, 1100, 1000 + k * 200, 1.5 - k * .3);
-  sparks(B, 36, R * 3, [CY, CY2, WH], 1500, 1050);
+// A standalone scene relic, never an attack/portrait effect on the boss.
+export function coreBurst(K){const R=Math.max(K.r,DPI*.45);
+ film('relic',K,R*1.58,3450,0,{col:CY2,z:1000105});
+ film('seal',K,R*1.52,2350,0,{col:CY,opt:[4,0,0],alpha:.75});
+ const H=Math.min(R*4.6,DPI*7.5),c={x:K.x,y:K.y-H*.45};
+ film('column',c,R*.85,2400,620,{w:R*2.65,h:H*1.4,opt:[H/(R*.85),0,0],col:CY2});
+ shock(K,R*2.35,CY,1100,760,.75);
 }
