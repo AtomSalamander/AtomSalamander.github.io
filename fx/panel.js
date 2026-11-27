@@ -1,7 +1,7 @@
 // Панель: выбор заклинателя/целей, список способностей, активные эффекты.
 // Мастер видит всё и галочками «👥» разрешает способности игрокам; игроки видят только разрешённое.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import { STATE, INIT, CH, PANEL, ALLOW, SEL, LOOP, normState } from "./const.js";
+import { STATE, INIT, CH, PANEL, ALLOW, SEL, LOOP, normState, canEnd } from "./const.js";
 import { ABILITIES, ABIL, ELEMENTS, elOf, aimKind, radOf, slotOf, picksOf, targetsWord } from "./abilities.js";
 import { untilText } from "./turns.js";
 import { addSlot, openBar, closeBar, loadBar } from "./barctl.js";
@@ -234,7 +234,7 @@ function drawActive() {
     const where = e.pt ? (e.tok ? `📎 ${esc(e.tn)} · сфера ${esc(e.rr)} фт` : "📍 сфера " + esc(e.rr) + " фт") : esc(e.tn);
     const att = isGM && e.pt && A.zone && A.attachable
       ? `<button class="rd" data-at="${esc(e.id)}" data-on="${e.tok ? 1 : 0}" title="${e.tok ? "Открепить — оставить там, где сейчас токен" : "Прикрепить к выделенному токену"}">${e.tok ? "📍" : "📎"}</button>` : "";
-    return `<div class="fx"><div><b>${esc(A.icon || "✨")} ${esc(A.name)}${e.el && ELEMENTS[e.el] ? " · " + esc(ELEMENTS[e.el].name) : ""}</b> → ${where}<small>${esc(untilText(e))}</small></div>${isGM && e.pt ? rdBtns(e, A) : ""}${att}${isGM ? `<button data-id="${esc(e.id)}" title="Снять">✕</button>` : ""}</div>`;
+    return `<div class="fx"><div><b>${esc(A.icon || "✨")} ${esc(A.name)}${e.el && ELEMENTS[e.el] ? " · " + esc(ELEMENTS[e.el].name) : ""}</b> → ${where}<small>${esc(untilText(e))}</small></div>${isGM && e.pt ? rdBtns(e, A) : ""}${att}${canEnd(e, allow, isGM) ? `<button data-id="${esc(e.id)}" title="Снять">✕</button>` : ""}</div>`;
   }).join("") : `<div class="empty">Нет активных эффектов</div>`;
   $("act").querySelectorAll("button[data-rd]").forEach(b => b.onclick = () => OBR.broadcast.sendMessage(CH, { op: "rad", id: b.dataset.rd, d: +b.dataset.d }, { destination: "LOCAL" }));
   $("act").querySelectorAll("button[data-at]").forEach(b => b.onclick = async () => {
@@ -246,14 +246,18 @@ function drawActive() {
     await OBR.broadcast.sendMessage(CH, { op: "att", id: b.dataset.at, tok }, { destination: "LOCAL" });
     toast(tok ? `📎 Тьма прикреплена к «${tok.name}»` : "📍 Тьма откреплена и осталась на месте");
   });
-  $("act").querySelectorAll("button[data-id]").forEach(b => b.onclick = () => OBR.broadcast.sendMessage(CH, { op: "del", ids: [b.dataset.id] }, { destination: "LOCAL" }));
+  // Мастер снимает у себя; игрок просит мастера — тот проверит галочку ещё раз.
+  $("act").querySelectorAll("button[data-id]").forEach(b => b.onclick = async () => {
+    await OBR.broadcast.sendMessage(CH, { op: "del", ids: [b.dataset.id] }, { destination: isGM ? "LOCAL" : "REMOTE" });
+    if (!isGM) toast("✕ Снимаю эффект…");
+  });
   $("clr").hidden = !isGM || L.length < 2;
 }
 $("clr").onclick = () => { if (confirm("Снять все эффекты?")) OBR.broadcast.sendMessage(CH, { op: "clear" }, { destination: "LOCAL" }); };
 
 function onMeta(md) {
   const al = JSON.stringify(Array.isArray(md[ALLOW]) ? [...md[ALLOW]].sort() : []);
-  if (al !== JSON.stringify([...allow].sort())) { allow = new Set(JSON.parse(al)); drawRole(); }
+  if (al !== JSON.stringify([...allow].sort())) { allow = new Set(JSON.parse(al)); drawRole(); drawActive(); }
   state = normState(md[STATE]);
   const P = md[INIT];
   chips = P && Array.isArray(P.chips) ? P.chips : [];

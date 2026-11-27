@@ -12,3 +12,6 @@ export function normState(s) {
 }
 export const SEL = "dndfx_sel";                 // localStorage: выбранные «Кто» и «Цели» (общий для панели и горячих клавиш)
 export const LOOP = NS + "/loop";                 // метаданные сцены: снимок позиций токенов для «Петли времени»
+
+// Может ли участник снять активный эффект: мастер — любой, игрок — только эффект разрешённой ему способности (галочка).
+export const canEnd = (e, allow, gm) => !!gm || !!(e && allow && allow.has(e.a));

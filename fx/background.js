@@ -5,7 +5,7 @@
 //  • горячие клавиши Alt+1 / Alt+2;
 //  • у мастера — следит за трекером инициативы и снимает эффекты, когда наступает нужный ход.
 import OBR from "https://esm.sh/@owlbear-rodeo/sdk@3";
-import { NS, STATE, INIT, CH, ALLOW, SEL, LOOP, normState } from "./const.js";
+import { NS, STATE, INIT, CH, ALLOW, SEL, LOOP, normState, canEnd } from "./const.js";
 import { ABIL, paint, aimKind, radOf, sized, upcasted } from "./abilities.js";
 import { play, startAura, startZone, stopAura, stopAll, label, tokens, grid, loopFlash, loopMark, LOOP_PEAK } from "./engine.js";
 import { turnEvents, applyEvents, samePos, makeEffects } from "./turns.js";
@@ -405,7 +405,7 @@ OBR.onReady(async () => {
       if (isGM && (!ev.connectionId || !myConn || ev.connectionId === myConn)) (m.op === "loopSave" ? loopSave : m.op === "loopGo" ? loopGo : loopReset)().catch(e => console.warn("[fx] loop", e));
       return;
     }
-    if (fromPlayer(ev) && (m.op === "del" || m.op === "clear" || m.op === "rad" || m.op === "att")) return;                 // снимает только мастер
+    if (fromPlayer(ev) && (m.op === "clear" || m.op === "rad" || m.op === "att")) return;   // «снять все», радиус и привязка — только мастер
     if (fromPlayer(ev) && m.op === "play" && !allow.has(m.a)) return;                  // игрокам — только разрешённое
     if (m.op === "play") onPlay(m);
     else if (m.op === "cast") { if (!ev.connectionId || !myConn || ev.connectionId === myConn) onCast(m); }   // только свой прицел
@@ -414,7 +414,13 @@ OBR.onReady(async () => {
       const list = fromPlayer(ev) ? m.list.filter(x => x && allow.has(x.a)) : m.list;
       if (list.length) mutate(s => { s.e.push(...list); return s; });
     } else if (isGM && m.op === "del" && Array.isArray(m.ids)) {
-      mutate(s => { s.e = s.e.filter(e => !m.ids.includes(e.id)); return s; });
+      // Игрок снимает только эффекты способностей, на которых мастер поставил галочку.
+      const byGM = !fromPlayer(ev);
+      mutate(s => {
+        const n = s.e.length;
+        s.e = s.e.filter(e => !(m.ids.includes(e.id) && canEnd(e, allow, byGM)));
+        return s.e.length === n ? null : s;
+      });
     } else if (isGM && m.op === "rad" && m.id) {   // изменить радиус зоны (Тьма)
       mutate(s => {
         const e = s.e.find(x => x.id === m.id); if (!e || !e.pt) return null;
